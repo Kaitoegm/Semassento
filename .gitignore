@@ -1,0 +1,51 @@
+# === SECRETS & ENV ===
+.env
+.env.*
+!.env.example
+
+# === PYTHON ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# === DATABASE ===
+*.db
+*.sqlite3
+
+# === NODE ===
+node_modules/
+dist/
+
+# === DOCKER ===
+docker-compose.override.yml
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# === PROJECT DEAD CODE ===
+inspirações/
+telemetry/
+tmp/
+skills/
+.agents/
+.stitch/
+js/
+*.log
+
+# === BUILD ARTIFACTS ===
+frontend/dist/
+backend/__pycache__/
