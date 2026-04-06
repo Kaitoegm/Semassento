@@ -1,0 +1,31 @@
+nome,sexo,idade,grupo_tratamento,peso_antes,peso_depois,nota_prova,horas_estudo,satisfacao,tempo_recuperacao
+Maria Silva,Feminino,34,Placebo,72.5,72.1,65,3.0,3,12
+Joao Santos,Masculino,45,Tratamento A,88.0,84.2,78,5.5,4,8
+Ana Oliveira,Feminino,28,Tratamento B,65.3,61.0,92,8.0,5,5
+Carlos Pereira,Masculino,52,Placebo,95.1,94.8,45,1.5,2,15
+Lucia Ferreira,Feminino,61,Tratamento A,78.4,75.0,70,4.0,3,10
+Pedro Almeida,Masculino,37,Tratamento B,82.0,77.5,85,6.5,5,6
+Fernanda Costa,Feminino,43,Placebo,70.2,70.0,58,2.5,2,14
+Ricardo Lima,Masculino,29,Tratamento A,91.3,87.1,80,6.0,4,7
+Patricia Souza,Feminino,55,Tratamento B,68.7,64.2,88,7.5,5,5
+Marcos Rodrigues,Masculino,48,Placebo,99.5,99.0,40,1.0,1,18
+Juliana Martins,Feminino,31,Tratamento A,63.8,60.5,75,4.5,4,9
+Roberto Nunes,Masculino,67,Placebo,87.2,86.9,50,2.0,2,16
+Camila Barbosa,Feminino,25,Tratamento B,58.4,54.0,95,9.0,5,4
+Andrade Moreira,Masculino,40,Tratamento A,85.6,81.3,72,5.0,3,8
+Beatriz Ribeiro,Feminino,58,Placebo,74.9,74.5,55,2.0,2,13
+Thiago Carvalho,Masculino,33,Tratamento B,79.8,75.0,82,6.0,4,6
+Daniela Araujo,Feminino,46,Tratamento A,69.1,65.8,77,5.0,4,9
+Gustavo Pinto,Masculino,71,Placebo,92.4,92.0,38,1.0,1,20
+Leticia Gomes,Feminino,36,Tratamento B,61.5,57.0,90,7.5,5,5
+Wagner Dias,Masculino,50,Tratamento A,96.2,91.5,68,4.5,3,11
+Renata Alves,Feminino,27,Placebo,66.8,66.5,60,3.0,3,12
+Felipe Castro,Masculino,42,Tratamento B,83.5,78.9,86,7.0,5,6
+Isabela Rocha,Feminino,53,Tratamento A,71.3,67.8,74,4.5,4,10
+Diego Mendes,Masculino,38,Placebo,90.7,90.2,48,1.5,2,17
+Carolina Lopes,Feminino,30,Tratamento B,64.2,59.8,93,8.5,5,4
+Rafael Teixeira,Masculino,56,Tratamento A,88.9,84.5,71,5.0,3,9
+Amanda Freitas,Feminino,44,Placebo,73.6,73.2,57,2.5,2,14
+Bruno Correia,Masculino,35,Tratamento B,80.1,75.3,84,6.5,4,7
+Priscila Monteiro,Feminino,62,Tratamento A,76.5,72.8,73,4.0,4,10
+Henrique Duarte,Masculino,47,Placebo,94.3,93.8,42,1.5,1,19

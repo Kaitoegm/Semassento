@@ -247,6 +247,7 @@ export default function Dashboard() {
 
   const sortedResults = useMemo(() => {
     if (!results.length) return []
+    const simpleDescriptive = []
     const descriptive = []
     const correlations = []
     const groupComparisons = []
@@ -256,7 +257,11 @@ export default function Dashboard() {
     results.forEach(r => {
       const label = (r.testLabel || '').toLowerCase()
       if (label.includes('descritiva') || label.includes('desfecho')) {
-        descriptive.push(r)
+        if (label.includes('perfil') || label.includes('outcome') || label.includes('desfecho')) {
+          descriptive.push(r)
+        } else {
+          simpleDescriptive.push(r)
+        }
       } else if (label.includes('correlação') || label.includes('pearson') || label.includes('spearman')) {
         correlations.push(r)
       } else if (label.includes('pareado') || label.includes('wilcoxon')) {
@@ -269,9 +274,9 @@ export default function Dashboard() {
         other.push(r)
       }
     })
-    const all = [...descriptive, ...paired, ...correlations, ...groupComparisons, ...regressions, ...other]
+    const all = [...simpleDescriptive, ...descriptive, ...paired, ...correlations, ...groupComparisons, ...regressions, ...other]
     if (activeReportTab === 'all') return all
-    if (activeReportTab === 'descriptive') return descriptive
+    if (activeReportTab === 'descriptive') return [...simpleDescriptive, ...descriptive]
     if (activeReportTab === 'correlations') return correlations
     if (activeReportTab === 'comparisons') return groupComparisons
     if (activeReportTab === 'paired') return paired
@@ -810,8 +815,8 @@ export default function Dashboard() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { key: 'all', label: 'Todos', icon: 'view_list' },
                     { key: 'descriptive', label: 'Descritivas', icon: 'description' },
+                    { key: 'all', label: 'Todos', icon: 'view_list' },
                     { key: 'paired', label: 'Pareados', icon: 'compare_arrows' },
                     { key: 'correlations', label: 'Correlações', icon: 'scatter_plot' },
                     { key: 'comparisons', label: 'Comparações', icon: 'group_work' },

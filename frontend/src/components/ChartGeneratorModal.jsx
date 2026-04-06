@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Chart as ChartJS,
@@ -44,19 +44,53 @@ function computeRegressionLine(xVals, yVals) {
   ]
 }
 
+function buildHistogramBins(rawValues) {
+  if (!rawValues || rawValues.length === 0) return null
+  const min = Math.min(...rawValues)
+  const max = Math.max(...rawValues)
+  if (min === max) return { labels: [String(min)], counts: [rawValues.length] }
+  const binCount = Math.min(Math.ceil(Math.sqrt(rawValues.length)), 30)
+  const binWidth = (max - min) / binCount
+  const bins = Array.from({ length: binCount }, (_, i) => min + i * binWidth)
+  const counts = new Array(binCount).fill(0)
+  rawValues.forEach(v => {
+    let idx = Math.floor((v - min) / binWidth)
+    if (idx >= binCount) idx = binCount - 1
+    if (idx < 0) idx = 0
+    counts[idx]++
+  })
+  const binLabels = bins.map((b) => {
+    const upper = b + binWidth
+    return `${b.toFixed(1)}–${upper.toFixed(1)}`
+  })
+  return { labels: binLabels, counts }
+}
+
 export default function ChartGeneratorModal({ isOpen, onClose, chartData, varName }) {
   const [selectedType, setSelectedType] = useState('bar')
   const chartRef = useRef(null)
 
+  const safeLabels = chartData?.labels || []
+  const safeValues = chartData?.values || []
+  const stds = chartData?.stds || []
+  const regression = chartData?.regression
+  const cType = chartData?.type || 'bar'
+
+  useEffect(() => {
+    if (isOpen && chartData) {
+      if (cType === 'histogram') setSelectedType('bar')
+      else if (cType === 'scatter') setSelectedType('scatter')
+      else if (cType === 'contingency_table') setSelectedType('bar')
+      else setSelectedType('bar')
+    }
+  }, [isOpen, chartData, cType])
+
   if (!chartData || !isOpen) return null
 
-  const labels = chartData.labels || []
-  const values = chartData.values || []
-  const stds = chartData.stds || []
-  const regression = chartData.regression
+  const histogramBins = useMemo(() => buildHistogramBins(chartData.values), [chartData.values])
 
   const scatterData = useMemo(() => {
-    if (chartData.type === 'scatter' && chartData.x && chartData.y) {
+    if (cType === 'scatter' && chartData.x && chartData.y) {
       const points = chartData.x.map((x, i) => ({ x, y: chartData.y[i] }))
       const regLine = chartData.regression
         ? [{ x: chartData.x[0], y: chartData.regression.intercept + chartData.regression.slope * chartData.x[0] },
@@ -65,34 +99,68 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       return { points, regLine }
     }
     return null
-  }, [chartData])
+  }, [chartData, cType])
 
   const availableTypes = useMemo(() => {
-    if (chartData.type === 'scatter') {
+    if (cType === 'histogram') {
+      return CHART_TYPES.filter(t => t.value === 'bar' || t.value === 'line')
+    }
+    if (cType === 'scatter') {
       return CHART_TYPES.filter(t => t.value === 'scatter' || t.value === 'bar')
     }
+    if (cType === 'contingency_table') {
+      return CHART_TYPES.filter(t => t.value === 'bar' || t.value === 'doughnut')
+    }
     return CHART_TYPES
-  }, [chartData])
+  }, [cType])
 
-  const barData = {
-    labels,
+  const barLabels = histogramBins ? histogramBins.labels : safeLabels
+  const barValues = histogramBins ? histogramBins.counts : safeValues
+
+  const contingencyBarData = useMemo(() => {
+    if (cType === 'contingency_table' && chartData.table) {
+      const tbl = chartData.table
+      const cats = Object.keys(tbl[0]).filter(k => k !== 'row_label' && k !== 'total' && k !== 'total_pct')
+      const rowLabels = tbl.map(r => r.row_label)
+      const datasets = cats.map((cat, ci) => ({
+        label: cat,
+        data: tbl.map(r => r[cat].count),
+        backgroundColor: [
+          'rgba(0, 255, 163, 0.7)',
+          'rgba(59, 130, 246, 0.7)',
+          'rgba(147, 51, 234, 0.7)',
+          'rgba(251, 146, 60, 0.7)',
+          'rgba(244, 63, 94, 0.7)',
+        ][ci % 5],
+        borderColor: ['#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E'][ci % 5],
+        borderWidth: 2,
+        borderRadius: 8,
+      }))
+      return { labels: rowLabels, datasets }
+    }
+    return null
+  }, [chartData, cType])
+
+  const barData = contingencyBarData || {
+    labels: barLabels,
     datasets: [{
       label: varName || 'Valores',
-      data: values,
-      backgroundColor: values.map((_, i) => `rgba(0, 255, 163, ${0.2 + i * 0.1})`),
+      data: barValues,
+      backgroundColor: barValues.map((_, i) => `rgba(0, 255, 163, ${0.2 + (i % 6) * 0.1})`),
       borderColor: '#00FFA3',
       borderWidth: 2,
       borderRadius: 8,
       borderSkipped: false,
-      ...(stds.length > 0 && { errorBars: { dataMax: stds.map((s, i) => values[i] + s), dataMin: stds.map((s, i) => values[i] - s) } })
     }]
   }
 
+  const lineLabels = histogramBins ? histogramBins.labels : safeLabels
+  const lineValues = histogramBins ? histogramBins.counts : safeValues
   const lineData = {
-    labels,
+    labels: lineLabels,
     datasets: [{
       label: varName || 'Valores',
-      data: values,
+      data: lineValues,
       borderColor: '#00FFA3',
       backgroundColor: 'rgba(0, 255, 163, 0.08)',
       fill: true,
@@ -131,10 +199,38 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     ].filter(Boolean)
   } : null
 
-  const doughnutData = {
-    labels,
+  const contingencyDoughnutData = useMemo(() => {
+    if (cType === 'contingency_table' && chartData.table) {
+      const tbl = chartData.table
+      const totalCounts = tbl.map(r => r.total)
+      const rowLabels = tbl.map(r => r.row_label)
+      return {
+        labels: rowLabels,
+        datasets: [{
+          data: totalCounts,
+          backgroundColor: [
+            'rgba(0, 255, 163, 0.8)',
+            'rgba(59, 130, 246, 0.7)',
+            'rgba(147, 51, 234, 0.7)',
+            'rgba(251, 146, 60, 0.7)',
+            'rgba(244, 63, 94, 0.7)',
+            'rgba(34, 211, 238, 0.7)',
+          ],
+          borderColor: [
+            '#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
+          ],
+          borderWidth: 2,
+          hoverOffset: 12
+        }]
+      }
+    }
+    return null
+  }, [chartData, cType])
+
+  const doughnutData = contingencyDoughnutData || {
+    labels: safeLabels.length > 0 ? safeLabels : barLabels,
     datasets: [{
-      data: values,
+      data: safeLabels.length > 0 ? safeValues : barValues,
       backgroundColor: [
         'rgba(0, 255, 163, 0.8)',
         'rgba(59, 130, 246, 0.7)',
@@ -151,14 +247,21 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     }]
   }
 
+  const chartTitleText = useMemo(() => {
+    if (cType === 'scatter') return `${varName} — Dispersão`
+    if (cType === 'histogram') return `${varName} — Distribuição`
+    if (cType === 'contingency_table') return `${varName} — Tabela de Contingência`
+    return `${varName} — Contagem (N) por Grupo`
+  }, [cType, varName])
+
   const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: { display: contingencyBarData ? true : false },
       title: {
         display: true,
-        text: `${varName}${chartData.type === 'scatter' ? ' — Dispersão' : ' — Contagem (N) por Grupo'}`,
+        text: chartTitleText,
         color: 'rgba(255, 255, 255, 0.8)',
         font: { size: 16, family: 'Inter', weight: '700' }
       },
