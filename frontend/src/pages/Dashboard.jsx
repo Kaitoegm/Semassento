@@ -1,5 +1,4 @@
 import { useState, useRef, useMemo } from 'react'
-import * as XLSX from 'xlsx'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSciStat } from '../SciStatContext'
@@ -330,7 +329,12 @@ export default function Dashboard() {
 
   const exportResultsExcel = () => {
     if (!sortedResults.length) return
-    // Aba 1: Resultados completos
+    // Geração de TSV (Tab-Separated) — abre no Excel e LibreOffice sem dependências externas
+    const headers = [
+      'Variável / Teste', 'Engine', 'Estatística', 'Valor P', 'Significância',
+      'Tamanho do Efeito', 'Interpretação do Efeito', 'Poder (%)',
+      'IC95% Inferior', 'IC95% Superior', 'Interpretação (PT-BR)'
+    ]
     const rows = sortedResults.map(r => {
       const es = r.effect_size || {}
       const ci = r.ci || {}
@@ -338,35 +342,43 @@ export default function Dashboard() {
                   : es.eta_squared != null ? `η²=${es.eta_squared}`
                   : es.r_squared != null ? `R²=${es.r_squared}`
                   : es.cramers_v != null ? `V=${es.cramers_v}` : '—'
-      return {
-        'Variável / Teste': r.testLabel || '',
-        'Engine': r.engine || '—',
-        'Estatística': r.statistic != null ? r.statistic : '—',
-        'Valor P': r.p_value != null ? r.p_value : '—',
-        'Significância': significance(r.p_value),
-        'Tamanho do Efeito': esVal,
-        'Interpretação do Efeito': es.interpretation || '—',
-        'Poder (%)': es.achieved_power != null ? `${(es.achieved_power*100).toFixed(0)}%` : '—',
-        'IC95% Inferior': ci.ci_lower != null ? ci.ci_lower : '—',
-        'IC95% Superior': ci.ci_upper != null ? ci.ci_upper : '—',
-        'Interpretação (PT-BR)': r.interpretation || '—',
-      }
+      return [
+        r.testLabel || '',
+        r.engine || '—',
+        r.statistic != null ? r.statistic : '—',
+        r.p_value != null ? r.p_value : '—',
+        significance(r.p_value),
+        esVal,
+        es.interpretation || '—',
+        es.achieved_power != null ? `${(es.achieved_power * 100).toFixed(0)}%` : '—',
+        ci.ci_lower != null ? ci.ci_lower : '—',
+        ci.ci_upper != null ? ci.ci_upper : '—',
+        r.interpretation || '—',
+      ].map(v => String(v).replace(/\t/g, ' '))
     })
-    // Aba 2: Metadados
-    const meta = [{
-      'Exportado em': new Date().toLocaleString('pt-BR'),
-      'Engine': 'SciStat AI v3.0 — Pingouin',
-      'Total de testes': sortedResults.length,
-      'Arquivo analisado': fileData?.filename || '—',
-    }]
-    const wb = XLSX.utils.book_new()
-    const ws1 = XLSX.utils.json_to_sheet(rows)
-    const ws2 = XLSX.utils.json_to_sheet(meta)
-    // Ajustar largura das colunas automaticamente
-    ws1['!cols'] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 18) }))
-    XLSX.utils.book_append_sheet(wb, ws1, 'Resultados')
-    XLSX.utils.book_append_sheet(wb, ws2, 'Metadados')
-    XLSX.writeFile(wb, `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    const metaSeparator = '\t'.repeat(headers.length - 1)
+    const metaLines = [
+      ``,
+      `--- Metadados${metaSeparator}`,
+      `Exportado em\t${new Date().toLocaleString('pt-BR')}${metaSeparator}`,
+      `Engine\tSciStat AI v3.0 — Pingouin${metaSeparator}`,
+      `Total de testes\t${sortedResults.length}${metaSeparator}`,
+      `Arquivo analisado\t${fileData?.filename || '—'}${metaSeparator}`,
+    ]
+    const tsvContent = [
+      headers.join('\t'),
+      ...rows.map(r => r.join('\t')),
+      ...metaLines
+    ].join('\n')
+    // BOM UTF-8 garante que o Excel abre com acentos corretamente
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + tsvContent], { type: 'text/tab-separated-values;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.xls`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const exportResultsPDF = () => {
