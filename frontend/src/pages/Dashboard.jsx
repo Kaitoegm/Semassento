@@ -1,109 +1,49 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSciStat } from '../SciStatContext'
 import { useAuth } from '../AuthContext'
-import DynamicChart from '../components/DynamicChart'
 import BioSummaryTable from '../components/BioSummaryTable'
 import AnalysisReviewPlan from '../components/AnalysisReviewPlan'
 import ChartGeneratorModal from '../components/ChartGeneratorModal'
 import StatTooltip from '../components/StatTooltip'
 
-const MOCK_CHARTS = {
-  barData: {
-    labels: ['Controle', 'Tratamento A', 'Tratamento B', 'Placebo', 'Combo'],
-    datasets: [
-      {
-        label: 'Resposta Média',
-        data: [42.5, 68.3, 55.1, 38.7, 72.9],
-        backgroundColor: [
-          'rgba(148, 163, 184, 0.2)',
-          'rgba(0, 255, 163, 0.3)',
-          'rgba(59, 130, 246, 0.3)',
-          'rgba(148, 163, 184, 0.2)',
-          'rgba(0, 255, 163, 0.5)'
-        ],
-        borderColor: [
-          'rgba(148, 163, 184, 0.5)',
-          '#00FFA3',
-          '#3B82F6',
-          'rgba(148, 163, 184, 0.5)',
-          '#00FFA3'
-        ],
-        borderWidth: 1,
-        borderRadius: 6
-      }
-    ]
+// Capability cards shown on the empty state instead of mock charts
+const ANALYSIS_CATEGORIES = [
+  {
+    id: 'parametric', title: 'Paramétrico', icon: 'compare', color: 'primary',
+    desc: 'Para dados com distribuição normal — a base dos ensaios clínicos',
+    tests: ['Teste t Independente', 'Teste t Pareado', 'ANOVA One-Way', 'ANOVA Two-Way', 'ANOVA Medidas Repetidas']
   },
-  lineLabels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
-  lineDatasets: [
-    {
-      label: 'Inclusão de Pacientes',
-      data: [12, 19, 15, 25, 22, 30, 35, 32, 40, 45, 42, 50],
-      borderColor: '#00FFA3',
-      backgroundColor: 'rgba(0, 255, 163, 0.08)',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 3,
-      pointBackgroundColor: '#00FFA3',
-      pointBorderColor: '#00FFA3',
-      pointHoverRadius: 6,
-      borderWidth: 2
-    },
-    {
-      label: 'Eventos Adversos',
-      data: [3, 5, 4, 7, 6, 8, 5, 4, 6, 3, 5, 4],
-      borderColor: '#F43F5E',
-      backgroundColor: 'rgba(244, 63, 94, 0.05)',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 3,
-      pointBackgroundColor: '#F43F5E',
-      pointBorderColor: '#F43F5E',
-      pointHoverRadius: 6,
-      borderWidth: 2
-    }
-  ],
-  radarLabels: ['Eficácia', 'Segurança', 'Tolerabilidade', 'Adesão', 'Custo-efetividade', 'Qualidade de Vida'],
-  radarDatasets: [
-    {
-      label: 'Tratamento A',
-      data: [85, 70, 90, 65, 55, 78],
-      backgroundColor: 'rgba(0, 255, 163, 0.15)',
-      borderColor: '#00FFA3',
-      borderWidth: 2,
-      pointBackgroundColor: '#00FFA3',
-      pointRadius: 4
-    },
-    {
-      label: 'Tratamento B',
-      data: [72, 80, 68, 75, 70, 65],
-      backgroundColor: 'rgba(59, 130, 246, 0.15)',
-      borderColor: '#3B82F6',
-      borderWidth: 2,
-      pointBackgroundColor: '#3B82F6',
-      pointRadius: 4
-    }
-  ],
-  doughnutLabels: ['Respondedores', 'Não Respondedores', 'Perda de Follow-up', 'Efeito Adverso'],
-  doughnutDatasets: [{
-    data: [45, 25, 15, 15],
-    backgroundColor: [
-      'rgba(0, 255, 163, 0.8)',
-      'rgba(148, 163, 184, 0.5)',
-      'rgba(251, 146, 60, 0.7)',
-      'rgba(244, 63, 94, 0.7)'
-    ],
-    borderColor: [
-      '#00FFA3',
-      'rgba(148, 163, 184, 0.8)',
-      '#FB923C',
-      '#F43F5E'
-    ],
-    borderWidth: 2,
-    hoverOffset: 8
-  }]
-}
+  {
+    id: 'nonparametric', title: 'Não-Paramétrico', icon: 'leaderboard', color: 'accent',
+    desc: 'Quando os dados não seguem distribuição normal — dados clínicos reais',
+    tests: ['Kruskal-Wallis', 'Mann-Whitney U', 'Wilcoxon', 'Friedman']
+  },
+  {
+    id: 'categorical', title: 'Categórico', icon: 'grid_4x4', color: 'primary',
+    desc: 'Para variáveis como sexo, grupo de tratamento, desfecho binário',
+    tests: ['Qui-Quadrado (χ²)', 'Teste Exato de Fisher', 'McNemar', 'Cochran Q']
+  },
+  {
+    id: 'correlation', title: 'Correlação', icon: 'scatter_plot', color: 'accent',
+    desc: 'Mede a força e direção da relação entre duas variáveis',
+    tests: ['Pearson (r)', 'Spearman (ρ)', 'Tau de Kendall']
+  },
+  {
+    id: 'regression', title: 'Regressão', icon: 'trending_up', color: 'primary',
+    desc: 'Modelos preditivos com effect size, CI e poder estatístico automáticos',
+    tests: ['Linear Simples', 'Linear Múltipla', 'Logística Binária']
+  },
+  {
+    id: 'survival', title: 'Sobrevivência', icon: 'monitoring', color: 'accent',
+    desc: 'Análise de tempo-até-evento — padrão ouro em oncologia e cardiologia',
+    tests: ['Kaplan-Meier', 'Modelo de Cox', 'Teste Log-Rank']
+  },
+]
+
+
 
 const STATISTICAL_TESTS = [
   { name: 'Teste Qui-Quadrado (χ²)', icon: 'grid_4x4', desc: 'Associação entre variáveis categóricas', category: 'Categórico' },
@@ -144,6 +84,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState([])
   const [selectedTests, setSelectedTests] = useState({})
+  const [validationReport, setValidationReport] = useState(null)
 
   function significance(p) {
     if (p == null) return ''
@@ -161,7 +102,46 @@ export default function Dashboard() {
   const [outcomeOptions, setOutcomeOptions] = useState([])
   const [chartModal, setChartModal] = useState({ open: false, data: null, varName: '' })
   const [detailModal, setDetailModal] = useState(null)
+  const [activeReportTab, setActiveReportTab] = useState('all')
+  const [howToModal, setHowToModal] = useState(false)
+  const [apaCopied, setApaCopied] = useState(null)  // stores testLabel of last copied
   const fileInputRef = useRef(null)
+
+  /** Gera uma citação em formato APA-7 para um resultado estatístico */
+  const generateApaText = (r) => {
+    if (!r) return ''
+    const p = r.p_value != null ? (r.p_value < 0.001 ? 'p < .001' : `p = ${r.p_value.toFixed(3)}`) : ''
+    const n = r.group_stats?.reduce((acc, g) => acc + (g.n || 0), 0) || r.n || ''
+    const es = r.effect_size
+    let esText = ''
+    if (es?.cohens_d != null)  esText = `, d = ${es.cohens_d}`
+    else if (es?.eta_squared != null) esText = `, η² = ${es.eta_squared}`
+    else if (es?.r_squared != null)   esText = `, R² = ${es.r_squared}`
+    else if (es?.cramers_v != null)   esText = `, V = ${es.cramers_v}`
+    const stat = r.statistic != null ? `, estatística = ${typeof r.statistic === 'number' ? r.statistic.toFixed(3) : r.statistic}` : ''
+    const nText = n ? ` (N = ${n})` : ''
+    return `${r.testLabel}${nText}: ${stat}, ${p}${esText}.`
+  }
+
+  const copyApa = (r) => {
+    const text = generateApaText(r)
+    navigator.clipboard.writeText(text).then(() => {
+      setApaCopied(r.testLabel)
+      setTimeout(() => setApaCopied(null), 2500)
+    })
+  }
+
+  const handleNewAnalysis = () => {
+    setResults([])
+    setFileData(null)
+    setDescriptiveData(null)
+    setGroupedSummary(null)
+    setAnalysisProtocol(null)
+    setShowReview(false)
+    setValidationReport(null)
+    setActiveReportTab('all')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const toggleTest = (id) => setSelectedTests(prev => ({ ...prev, [id]: !prev[id] }))
 
@@ -257,12 +237,222 @@ export default function Dashboard() {
       if (execRes.ok) {
         const resultsData = await execRes.json()
         setResults(resultsData.results || [])
-        setShowReview(false) 
+        setValidationReport(resultsData.validation || null)
+        setShowReview(false)
       }
     } catch (err) {
       alert(`Falha: ${err.message}`);
     }
     setLoading(false)
+  }
+
+  const sortedResults = useMemo(() => {
+    if (!results.length) return []
+    const descriptive = []
+    const correlations = []
+    const groupComparisons = []
+    const paired = []
+    const regressions = []
+    const other = []
+    results.forEach(r => {
+      const label = (r.testLabel || '').toLowerCase()
+      if (label.includes('descritiva') || label.includes('desfecho')) {
+        descriptive.push(r)
+      } else if (label.includes('correlação') || label.includes('pearson') || label.includes('spearman')) {
+        correlations.push(r)
+      } else if (label.includes('pareado') || label.includes('wilcoxon')) {
+        paired.push(r)
+      } else if (label.includes('t independente') || label.includes('mann-whitney') || label.includes('anova') || label.includes('kruskal') || label.includes('qui-quadrado') || label.includes('fisher') || label.includes('exato')) {
+        groupComparisons.push(r)
+      } else if (label.includes('regressão') || label.includes('regressao') || label.includes('logística') || label.includes('logistica')) {
+        regressions.push(r)
+      } else {
+        other.push(r)
+      }
+    })
+    const all = [...descriptive, ...paired, ...correlations, ...groupComparisons, ...regressions, ...other]
+    if (activeReportTab === 'all') return all
+    if (activeReportTab === 'descriptive') return descriptive
+    if (activeReportTab === 'correlations') return correlations
+    if (activeReportTab === 'comparisons') return groupComparisons
+    if (activeReportTab === 'paired') return paired
+    if (activeReportTab === 'regressions') return regressions
+    return all
+  }, [results, activeReportTab])
+
+  const exportResultsCSV = () => {
+    if (!sortedResults.length) return
+    const headers = ['Variável / Teste', 'Engine', 'Estatística', 'Valor P', 'Significância', 'Tamanho do Efeito', 'Interpretação do Efeito', 'Poder', 'IC95% Inferior', 'IC95% Superior', 'Interpretação IA']
+    const rows = sortedResults.map(r => {
+      const es = r.effect_size || {}
+      const ci = r.ci || {}
+      const esVal = es.cohens_d != null ? `d=${es.cohens_d}` : es.eta_squared != null ? `η²=${es.eta_squared}` : es.r_squared != null ? `R²=${es.r_squared}` : es.cramers_v != null ? `V=${es.cramers_v}` : '—'
+      return [
+        r.testLabel || '',
+        r.engine || '—',
+        r.statistic != null ? r.statistic : '—',
+        r.p_value != null ? r.p_value : '—',
+        significance(r.p_value),
+        esVal,
+        es.interpretation || '—',
+        es.achieved_power != null ? `${(es.achieved_power * 100).toFixed(0)}%` : '—',
+        ci.ci_lower != null ? ci.ci_lower : '—',
+        ci.ci_upper != null ? ci.ci_upper : '—',
+        r.interpretation || ''
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    })
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportResultsJSON = () => {
+    if (!sortedResults.length) return
+    const payload = {
+      exported_at: new Date().toISOString(),
+      engine: 'SciStat AI v3.0 — Pingouin',
+      n_tests: sortedResults.length,
+      results: sortedResults
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportResultsExcel = () => {
+    if (!sortedResults.length) return
+    // Aba 1: Resultados completos
+    const rows = sortedResults.map(r => {
+      const es = r.effect_size || {}
+      const ci = r.ci || {}
+      const esVal = es.cohens_d != null ? `d=${es.cohens_d}`
+                  : es.eta_squared != null ? `η²=${es.eta_squared}`
+                  : es.r_squared != null ? `R²=${es.r_squared}`
+                  : es.cramers_v != null ? `V=${es.cramers_v}` : '—'
+      return {
+        'Variável / Teste': r.testLabel || '',
+        'Engine': r.engine || '—',
+        'Estatística': r.statistic != null ? r.statistic : '—',
+        'Valor P': r.p_value != null ? r.p_value : '—',
+        'Significância': significance(r.p_value),
+        'Tamanho do Efeito': esVal,
+        'Interpretação do Efeito': es.interpretation || '—',
+        'Poder (%)': es.achieved_power != null ? `${(es.achieved_power*100).toFixed(0)}%` : '—',
+        'IC95% Inferior': ci.ci_lower != null ? ci.ci_lower : '—',
+        'IC95% Superior': ci.ci_upper != null ? ci.ci_upper : '—',
+        'Interpretação (PT-BR)': r.interpretation || '—',
+      }
+    })
+    // Aba 2: Metadados
+    const meta = [{
+      'Exportado em': new Date().toLocaleString('pt-BR'),
+      'Engine': 'SciStat AI v3.0 — Pingouin',
+      'Total de testes': sortedResults.length,
+      'Arquivo analisado': fileData?.filename || '—',
+    }]
+    const wb = XLSX.utils.book_new()
+    const ws1 = XLSX.utils.json_to_sheet(rows)
+    const ws2 = XLSX.utils.json_to_sheet(meta)
+    // Ajustar largura das colunas automaticamente
+    ws1['!cols'] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 18) }))
+    XLSX.utils.book_append_sheet(wb, ws1, 'Resultados')
+    XLSX.utils.book_append_sheet(wb, ws2, 'Metadados')
+    XLSX.writeFile(wb, `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportResultsPDF = () => {
+    if (!sortedResults.length) return
+    // Criar stylesheet temporária para impressão
+    const styleId = 'scistat-print-style'
+    let style = document.getElementById(styleId)
+    if (!style) {
+      style = document.createElement('style')
+      style.id = styleId
+      document.head.appendChild(style)
+    }
+    style.textContent = `
+      @media print {
+        body > * { display: none !important; }
+        #scistat-print-report { display: block !important; }
+      }
+      #scistat-print-report { display: none; }
+    `
+    // Criar conteúdo do relatório
+    let existing = document.getElementById('scistat-print-report')
+    if (existing) existing.remove()
+    const printDiv = document.createElement('div')
+    printDiv.id = 'scistat-print-report'
+    const date = new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' })
+    printDiv.innerHTML = `
+      <style>
+        body { font-family: 'Inter', Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; }
+        .print-header { padding: 32px 40px 16px; border-bottom: 3px solid #00d4aa; }
+        .print-header h1 { font-size: 24px; font-weight: 900; color: #0f1623; margin: 0 0 4px; }
+        .print-header p { font-size: 11px; color: #666; margin: 0; }
+        .print-meta { padding: 16px 40px; background: #f8fffe; border-bottom: 1px solid #e0f7f4; font-size: 11px; color: #444; display: flex; gap: 32px; }
+        .print-meta span { font-weight: 700; color: #00b894; }
+        table { width: 100%; border-collapse: collapse; margin: 24px 40px; width: calc(100% - 80px); font-size: 10px; }
+        th { background: #0f1623; color: #00d4aa; padding: 8px 10px; text-align: left; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-size: 9px; }
+        td { padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+        tr:nth-child(even) td { background: #f8f9fa; }
+        .pval-sig { color: #00b894; font-weight: 700; }
+        .pval-ns { color: #666; }
+        .interp { font-size: 9px; color: #555; font-style: italic; margin-top: 2px; }
+        .print-footer { padding: 16px 40px; border-top: 1px solid #eee; font-size: 9px; color: #aaa; text-align: center; }
+      </style>
+      <div class="print-header">
+        <h1>SciStat AI — Relatório Estatístico</h1>
+        <p>Gerado em ${date} | Arquivo: ${fileData?.filename || 'N/A'} | Engine: Pingouin (Python)</p>
+      </div>
+      <div class="print-meta">
+        <div>Total de testes: <span>${sortedResults.length}</span></div>
+        <div>Significativos (p&lt;0.05): <span>${sortedResults.filter(r => r.p_value != null && r.p_value < 0.05).length}</span></div>
+        <div>Engine: <span>Pingouin + SciPy Fallback</span></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:28%">Variável / Teste</th>
+          <th style="width:14%">Estatística</th>
+          <th style="width:10%">Valor P</th>
+          <th style="width:8%">Sig.</th>
+          <th style="width:14%">Tam. Efeito</th>
+          <th style="width:26%">Interpretação</th>
+        </tr></thead>
+        <tbody>
+          ${sortedResults.map(r => {
+            const es = r.effect_size || {}
+            const esVal = es.cohens_d != null ? `d=${es.cohens_d}` : es.eta_squared != null ? `η²=${es.eta_squared}` : es.r_squared != null ? `R²=${es.r_squared}` : es.cramers_v != null ? `V=${es.cramers_v}` : '—'
+            const isSig = r.p_value != null && r.p_value < 0.05
+            const pStr = r.p_value != null ? (r.p_value < 0.001 ? '<0.001' : r.p_value.toFixed(4)) : '—'
+            return `<tr>
+              <td><strong>${r.testLabel || '—'}</strong><br><span style="font-size:8px;color:#888">${r.engine || ''}</span></td>
+              <td style="font-family:monospace">${r.statistic != null ? r.statistic : '—'}</td>
+              <td class="${isSig ? 'pval-sig' : 'pval-ns'}" style="font-family:monospace">${pStr}</td>
+              <td style="font-weight:800;color:${isSig ? '#00b894' : '#aaa'}">${significance(r.p_value)}</td>
+              <td style="font-family:monospace">${esVal}<br><span style="font-size:8px;color:#888">${es.interpretation || ''}</span></td>
+              <td><span class="interp">${r.interpretation || '—'}</span></td>
+            </tr>`
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="print-footer">SciStat AI — Plataforma de Análise Estatística para Pesquisa Clínica | Relatório gerado automaticamente</div>
+    `
+    document.body.appendChild(printDiv)
+    window.print()
+    // Limpeza após impressão
+    setTimeout(() => {
+      printDiv.remove()
+      style.textContent = ''
+    }, 1000)
   }
 
   return (
@@ -538,168 +728,296 @@ export default function Dashboard() {
         {results.length > 0 && (
           <motion.section initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="grid lg:grid-cols-12 gap-8 items-start">
             <div className="lg:col-span-12 glass-card rounded-[2.5rem] overflow-hidden">
-              <div className="p-8 border-b border-white/5 bg-white/2 flex items-center justify-between">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-500">Relatório Consolidado</h3>
-                <span className="text-[9px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">{results.length} testes executados</span>
+              <div className="p-6 border-b border-white/5 bg-white/2">
+                {validationReport && (validationReport.missing_cells > 0 || validationReport.duplicates > 0 || (validationReport.warnings && validationReport.warnings.length > 0)) && (
+                  <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
+                    <span className="material-symbols-rounded text-amber-400 text-sm mt-0.5 shrink-0">warning</span>
+                    <div className="text-[10px] leading-relaxed text-amber-300">
+                      {validationReport.missing_cells > 0 && <span className="mr-3">⚠ {validationReport.missing_cells} células vazias detectadas</span>}
+                      {validationReport.duplicates > 0 && <span className="mr-3">⚠ {validationReport.duplicates} linhas duplicadas</span>}
+                      {validationReport.warnings?.map((w, wi) => <span key={wi} className="block">{w}</span>)}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-500">Relatório Consolidado</h3>
+                    <p className="text-[10px] text-slate-600 mt-1">Variáveis descritivas primeiro, seguidas por testes inferenciais</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[9px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">{results.length} testes executados</span>
+                    <button
+                      onClick={() => setHowToModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Como interpretar os resultados?"
+                    >
+                      <span className="material-symbols-rounded text-sm">help</span>
+                      Como Usar?
+                    </button>
+                    <button
+                      onClick={exportResultsCSV}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Exportar tabela completa em CSV"
+                    >
+                      <span className="material-symbols-rounded text-sm">download</span>
+                      CSV
+                    </button>
+                    <button
+                      onClick={exportResultsJSON}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Exportar dados completos em JSON"
+                    >
+                      <span className="material-symbols-rounded text-sm">data_object</span>
+                      JSON
+                    </button>
+                    <button
+                      onClick={exportResultsExcel}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Exportar planilha Excel (.xlsx)"
+                    >
+                      <span className="material-symbols-rounded text-sm">table_chart</span>
+                      Excel
+                    </button>
+                    <button
+                      onClick={exportResultsPDF}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Exportar relatório para impressão / PDF"
+                    >
+                      <span className="material-symbols-rounded text-sm">print</span>
+                      PDF
+                    </button>
+                    <button
+                      onClick={handleNewAnalysis}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Iniciar nova análise"
+                    >
+                      <span className="material-symbols-rounded text-sm">add_circle</span>
+                      Nova Análise
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: 'all', label: 'Todos', icon: 'view_list' },
+                    { key: 'descriptive', label: 'Descritivas', icon: 'description' },
+                    { key: 'paired', label: 'Pareados', icon: 'compare_arrows' },
+                    { key: 'correlations', label: 'Correlações', icon: 'scatter_plot' },
+                    { key: 'comparisons', label: 'Comparações', icon: 'group_work' },
+                    { key: 'regressions', label: 'Regressões', icon: 'model_training' },
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveReportTab(tab.key)}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                        activeReportTab === tab.key
+                          ? 'bg-primary/15 text-primary border border-primary/30'
+                          : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <span className="material-symbols-rounded text-xs">{tab.icon}</span>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-white/1">
-                      <th className="text-left px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[30%]">Variável / Teste</th>
-                      <th className="text-left px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[20%]">Estatísticas</th>
-                      <th className="text-right px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[10%]"><StatTooltip term="p-valor">Valor P</StatTooltip></th>
-                      <th className="text-center px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[8%]">Sig.</th>
-                      <th className="text-left px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[15%]"><StatTooltip term="effect_size">Tam. Efeito</StatTooltip></th>
-                      <th className="text-center px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[8%]">Gráfico</th>
-                      <th className="text-center px-6 py-5 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[9%]">Detalhes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {results.map((r, i) => (
-                      <tr key={i} className="hover:bg-primary/5 transition-colors group">
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col gap-1">
-                            <span className="font-bold text-white group-hover:text-primary text-xs transition-colors">{r?.testLabel || r?.error}</span>
-                            {r?.group_stats && r.group_stats.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {r.group_stats.map(g => (
-                                  <span key={g.group} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-white/5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                                    <span className="text-[10px] font-bold text-slate-400">{g.group}</span>
-                                    <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded">N:{g.n}</span>
-                                    {g.pct_of_total && <span className="text-[9px] font-bold text-slate-500">({g.pct_of_total})</span>}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {r?.interpretation && (
-                              <div className="mt-2 p-2.5 bg-primary/5 border border-primary/10 rounded-lg">
-                                <p className="text-[10px] leading-relaxed text-slate-300">
-                                  <span className="material-symbols-rounded text-[10px] text-primary align-middle mr-1">auto_awesome</span>
-                                  {r.interpretation}
-                                </p>
-                              </div>
-                            )}
-                            {r?.assumptions && r.assumptions.length > 0 && (
-                              <div className="mt-1 space-y-1">
-                                {r.assumptions.map((a, ai) => (
-                                  <div key={ai} className={`flex items-start gap-1.5 text-[9px] px-2 py-1 rounded ${a.severity === 'warning' ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'}`}>
-                                    <span className="material-symbols-rounded text-[10px] mt-px">{a.severity === 'warning' ? 'warning' : 'info'}</span>
-                                    <span>{a.message}</span>
-                                    {a.recommendation && <span className="font-bold ml-1">→ Sugestão: {a.recommendation}</span>}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col gap-1.5 items-end">
-                            {r?.group_stats && r.group_stats.length > 0 ? (
-                              r.group_stats.map(g => (
-                                <div key={g.group} className="flex flex-col items-end gap-0.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-slate-500 text-right">{g.group}:</span>
-                                    <span className="text-xs font-mono font-bold text-white">{g.median_iqr}</span>
-                                  </div>
-                                  {g.mean != null && (
-                                    <span className="text-[9px] font-mono text-slate-500">M={g.mean} ±{g.std}</span>
-                                  )}
-                                  {g.ci_95 && (
-                                    <span className="text-[9px] font-mono text-slate-600">
-                                      <StatTooltip term="ic95">IC95%</StatTooltip>:[{g.ci_95.ci_lower}, {g.ci_95.ci_upper}]
+
+              {sortedResults.length === 0 ? (
+                <div className="p-12 text-center">
+                  <span className="material-symbols-rounded text-4xl text-slate-600">inbox</span>
+                  <p className="text-sm text-slate-500 mt-3">Nenhum resultado nesta categoria.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-white/1">
+                        <th className="text-left px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[32%]">Variável / Teste</th>
+                        <th className="text-left px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[22%]">Estatísticas</th>
+                        <th className="text-right px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[10%]"><StatTooltip term="p-valor">Valor P</StatTooltip></th>
+                        <th className="text-center px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[7%]">Sig.</th>
+                        <th className="text-left px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[14%]"><StatTooltip term="effect_size">Tam. Efeito</StatTooltip></th>
+                        <th className="text-center px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[7%]">Gráfico</th>
+                        <th className="text-center px-6 py-4 font-black text-slate-500 uppercase text-[10px] tracking-widest w-[9%]">APA / Info</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedResults.map((r, i) => {
+                        const isDescriptive = (r.testLabel || '').toLowerCase().includes('descritiva') || (r.testLabel || '').toLowerCase().includes('desfecho')
+                        return (
+                          <tr key={i} className={`hover:bg-primary/5 transition-colors group ${isDescriptive ? 'bg-white/[0.02]' : ''}`}>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {isDescriptive && <span className="w-1.5 h-1.5 rounded-full bg-blue-400/60 shrink-0"></span>}
+                                  <span className="font-bold text-white group-hover:text-primary text-xs transition-colors">{r?.testLabel || r?.error}</span>
+                                  {r?.engine && (
+                                    <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
+                                      r.engine === 'pingouin'
+                                        ? 'bg-primary/10 text-primary border-primary/20'
+                                        : 'bg-slate-700/50 text-slate-500 border-slate-600/30'
+                                    }`}>
+                                      {r.engine}
                                     </span>
                                   )}
                                 </div>
-                              ))
-                            ) : (
-                              <span className="text-xs font-mono font-bold text-slate-400">{r?.median_iqr || '—'}</span>
-                            )}
-                            {r?.ci && (
-                              <div className="mt-1 text-[9px] font-mono text-slate-500">
-                                <StatTooltip term="ic95">IC95% global</StatTooltip>: [{r.ci.ci_lower}, {r.ci.ci_upper}]
+                                {r?.group_stats && r.group_stats.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {r.group_stats.map(g => (
+                                      <span key={g.group} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-white/5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                                        <span className="text-[10px] font-bold text-slate-400">{g.group}</span>
+                                        <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded">N:{g.n}</span>
+                                        {g.pct_of_total && <span className="text-[9px] font-bold text-slate-500">({g.pct_of_total})</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {r?.interpretation && (
+                                  <div className="mt-2 p-2.5 bg-primary/5 border border-primary/10 rounded-lg">
+                                    <p className="text-[10px] leading-relaxed text-slate-300">
+                                      <span className="material-symbols-rounded text-[10px] text-primary align-middle mr-1">auto_awesome</span>
+                                      {r.interpretation}
+                                    </p>
+                                  </div>
+                                )}
+                                {r?.assumptions && r.assumptions.length > 0 && (
+                                  <div className="mt-1 space-y-1">
+                                    {r.assumptions.map((a, ai) => (
+                                      <div key={ai} className={`flex items-start gap-1.5 text-[9px] px-2 py-1 rounded ${a.severity === 'warning' ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'}`}>
+                                        <span className="material-symbols-rounded text-[10px] mt-px">{a.severity === 'warning' ? 'warning' : 'info'}</span>
+                                        <span>{a.message}</span>
+                                        {a.recommendation && <span className="font-bold ml-1">→ Sugestão: {a.recommendation}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-right font-mono">
-                          <StatTooltip term="p-valor">
-                            <span className={`font-black ${(r?.p_value != null && r.p_value < 0.05) ? 'text-primary' : 'text-slate-600'}`}>
-                              {r?.p_value != null ? (r.p_value < 0.001 ? '<0.001' : r.p_value.toFixed(4)) : '—'}
-                            </span>
-                          </StatTooltip>
-                        </td>
-                        <td className="px-6 py-5 text-center"><span className={`text-[12px] font-black tracking-widest ${(r?.p_value != null && r.p_value < 0.05) ? 'text-primary' : 'text-slate-700'}`}>{significance(r?.p_value)}</span></td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col items-center gap-1">
-                            {r?.effect_size ? (
-                              <>
-                                {r.effect_size.cohens_d != null && (
-                                  <StatTooltip term="cohens_d">
-                                    <span className="text-xs font-mono font-bold text-white">d={r.effect_size.cohens_d}</span>
-                                  </StatTooltip>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col gap-1.5 items-end">
+                                {r?.group_stats && r.group_stats.length > 0 ? (
+                                  r.group_stats.map(g => (
+                                    <div key={g.group} className="flex flex-col items-end gap-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-500 text-right">{g.group}:</span>
+                                        <span className="text-xs font-mono font-bold text-white">{g.median_iqr}</span>
+                                      </div>
+                                      {g.mean != null && (
+                                        <span className="text-[9px] font-mono text-slate-500">M={g.mean} ±{g.std}</span>
+                                      )}
+                                      {g.ci_95 && (
+                                        <span className="text-[9px] font-mono text-slate-600">
+                                          <StatTooltip term="ic95">IC95%</StatTooltip>:[{g.ci_95.ci_lower}, {g.ci_95.ci_upper}]
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <span className="text-xs font-mono font-bold text-slate-400">{r?.median_iqr || '—'}</span>
                                 )}
-                                {r.effect_size.eta_squared != null && (
-                                  <StatTooltip term="eta_squared">
-                                    <span className="text-xs font-mono font-bold text-white">η²={r.effect_size.eta_squared}</span>
-                                  </StatTooltip>
+                                {r?.ci && (
+                                  <div className="mt-1 text-[9px] font-mono text-slate-500">
+                                    <StatTooltip term="ic95">IC95%</StatTooltip>: [{r.ci.ci_lower}, {r.ci.ci_upper}]
+                                  </div>
                                 )}
-                                {r.effect_size.r_squared != null && (
-                                  <StatTooltip term="r_squared">
-                                    <span className="text-xs font-mono font-bold text-white">R²={r.effect_size.r_squared}</span>
-                                  </StatTooltip>
-                                )}
-                                {r.effect_size.cramers_v != null && (
-                                  <StatTooltip term="cramers_v">
-                                    <span className="text-xs font-mono font-bold text-white">V={r.effect_size.cramers_v}</span>
-                                  </StatTooltip>
-                                )}
-                                <span className={`text-[9px] font-bold ${r.effect_size.interpretation === 'Grande' || r.effect_size.interpretation === 'Forte' || r.effect_size.interpretation === 'Muito forte' ? 'text-primary' : r.effect_size.interpretation === 'Médio' || r.effect_size.interpretation === 'Moderado' ? 'text-amber-400' : 'text-slate-500'}`}>
-                                  ({r.effect_size.interpretation})
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono">
+                              <StatTooltip term="p-valor">
+                                <span className={`font-black ${(r?.p_value != null && r.p_value < 0.05) ? 'text-primary' : 'text-slate-600'}`}>
+                                  {r?.p_value != null ? (r.p_value < 0.001 ? '<0.001' : r.p_value.toFixed(4)) : '—'}
                                 </span>
-                                {r.effect_size.achieved_power != null && (
-                                  <StatTooltip term="power">
-                                    <span className={`text-[9px] font-bold ${r.effect_size.achieved_power >= 0.8 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                      Poder: {(r.effect_size.achieved_power * 100).toFixed(0)}%
+                              </StatTooltip>
+                            </td>
+                            <td className="px-6 py-4 text-center"><span className={`text-[12px] font-black tracking-widest ${(r?.p_value != null && r.p_value < 0.05) ? 'text-primary' : 'text-slate-700'}`}>{significance(r?.p_value)}</span></td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col items-center gap-1">
+                                {r?.effect_size ? (
+                                  <>
+                                    {r.effect_size.cohens_d != null && (
+                                      <StatTooltip term="cohens_d">
+                                        <span className="text-xs font-mono font-bold text-white">d={r.effect_size.cohens_d}</span>
+                                      </StatTooltip>
+                                    )}
+                                    {r.effect_size.eta_squared != null && (
+                                      <StatTooltip term="eta_squared">
+                                        <span className="text-xs font-mono font-bold text-white">η²={r.effect_size.eta_squared}</span>
+                                      </StatTooltip>
+                                    )}
+                                    {r.effect_size.r_squared != null && (
+                                      <StatTooltip term="r_squared">
+                                        <span className="text-xs font-mono font-bold text-white">R²={r.effect_size.r_squared}</span>
+                                      </StatTooltip>
+                                    )}
+                                    {r.effect_size.cramers_v != null && (
+                                      <StatTooltip term="cramers_v">
+                                        <span className="text-xs font-mono font-bold text-white">V={r.effect_size.cramers_v}</span>
+                                      </StatTooltip>
+                                    )}
+                                    <span className={`text-[9px] font-bold ${r.effect_size.interpretation === 'Grande' || r.effect_size.interpretation === 'Forte' || r.effect_size.interpretation === 'Muito forte' ? 'text-primary' : r.effect_size.interpretation === 'Médio' || r.effect_size.interpretation === 'Moderado' ? 'text-amber-400' : 'text-slate-500'}`}>
+                                      ({r.effect_size.interpretation})
                                     </span>
-                                  </StatTooltip>
+                                    {r.effect_size.achieved_power != null && (
+                                      <StatTooltip term="power">
+                                        <span className={`text-[9px] font-bold ${r.effect_size.achieved_power >= 0.8 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                          Poder: {(r.effect_size.achieved_power * 100).toFixed(0)}%
+                                        </span>
+                                      </StatTooltip>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-slate-600">—</span>
                                 )}
-                              </>
-                            ) : (
-                              <span className="text-xs text-slate-600">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          {r?.chart_data && (
-                            <motion.button
-                              whileHover={{ scale: 1.15 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setChartModal({ open: true, data: r.chart_data, varName: r.testLabel.split(' (')[0] })}
-                              className="w-9 h-9 rounded-xl bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-all mx-auto"
-                              title="Gerar gráfico"
-                            >
-                              <span className="material-symbols-rounded text-sm">bar_chart</span>
-                            </motion.button>
-                          )}
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <motion.button
-                            whileHover={{ scale: 1.15 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setDetailModal(r)}
-                            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all mx-auto"
-                            title="Ver detalhes completos"
-                          >
-                            <span className="material-symbols-rounded text-sm">info</span>
-                          </motion.button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              {r?.chart_data && (
+                                <motion.button
+                                  whileHover={{ scale: 1.15 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => setChartModal({ open: true, data: r.chart_data, varName: r.testLabel.split(' (')[0] })}
+                                  className="w-9 h-9 rounded-xl bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-all mx-auto"
+                                  title="Gerar gráfico"
+                                >
+                                  <span className="material-symbols-rounded text-sm">bar_chart</span>
+                                </motion.button>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <motion.button
+                                  whileHover={{ scale: 1.15 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => copyApa(r)}
+                                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                                    apaCopied === r.testLabel
+                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                      : 'bg-white/5 hover:bg-violet-500/10 text-slate-500 hover:text-violet-400'
+                                  }`}
+                                  title="Copiar citação APA"
+                                >
+                                  <span className="material-symbols-rounded text-xs">
+                                    {apaCopied === r.testLabel ? 'check' : 'format_quote'}
+                                  </span>
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.15 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => setDetailModal(r)}
+                                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all"
+                                  title="Ver detalhes completos"
+                                >
+                                  <span className="material-symbols-rounded text-xs">info</span>
+                                </motion.button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </motion.section>
         )}
@@ -799,6 +1117,73 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {detailModal.logistic_regression && (
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase mb-3">Regressão Logística</p>
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="p-2 bg-primary/5 rounded-lg text-center">
+                        <p className="text-[9px] text-slate-500 font-bold">Acurácia</p>
+                        <p className="text-lg font-black text-primary">{detailModal.logistic_regression.accuracy}%</p>
+                      </div>
+                      <div className="p-2 bg-primary/5 rounded-lg text-center">
+                        <p className="text-[9px] text-slate-500 font-bold">Pseudo-R²</p>
+                        <p className="text-lg font-black text-white">{detailModal.logistic_regression.pseudo_r2}</p>
+                      </div>
+                      <div className="p-2 bg-primary/5 rounded-lg text-center">
+                        <p className="text-[9px] text-slate-500 font-bold">N</p>
+                        <p className="text-lg font-black text-white">{detailModal.logistic_regression.n_observations}</p>
+                      </div>
+                    </div>
+                    {detailModal.logistic_regression.predictors && detailModal.logistic_regression.predictors.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-2">Preditores</p>
+                        <div className="space-y-1">
+                          {detailModal.logistic_regression.predictors.map((p, pi) => (
+                            <div key={pi} className={`flex items-center justify-between text-xs p-2 rounded-lg ${p.significant ? 'bg-primary/10 border border-primary/20' : 'bg-white/3'}`}>
+                              <span className="text-slate-300 font-medium">{p.predictor}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono text-slate-400">OR={p.odds_ratio}</span>
+                                <span className="font-mono text-slate-400">p={p.p_value < 0.001 ? '<0.001' : p.p_value.toFixed(4)}</span>
+                                <span className={`text-[10px] font-black ${p.significant ? 'text-primary' : 'text-slate-600'}`}>{p.significant ? '✦ SIG' : 'ns'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {detailModal.contingency_table && (
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase mb-3">Tabela de Contingência</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[10px]">
+                        <thead>
+                          <tr className="text-slate-500 border-b border-white/5">
+                            <th className="text-left pb-2 font-black uppercase"></th>
+                            {detailModal.contingency_table[0] && Object.keys(detailModal.contingency_table[0]).filter(k => k !== 'row_label' && k !== 'total' && k !== 'total_pct').map(k => (
+                              <th key={k} className="text-right pb-2 font-black uppercase">{k}</th>
+                            ))}
+                            <th className="text-right pb-2 font-black uppercase">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailModal.contingency_table.map((row, ri) => (
+                            <tr key={ri} className="border-b border-white/5">
+                              <td className="py-2 font-bold text-white">{row.row_label}</td>
+                              {Object.entries(row).filter(([k]) => k !== 'row_label' && k !== 'total' && k !== 'total_pct').map(([k, v]) => (
+                                <td key={k} className="py-2 text-right font-mono text-slate-300">{v.count} ({v.pct})</td>
+                              ))}
+                              <td className="py-2 text-right font-mono text-white">{row.total} ({row.total_pct})</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {detailModal.post_hoc && detailModal.post_hoc.comparisons && detailModal.post_hoc.comparisons.length > 0 && (
                   <div className="p-4 bg-white/5 rounded-xl border border-white/5">
                     <p className="text-[9px] font-bold text-slate-500 uppercase mb-2"><StatTooltip term="post_hoc">Testes Post-Hoc ({detailModal.post_hoc.method})</StatTooltip></p>
@@ -872,9 +1257,91 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      {/* ── MODAL: Como Usar? ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {howToModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={() => setHowToModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-2xl border border-violet-500/20"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-violet-500/5">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-rounded text-violet-400 text-xl">help_center</span>
+                  <div>
+                    <h3 className="text-sm font-black text-white">Como Interpretar os Resultados</h3>
+                    <p className="text-[10px] text-slate-500">Guia rápido para pesquisadores sem formação estatística</p>
+                  </div>
+                </div>
+                <button onClick={() => setHowToModal(false)} className="text-slate-500 hover:text-white transition-colors">
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
+                {[
+                  {
+                    icon: 'crisis_alert', color: 'text-primary', bg: 'bg-primary/10 border-primary/20',
+                    title: 'P-valor (Valor P)',
+                    body: 'O p-valor indicada a probabilidade de obter esses resultados por acaso. Valores abaixo de 0,05 (5%) são considerados "estatisticamente significativos" — significa que a diferença ou relação encontrada dificilmente é por acaso.',
+                    tip: '✦ = p < 0,05 (sig.) | ✦✦ = p < 0,01 | ✦✦✦ = p < 0,001 | ns = não significativo'
+                  },
+                  {
+                    icon: 'straighten', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20',
+                    title: 'Tamanho do Efeito',
+                    body: 'Mesmo um resultado significativo pode ter pouca importância prática. O tamanho do efeito mede a magnitude real da diferença ou correlação. Sempre analise junto com o p-valor.',
+                    tip: 'd de Cohen: Pequeno ≥ 0.2 | Médio ≥ 0.5 | Grande ≥ 0.8  |  R²: Fraco ≥ 0.09 | Moderado ≥ 0.36 | Forte ≥ 0.64'
+                  },
+                  {
+                    icon: 'target', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20',
+                    title: 'Intervalo de Confiança 95% (IC95%)',
+                    body: 'O IC95% mostra o intervalo onde o valor verdadeiro provavelmente está (95% de confiança). Se o IC inclui o 0 (para diferenças) ou o 1 (para OR), o resultado não é significativo.',
+                    tip: 'IC95% que não inclui o 0 → suporta a significância do resultado'
+                  },
+                  {
+                    icon: 'electric_bolt', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/20',
+                    title: 'Poder Estatístico',
+                    body: 'O poder mede a capacidade do estudo de detectar um efeito real se ele existir. Estudos com poder < 80% têm alto risco de falsos negativos (não detectar diferenças que existem).',
+                    tip: 'Poder ≥ 80% (verde) = adequado | Poder < 80% (vermelho) = amostra insuficiente'
+                  },
+                  {
+                    icon: 'format_quote', color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20',
+                    title: 'Botão APA (citação automática)',
+                    body: 'Cada resultado tem um botão com aspas (＂) na última coluna. Clique para copiar a citação formatada em APA-7, pronta para colar no seu TCC, artigo ou relatório.',
+                    tip: 'Exemplo: Teste t pareado (N = 45): estatística = 2.341, p = .024, d = 0.58.'
+                  },
+                  {
+                    icon: 'auto_awesome', color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/20',
+                    title: 'Interpretação Automática',
+                    body: 'Cada resultado vem com uma interpretação em português simples, gerada automaticamente. Ela aparece diretamente na tabela, abaixo do nome do teste. Clique em "Detalhes" para a versão completa.',
+                    tip: 'As interpretações são baseadas nos valores estatísticos reais calculados pelo motor Pingouin.'
+                  },
+                ].map((item, idx) => (
+                  <div key={idx} className={`p-4 rounded-xl border ${item.bg}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-wider ${item.color} mb-2 flex items-center gap-2`}>
+                      <span className="material-symbols-rounded text-sm">{item.icon}</span>
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-slate-300 leading-relaxed mb-2">{item.body}</p>
+                    <p className="text-[9px] font-mono text-slate-500 bg-black/20 px-2 py-1 rounded-lg">{item.tip}</p>
+                  </div>
+                ))}
+                <div className="p-4 bg-white/3 rounded-xl border border-white/5 text-center">
+                  <p className="text-[10px] text-slate-500">Dúvidas? Clique em <strong className="text-primary">Detalhes</strong> em qualquer resultado para ver a interpretação completa, pressupostos verificados e estatísticas avançadas.</p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {!showReview && results.length === 0 && !fileData && (
         <>
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -884,26 +1351,19 @@ export default function Dashboard() {
               <div>
                 <h2 className="text-xl font-black text-white flex items-center gap-3">
                   <span className="material-symbols-rounded text-primary neon-glow-sm">insights</span>
-                  Métricas em Destaque
+                  Suas Métricas
                 </h2>
-                <p className="text-slate-500 text-xs mt-1 font-medium">Visão geral dos indicadores estatísticos</p>
-              </div>
-              <div className="flex gap-2">
-                {['7D', '30D', '90D'].map((period, i) => (
-                  <button key={period} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${i === 1 ? 'bg-primary/10 text-primary border border-primary/30' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
-                    {period}
-                  </button>
-                ))}
+                <p className="text-slate-500 text-xs mt-1 font-medium">Atividade da sua conta na plataforma</p>
               </div>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: 'Análises Realizadas', value: '147', change: '+12%', icon: 'analytics', color: 'primary' },
-                { label: 'Significância (p<0.05)', value: '89%', change: '+5.2%', icon: 'verified', color: 'primary' },
-                { label: 'Dados Processados', value: '2.4GB', change: '+18%', icon: 'database', color: 'accent' },
-                { label: 'Ensaios Ativos', value: '23', change: '+3', icon: 'biotech', color: 'accent' },
+                { label: 'Análises Realizadas', value: history.length || 0, icon: 'analytics', color: 'primary', sub: history.length === 1 ? '1 arquivo processado' : `${history.length} arquivos processados` },
+                { label: 'Ensaios Clínicos', value: trials.length || 0, icon: 'biotech', color: 'accent', sub: 'cadastrados na plataforma' },
+                { label: 'Testes Disponíveis', value: STATISTICAL_TESTS.length, icon: 'model_training', color: 'primary', sub: 'métodos estatísticos' },
+                { label: 'Engine', value: 'Pingouin', icon: 'memory', color: 'accent', sub: 'scipy fallback integrado' },
               ].map((stat, i) => (
-                <motion.div 
+                <motion.div
                   key={stat.label}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -915,77 +1375,58 @@ export default function Dashboard() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.color === 'primary' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent'} group-hover:scale-110 transition-transform`}>
                       <span className="material-symbols-rounded text-lg">{stat.icon}</span>
                     </div>
-                    <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{stat.change}</span>
                   </div>
                   <p className="text-2xl font-black text-white">{stat.value}</p>
                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
+                  <p className="text-[9px] text-slate-600 mt-0.5">{stat.sub}</p>
                 </motion.div>
               ))}
             </div>
           </motion.section>
 
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="grid lg:grid-cols-2 gap-6"
+            className="mt-2"
           >
-            <motion.div 
-              className="glass-card rounded-[2rem] p-6 h-[350px]"
-              whileHover={{ y: -4 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <DynamicChart 
-                type="bar" 
-                labels={MOCK_CHARTS.barData.labels} 
-                datasets={MOCK_CHARTS.barData.datasets} 
-                title="Comparação de Grupos — Resposta Média" 
-              />
-            </motion.div>
-            <motion.div 
-              className="glass-card rounded-[2rem] p-6 h-[350px]"
-              whileHover={{ y: -4 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <DynamicChart 
-                type="line" 
-                labels={MOCK_CHARTS.lineLabels} 
-                datasets={MOCK_CHARTS.lineDatasets} 
-                title="Evolução Temporal — Inclusão vs Eventos" 
-              />
-            </motion.div>
-          </motion.section>
-
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="grid lg:grid-cols-2 gap-6"
-          >
-            <motion.div 
-              className="glass-card rounded-[2rem] p-6 h-[350px]"
-              whileHover={{ y: -4 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <DynamicChart 
-                type="radar" 
-                labels={MOCK_CHARTS.radarLabels} 
-                datasets={MOCK_CHARTS.radarDatasets} 
-                title="Análise Multidimensional — Perfil de Tratamentos" 
-              />
-            </motion.div>
-            <motion.div 
-              className="glass-card rounded-[2rem] p-6 h-[350px]"
-              whileHover={{ y: -4 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <DynamicChart 
-                type="doughnut" 
-                labels={MOCK_CHARTS.doughnutLabels} 
-                datasets={MOCK_CHARTS.doughnutDatasets} 
-                title="Distribuição de Desfechos Clínicos" 
-              />
-            </motion.div>
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-white flex items-center gap-3">
+                <span className="material-symbols-rounded text-primary neon-glow-sm">model_training</span>
+                Capacidades Analíticas
+              </h2>
+              <p className="text-slate-500 text-xs mt-1 font-medium">Faça upload de um arquivo para o sistema detectar e executar automaticamente os testes mais adequados</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {ANALYSIS_CATEGORIES.map((cat, ci) => (
+                <motion.div
+                  key={cat.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: ci * 0.07 }}
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  className="glass-card rounded-2xl p-5 border border-white/5 hover:border-primary/20 transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      cat.color === 'primary' ? 'bg-primary/10 text-primary group-hover:bg-primary/20' : 'bg-accent/10 text-accent group-hover:bg-accent/20'
+                    } transition-colors`}>
+                      <span className="material-symbols-rounded text-sm">{cat.icon}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-white group-hover:text-primary transition-colors">{cat.title}</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed mb-3">{cat.desc}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {cat.tests.map(t => (
+                      <span key={t} className="text-[9px] px-2 py-0.5 bg-white/5 border border-white/5 rounded-full text-slate-400 font-medium">{t}</span>
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </motion.section>
 
           <motion.section 

@@ -13,13 +13,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from scipy import stats
+from scipy.stats import fisher_exact
 from dotenv import load_dotenv
 import google.generativeai as genai
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 from statsmodels.stats.power import TTestIndPower
+from statsmodels.api import Logit, add_constant
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 from bs4 import BeautifulSoup
+
+try:
+    import pingouin as pg
+    PINGOUIN_AVAILABLE = True
+except ImportError:
+    PINGOUIN_AVAILABLE = False
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -699,25 +707,48 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
                     ('satisf', 'peso'): {'test': 'Correlação de Spearman', 'rationale': 'Relação entre satisfação e peso.'},
                 }
                 
+                matched_keyword = None
                 for (kw_a, kw_b), info in corr_keywords.items():
                     if (kw_a in a_name and kw_b in b_name) or (kw_a in b_name and kw_b in a_name):
-                        test = info['test']
-                        # Se uma das variáveis for ordinal, forçar Spearman
-                        if var_info[col_a].get('is_ordinal') or var_info[col_b].get('is_ordinal'):
-                            test = 'Correlação de Spearman'
-                        # Se normalidade for não-normal, usar Spearman
-                        if var_info[col_a].get('normality') == 'nao-normal' or var_info[col_b].get('normality') == 'nao-normal':
-                            test = 'Correlação de Spearman'
-                        
-                        correlation_pairs.append({
-                            "col_a": col_a,
-                            "col_b": col_b,
-                            "test": test,
-                            "test_options": [test, "Correlação de Spearman", "Regressão Linear", "Excluir"],
-                            "rationale": info['rationale'],
-                            "type": "Correlação"
-                        })
+                        matched_keyword = (info, kw_a, kw_b)
                         break
+                
+                if matched_keyword:
+                    info, kw_a, kw_b = matched_keyword
+                    test = info['test']
+                    if var_info[col_a].get('is_ordinal') or var_info[col_b].get('is_ordinal'):
+                        test = 'Correlação de Spearman'
+                    if var_info[col_a].get('normality') == 'nao-normal' or var_info[col_b].get('normality') == 'nao-normal':
+                        test = 'Correlação de Spearman'
+                    
+                    correlation_pairs.append({
+                        "col_a": col_a,
+                        "col_b": col_b,
+                        "test": test,
+                        "test_options": [test, "Correlação de Spearman", "Regressão Linear", "Excluir"],
+                        "rationale": info['rationale'],
+                        "type": "Correlação"
+                    })
+                else:
+                    # Abordagem genérica: sugerir correlação para TODOS os pares numéricos não usados
+                    is_either_ordinal = var_info[col_a].get('is_ordinal') or var_info[col_b].get('is_ordinal')
+                    is_either_nonnormal = var_info[col_a].get('normality') == 'nao-normal' or var_info[col_b].get('normality') == 'nao-normal'
+                    
+                    if is_either_ordinal or is_either_nonnormal:
+                        default_test = 'Correlação de Spearman'
+                        rationale = f'Correlação não-paramétrica entre "{col_a}" e "{col_b}" (dados ordinais ou não-normais).'
+                    else:
+                        default_test = 'Correlação de Pearson'
+                        rationale = f'Correlação linear entre "{col_a}" e "{col_b}".'
+                    
+                    correlation_pairs.append({
+                        "col_a": col_a,
+                        "col_b": col_b,
+                        "test": default_test,
+                        "test_options": [default_test, "Correlação de Spearman", "Regressão Linear", "Excluir"],
+                        "rationale": rationale,
+                        "type": "Correlação"
+                    })
         
         # ============================================================
         # PASSO 4: Identificar comparações de grupos (categórica vs numérica)
@@ -810,6 +841,25 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
                 "pair": {"predictor": comp['predictor'], "outcome": comp['outcome']}
             })
         
+        # 5c2. Regressão Logística (outcome binário/categórico → preditores)
+        binary_outcomes = [c for c in df.columns if var_info.get(c, {}).get('unique_count') == 2 and not var_info.get(c, {}).get('is_numeric')]
+        numeric_predictors = [c for c in df.columns if var_info.get(c, {}).get('is_numeric') and c not in used_in_pair]
+        
+        for bin_out in binary_outcomes:
+            if len(numeric_predictors) >= 1:
+                var_id += 1
+                pred_names = ', '.join(numeric_predictors[:5])
+                variables.append({
+                    "id": f"V{var_id:03d}",
+                    "name": f"Regressão Logística → {bin_out}",
+                    "type": "Regressão Logística",
+                    "unique_count": 2,
+                    "recommended_test": "Regressão Logística",
+                    "test_options": ["Regressão Logística", "Qui-Quadrado (X²)", "Teste Exato de Fisher", "Excluir"],
+                    "rationale": f"Modelo preditivo para '{bin_out}' usando {len(numeric_predictors)} preditor(es) numérico(s): {pred_names}.",
+                    "pair": {"predictor": bin_out, "outcome": bin_out, "logistic_predictors": numeric_predictors[:5]}
+                })
+        
         # 5d. Variáveis individuais descritivas (TODAS as variáveis, mesmo as usadas em pares)
         for col in df.columns:
             if re.search(ignore_patterns, col.lower()):
@@ -834,7 +884,7 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
                     "type": "Descritiva (Categórica)",
                     "unique_count": vi['unique_count'],
                     "recommended_test": "Estatística Descritiva",
-                    "test_options": ["Estatística Descritiva", "Qui-Quadrado (X²)"],
+                    "test_options": ["Estatística Descritiva", "Qui-Quadrado (X²)", "Teste Exato de Fisher"],
                     "rationale": f"Distribuição de frequências de '{col}' ({vi['unique_count']} categorias).",
                     "pair": {"col_a": col}
                 })
@@ -1276,6 +1326,14 @@ def generate_interpretation(test_type, stat, p_val, effect_size=None, post_hoc=N
     elif test_type in ("chi2",):
         interpretations.append(f"A associação entre as variáveis é {sig_str} (χ², p={p_val:.4f}).")
     
+    elif test_type in ("fisher",):
+        interpretations.append(f"O Teste Exato de Fisher revelou uma associação {sig_str} entre as variáveis (p={p_val:.4f}).")
+    
+    elif test_type in ("logistic_regression",):
+        interpretations.append(f"A Regressão Logística revelou um modelo {sig_str} (p={p_val:.4f}).")
+        if stat is not None:
+            interpretations.append(f"Acurácia do modelo: {stat:.1f}%.")
+    
     if effect_size:
         if "cohens_d" in effect_size:
             interpretations.append(f"Tamanho do efeito: d={effect_size['cohens_d']:.2f} ({effect_size['interpretation']}).")
@@ -1283,6 +1341,8 @@ def generate_interpretation(test_type, stat, p_val, effect_size=None, post_hoc=N
             interpretations.append(f"Tamanho do efeito: η²={effect_size['eta_squared']:.4f} ({effect_size['interpretation']}).")
         elif "r_squared" in effect_size:
             interpretations.append(f"Variância explicada: R²={effect_size['r_squared']:.4f} ({effect_size['interpretation']}).")
+        elif "cramers_v" in effect_size:
+            interpretations.append(f"Associação: V de Cramer={effect_size['cramers_v']:.4f} ({effect_size['interpretation']}).")
     
     power = effect_size.get("achieved_power") if effect_size else None
     if power is not None:
@@ -1293,6 +1353,526 @@ def generate_interpretation(test_type, stat, p_val, effect_size=None, post_hoc=N
             interpretations.append(f"Poder estatístico alcançado: {power_pct:.0f}% (adequado).")
     
     return " ".join(interpretations)
+
+# ============================================================
+# PINGOUIN-BASED STATISTICAL ENGINE
+# ============================================================
+
+def pg_ttest_ind(g1, g2):
+    """Teste T independente com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.ttest(g1, g2, paired=False)
+            ci95 = result["CI95"].values[0]
+            return {
+                "statistic": round(float(result["T"].values[0]), 4),
+                "p_value": round(float(result["p_val"].values[0]), 4),
+                "ci_lower": round(float(ci95[0]), 4),
+                "ci_upper": round(float(ci95[1]), 4),
+                "cohens_d": round(float(result["cohen_d"].values[0]), 4),
+                "bf10": round(float(result["BF10"].values[0]), 4) if "BF10" in result.columns else None,
+                "power": round(float(result["power"].values[0]), 4) if "power" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin ttest_ind fallback: {e}")
+    
+    res = stats.ttest_ind(g1, g2)
+    n1, n2 = len(g1), len(g2)
+    s1, s2 = np.var(g1, ddof=1), np.var(g2, ddof=1)
+    s_pooled = np.sqrt(((n1-1)*s1 + (n2-1)*s2) / (n1+n2-2)) if (n1+n2-2) > 0 else 0
+    cohens_d = float((np.mean(g1) - np.mean(g2)) / s_pooled) if s_pooled > 0 else 0
+    return {
+        "statistic": round(float(res.statistic), 4),
+        "p_value": round(float(res.pvalue), 4),
+        "ci_lower": None,
+        "ci_upper": None,
+        "cohens_d": round(cohens_d, 4),
+        "bf10": None,
+        "power": None,
+        "engine": "scipy"
+    }
+
+def pg_ttest_paired(a, b):
+    """Teste T pareado com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.ttest(a, b, paired=True)
+            ci95 = result["CI95"].values[0]
+            return {
+                "statistic": round(float(result["T"].values[0]), 4),
+                "p_value": round(float(result["p_val"].values[0]), 4),
+                "ci_lower": round(float(ci95[0]), 4),
+                "ci_upper": round(float(ci95[1]), 4),
+                "cohens_d": round(float(result["cohen_d"].values[0]), 4),
+                "bf10": round(float(result["BF10"].values[0]), 4) if "BF10" in result.columns else None,
+                "power": round(float(result["power"].values[0]), 4) if "power" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin ttest_paired fallback: {e}")
+    
+    res = stats.ttest_rel(a, b)
+    diff = a - b
+    std_diff = np.std(diff, ddof=1)
+    cohens_d = float(np.mean(diff) / std_diff) if std_diff > 0 else 0
+    return {
+        "statistic": round(float(res.statistic), 4),
+        "p_value": round(float(res.pvalue), 4),
+        "ci_lower": None,
+        "ci_upper": None,
+        "cohens_d": round(cohens_d, 4),
+        "bf10": None,
+        "power": None,
+        "engine": "scipy"
+    }
+
+def pg_mannwhitney(g1, g2):
+    """Mann-Whitney U com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.mwu(g1, g2)
+            return {
+                "statistic": round(float(result["U_val"].values[0]), 4),
+                "p_value": round(float(result["p_val"].values[0]), 4),
+                "cohens_d": round(float(result["CLES"].values[0]), 4) if "CLES" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin mwu fallback: {e}")
+    
+    res = stats.mannwhitneyu(g1, g2)
+    n1, n2 = len(g1), len(g2)
+    s1, s2 = np.var(g1, ddof=1), np.var(g2, ddof=1)
+    s_pooled = np.sqrt(((n1-1)*s1 + (n2-1)*s2) / (n1+n2-2)) if (n1+n2-2) > 0 else 0
+    cohens_d = float((np.mean(g1) - np.mean(g2)) / s_pooled) if s_pooled > 0 else 0
+    return {
+        "statistic": round(float(res.statistic), 4),
+        "p_value": round(float(res.pvalue), 4),
+        "cohens_d": round(cohens_d, 4),
+        "engine": "scipy"
+    }
+
+def pg_wilcoxon(a, b):
+    """Wilcoxon pareado com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.wilcoxon(a, b)
+            return {
+                "statistic": round(float(result["W_val"].values[0]), 4),
+                "p_value": round(float(result["p_val"].values[0]), 4),
+                "cohens_d": round(float(result["CLES"].values[0]), 4) if "CLES" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin wilcoxon fallback: {e}")
+    
+    res = stats.wilcoxon(a, b)
+    diff = a - b
+    std_diff = np.std(diff, ddof=1)
+    cohens_d = float(np.mean(diff) / std_diff) if std_diff > 0 else 0
+    return {
+        "statistic": round(float(res.statistic), 4),
+        "p_value": round(float(res.pvalue), 4),
+        "cohens_d": round(cohens_d, 4),
+        "engine": "scipy"
+    }
+
+def pg_anova(df_in, dv, between):
+    """ANOVA One-Way com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.anova(data=df_in, dv=dv, between=between, detailed=True)
+            return {
+                "statistic": round(float(result["F"].values[0]), 4),
+                "p_value": round(float(result["p_unc"].values[0]), 4),
+                "eta_squared": round(float(result["np2"].values[0]), 4),
+                "power": round(float(result["power"].values[0]), 4) if "power" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin anova fallback: {e}")
+    
+    groups = [group_vals for _, group_vals in df_in.groupby(between)[dv]]
+    groups = [g.dropna().values for g in groups]
+    groups = [g for g in groups if len(g) >= 2]
+    if len(groups) >= 2:
+        res = stats.f_oneway(*groups)
+        all_vals = np.concatenate(groups)
+        grand_mean = np.mean(all_vals)
+        ss_between = sum(len(g) * (np.mean(g) - grand_mean)**2 for g in groups)
+        ss_within = sum(sum((x - np.mean(g))**2 for x in g) for g in groups)
+        ss_total = ss_between + ss_within
+        eta_sq = float(ss_between / ss_total) if ss_total > 0 else 0
+        return {
+            "statistic": round(float(res.statistic), 4),
+            "p_value": round(float(res.pvalue), 4),
+            "eta_squared": round(eta_sq, 4),
+            "power": None,
+            "engine": "scipy"
+        }
+    return None
+
+def pg_kruskal(df_in, dv, between):
+    """Kruskal-Wallis com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.kruskal(data=df_in, dv=dv, between=between)
+            # Pingouin >=0.5 retorna 'eta2'; versões antigas retornavam 'np2'
+            if "eta2" in result.columns:
+                eta2_val = float(result["eta2"].values[0])
+            elif "np2" in result.columns:
+                eta2_val = float(result["np2"].values[0])
+            else:
+                eta2_val = 0.0
+            return {
+                "statistic": round(float(result["H"].values[0]), 4),
+                "p_value": round(float(result["p_unc"].values[0]), 4),
+                "eta_squared": round(eta2_val, 4),
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin kruskal fallback: {e}")
+    
+    groups = [group_vals for _, group_vals in df_in.groupby(between)[dv]]
+    groups = [g.dropna().values for g in groups]
+    groups = [g for g in groups if len(g) >= 1]
+    if len(groups) >= 2:
+        res = stats.kruskal(*groups)
+        all_vals = np.concatenate(groups)
+        grand_mean = np.mean(all_vals)
+        ss_between = sum(len(g) * (np.mean(g) - grand_mean)**2 for g in groups)
+        ss_within = sum(sum((x - np.mean(g))**2 for x in g) for g in groups)
+        ss_total = ss_between + ss_within
+        eta_sq = float(ss_between / ss_total) if ss_total > 0 else 0
+        return {
+            "statistic": round(float(res.statistic), 4),
+            "p_value": round(float(res.pvalue), 4),
+            "eta_squared": round(eta_sq, 4),
+            "engine": "scipy"
+        }
+    return None
+
+def pg_pearson(x, y):
+    """Correlação de Pearson com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.corr(x, y, method="pearson")
+            ci95 = result["CI95"].values[0]
+            return {
+                "statistic": round(float(result["r"].values[0]), 4),
+                "p_value": round(float(result["p_val"].values[0]), 4),
+                "ci_lower": round(float(ci95[0]), 4),
+                "ci_upper": round(float(ci95[1]), 4),
+                "r_squared": round(float(result["r"].values[0] ** 2), 4),
+                "bf10": round(float(result["BF10"].values[0]), 4) if "BF10" in result.columns else None,
+                "power": round(float(result["power"].values[0]), 4) if "power" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin pearson fallback: {e}")
+    
+    res = stats.pearsonr(x, y)
+    return {
+        "statistic": round(float(res.statistic), 4),
+        "p_value": round(float(res.pvalue), 4),
+        "ci_lower": None,
+        "ci_upper": None,
+        "r_squared": round(float(res.statistic ** 2), 4),
+        "bf10": None,
+        "power": None,
+        "engine": "scipy"
+    }
+
+def pg_spearman(x, y):
+    """Correlação de Spearman com Pingouin (fallback: scipy)."""
+    try:
+        if PINGOUIN_AVAILABLE:
+            result = pg.corr(x, y, method="spearman")
+            ci95 = result["CI95"].values[0]
+            # Pingouin retorna 'r' para ambos pearson e spearman em pg.corr()
+            rho_val = float(result["r"].values[0]) if "r" in result.columns else float(result["rho"].values[0])
+            return {
+                "statistic": round(rho_val, 4),
+                "p_value": round(float(result["p_val"].values[0]), 4),
+                "ci_lower": round(float(ci95[0]), 4),
+                "ci_upper": round(float(ci95[1]), 4),
+                "r_squared": round(rho_val ** 2, 4),
+                "bf10": round(float(result["BF10"].values[0]), 4) if "BF10" in result.columns else None,
+                "power": round(float(result["power"].values[0]), 4) if "power" in result.columns else None,
+                "engine": "pingouin"
+            }
+    except Exception as e:
+        print(f"Pingouin spearman fallback: {e}")
+    
+    res = stats.spearmanr(x, y)
+    return {
+        "statistic": round(float(res.correlation), 4),
+        "p_value": round(float(res.pvalue), 4),
+        "ci_lower": None,
+        "ci_upper": None,
+        "r_squared": round(float(res.correlation ** 2), 4),
+        "bf10": None,
+        "power": None,
+        "engine": "scipy"
+    }
+
+def pg_fisher_exact(contingency):
+    """Teste Exato de Fisher para tabela 2x2."""
+    try:
+        if contingency.shape != (2, 2):
+            return None
+        a, b = int(contingency.iloc[0, 0]), int(contingency.iloc[0, 1])
+        c, d = int(contingency.iloc[1, 0]), int(contingency.iloc[1, 1])
+        oddsratio, p_value = fisher_exact([[a, b], [c, d]])
+        
+        # Cramér's V como effect size — fórmula correta: sqrt(χ²/(N*(min(r,c)-1)))
+        n_total = a + b + c + d
+        chi2_stat, _, _, _ = stats.chi2_contingency(contingency)
+        min_dim = min(contingency.shape) - 1
+        cramers_v = float(np.sqrt(chi2_stat / (n_total * min_dim))) if n_total > 0 and min_dim > 0 else 0
+        
+        # Odds Ratio com IC95%
+        if a == 0 or b == 0 or c == 0 or d == 0:
+            a += 0.5; b += 0.5; c += 0.5; d += 0.5
+        or_val = (a * d) / (b * c)
+        log_or_se = np.sqrt(1/a + 1/b + 1/c + 1/d)
+        log_or = np.log(or_val)
+        or_lower = np.exp(log_or - 1.96 * log_or_se)
+        or_upper = np.exp(log_or + 1.96 * log_or_se)
+        
+        return {
+            "statistic": round(float(oddsratio), 4),
+            "p_value": round(float(p_value), 4),
+            "odds_ratio": round(float(or_val), 4),
+            "or_ci_95": f"{or_lower:.2f} - {or_upper:.2f}",
+            "cramers_v": round(cramers_v, 4),
+            "interpretation": "Fator de risco (OR>1)" if or_val > 1 else ("Fator protetor (OR<1)" if or_val < 1 else "Sem associação (OR=1)"),
+            "engine": "scipy"
+        }
+    except Exception as e:
+        print(f"Fisher exact error: {e}")
+        return None
+
+def pg_logistic_regression(df_in, predictor_cols, outcome_col):
+    """Regressão Logística com statsmodels."""
+    try:
+        df_work = df_in[predictor_cols + [outcome_col]].dropna().copy()
+        if len(df_work) < 10:
+            return None
+        
+        # Converter outcome para binário (0/1)
+        unique_outcomes = sorted(df_work[outcome_col].unique())
+        if len(unique_outcomes) != 2:
+            return None
+        outcome_map = {unique_outcomes[0]: 0, unique_outcomes[1]: 1}
+        df_work[outcome_col] = df_work[outcome_col].map(outcome_map)
+        
+        # Converter predictores categóricos para dummy
+        df_work = pd.get_dummies(df_work, columns=[c for c in predictor_cols if not pd.api.types.is_numeric_dtype(df_work[c])], drop_first=True)
+        
+        # Ajustar nomes das colunas após get_dummies
+        actual_predictors = [c for c in df_work.columns if c != outcome_col]
+        if len(actual_predictors) == 0:
+            return None
+        
+        X = df_work[actual_predictors].astype(float)
+        y = df_work[outcome_col].astype(float)
+        
+        # Adicionar constante
+        X = add_constant(X, has_constant='add')
+        
+        # Ajustar modelo
+        logit_model = Logit(y, X)
+        result = logit_model.fit(disp=0, maxiter=200)
+        
+        # Acurácia
+        predicted_probs = result.predict()
+        predicted_classes = (predicted_probs > 0.5).astype(int)
+        accuracy = float((predicted_classes == y).mean() * 100)
+        
+        # Coeficientes significativos
+        sig_predictors = []
+        for col in result.params.index:
+            if col == 'const':
+                continue
+            p_val = float(result.pvalues[col])
+            coef = float(result.params[col])
+            or_val = float(np.exp(coef))
+            sig_predictors.append({
+                "predictor": col,
+                "coefficient": round(coef, 4),
+                "p_value": round(p_val, 4),
+                "odds_ratio": round(or_val, 4),
+                "significant": p_val < 0.05
+            })
+        
+        # Pseudo R²
+        pseudo_r2 = float(result.prsquared)
+        
+        # Overall p-value (Likelihood Ratio)
+        overall_p = float(result.llr_pvalue)
+        
+        return {
+            "accuracy": round(accuracy, 1),
+            "pseudo_r2": round(pseudo_r2, 4),
+            "overall_p_value": round(overall_p, 4),
+            "n_observations": len(df_work),
+            "predictors": sig_predictors,
+            "significant_predictors": [p for p in sig_predictors if p["significant"]],
+            "engine": "statsmodels"
+        }
+    except Exception as e:
+        print(f"Logistic regression error: {e}")
+        return None
+
+def pg_linear_regression(x_vals, y_vals, x_name="X", y_name="Y"):
+    """Regressão Linear Simples via Pingouin (com fallback para scipy).
+    
+    Retorna: slope, intercept, R², IC95% para slope, p-valor e interpretação em PT-BR.
+    Engine: pingouin se disponível, scipy como fallback.
+    """
+    try:
+        x = np.array(x_vals, dtype=float)
+        y = np.array(y_vals, dtype=float)
+        mask = ~np.isnan(x) & ~np.isnan(y)
+        x, y = x[mask], y[mask]
+        if len(x) < 5:
+            return None
+
+        # — Tenta Pingouin primeiro —
+        if PINGOUIN_AVAILABLE:
+            df_lr = pd.DataFrame({x_name: x, y_name: y})
+            res = pg.linear_regression(df_lr[[x_name]], df_lr[y_name], add_intercept=True)
+            # res tem colunas: names, coef, se, T, pval, r2, adj_r2, CI[2.5%], CI[97.5%]
+            slope_row = res[res['names'] == x_name]
+            if slope_row.empty:
+                slope_row = res.iloc[-1]  # último coeficiente
+            else:
+                slope_row = slope_row.iloc[0]
+
+            slope     = float(slope_row['coef'])
+            p_val     = float(slope_row['pval'])
+            ci_low    = float(slope_row['CI[2.5%]'])
+            ci_high   = float(slope_row['CI[97.5%]'])
+            r2        = float(res['r2'].iloc[0])
+
+            intercept_row = res[res['names'] == 'Intercept']
+            intercept = float(intercept_row['coef'].iloc[0]) if not intercept_row.empty else 0.0
+
+            # Interpretação automática em PT-BR
+            if r2 >= 0.64:      r2_interp = "forte"
+            elif r2 >= 0.36:    r2_interp = "moderado"
+            elif r2 >= 0.09:    r2_interp = "fraco"
+            else:               r2_interp = "muito fraco"
+
+            direction = "positiva" if slope > 0 else "negativa"
+            sig_text  = "significativa" if p_val < 0.05 else "não significativa"
+
+            interpretation = (
+                f"A regressão linear indica relação {direction} e {sig_text} entre "
+                f"{x_name} e {y_name} (R²={round(r2,3)}, β={round(slope,4)}, "
+                f"p={'<0.001' if p_val<0.001 else round(p_val,4)}). "
+                f"O modelo explica {round(r2*100,1)}% da variância — efeito {r2_interp}."
+            )
+
+            return {
+                "slope": round(slope, 6),
+                "intercept": round(intercept, 6),
+                "r_squared": round(r2, 4),
+                "p_value": round(p_val, 4),
+                "ci_lower": round(ci_low, 6),
+                "ci_upper": round(ci_high, 6),
+                "n": int(len(x)),
+                "interpretation": interpretation,
+                "engine": "pingouin"
+            }
+        raise RuntimeError("Pingouin não disponível")
+
+    except Exception as pingouin_err:
+        # — Fallback: scipy.stats.linregress —
+        try:
+            slope, intercept, r_val, p_val, se = stats.linregress(x, y)
+            r2 = float(r_val ** 2)
+            # CI 95% manual: slope ± t(0.025, df=n-2) * se
+            df = len(x) - 2
+            t_crit = stats.t.ppf(0.975, df) if df > 0 else 1.96
+            ci_low  = float(slope - t_crit * se)
+            ci_high = float(slope + t_crit * se)
+
+            if r2 >= 0.64:      r2_interp = "forte"
+            elif r2 >= 0.36:    r2_interp = "moderado"
+            elif r2 >= 0.09:    r2_interp = "fraco"
+            else:               r2_interp = "muito fraco"
+
+            direction = "positiva" if slope > 0 else "negativa"
+            sig_text  = "significativa" if p_val < 0.05 else "não significativa"
+
+            interpretation = (
+                f"A regressão linear indica relação {direction} e {sig_text} entre "
+                f"{x_name} e {y_name} (R²={round(r2,3)}, β={round(float(slope),4)}, "
+                f"p={'<0.001' if p_val<0.001 else round(float(p_val),4)}). "
+                f"O modelo explica {round(r2*100,1)}% da variância — efeito {r2_interp}."
+            )
+
+            return {
+                "slope": round(float(slope), 6),
+                "intercept": round(float(intercept), 6),
+                "r_squared": round(r2, 4),
+                "p_value": round(float(p_val), 4),
+                "ci_lower": round(ci_low, 6),
+                "ci_upper": round(ci_high, 6),
+                "n": int(len(x)),
+                "interpretation": interpretation,
+                "engine": "scipy"
+            }
+        except Exception as fallback_err:
+            print(f"Linear regression fallback error: {fallback_err}")
+            return None
+
+# ============================================================
+# DATA VALIDATION
+# ============================================================
+
+def validate_and_clean_data(df):
+    """Valida e limpa dados antes da análise."""
+    report = {
+        "original_shape": list(df.shape),
+        "missing_values": {},
+        "outliers_removed": 0,
+        "duplicate_rows": 0,
+        "issues": [],
+        "clean_shape": None,
+    }
+    
+    # 1. Remover duplicatas
+    n_dupes = df.duplicated().sum()
+    if n_dupes > 0:
+        df = df.drop_duplicates()
+        report["duplicate_rows"] = int(n_dupes)
+        report["issues"].append(f"{n_dupes} linhas duplicadas removidas.")
+    
+    # 2. Resumo de missing values
+    for col in df.columns:
+        n_missing = int(df[col].isna().sum())
+        if n_missing > 0:
+            pct = round(n_missing / len(df) * 100, 1)
+            report["missing_values"][col] = {"n": n_missing, "pct": pct}
+            if pct > 50:
+                report["issues"].append(f"⚠ Coluna '{col}' tem {pct}% de dados faltantes. Considere removê-la.")
+    
+    # 3. Detectar outliers extremos (z-score > 4)
+    for col in df.select_dtypes(include=[np.number]).columns:
+        vals = pd.to_numeric(df[col], errors='coerce').dropna()
+        if len(vals) > 10:
+            z_scores = np.abs((vals - vals.mean()) / vals.std())
+            extreme_outliers = (z_scores > 4).sum()
+            if extreme_outliers > 0:
+                report["outliers_removed"] += int(extreme_outliers)
+                report["issues"].append(f"⚠ {extreme_outliers} valores extremos detectados em '{col}' (|z| > 4). Verifique se são erros de digitação.")
+    
+    report["clean_shape"] = list(df.shape)
+    return report, df
 
 def decide_visualization(test_type, group_stats=None, n_groups=None):
     """Decide o melhor tipo de visualização baseado no teste."""
@@ -1321,6 +1901,9 @@ async def execute_protocol_v8(file: UploadFile = File(...), protocol: str = Form
         if file.filename.endswith('.csv'): df = robust_read_csv(contents)
         else: df = robust_read_excel(io.BytesIO(contents))
         df = sanitize_df(df)
+        
+        # Validação de dados
+        validation_report, df = validate_and_clean_data(df)
         
         results = []
         errors_detected = []
@@ -1353,44 +1936,80 @@ async def execute_protocol_v8(file: UploadFile = File(...), protocol: str = Form
                     vals_b = pd.to_numeric(df_curr[col_b], errors='coerce').values
                     
                     if "T Pareado" in test:
-                        res = stats.ttest_rel(vals_a, vals_b)
-                        stat, p_val = res.statistic, res.pvalue
+                        res = pg_ttest_paired(vals_a, vals_b)
+                        stat, p_val = res["statistic"], res["p_value"]
                         diff = vals_a - vals_b
                         median_val = float(np.median(diff))
                         iqr_val = f"{np.percentile(diff, 25):.2f} - {np.percentile(diff, 75):.2f}"
-                        ci = compute_ci_95(diff)
-                        effect_size = compute_effect_size("ttest_paired", diff=diff)
+                        ci = {"ci_lower": res["ci_lower"], "ci_upper": res["ci_upper"], "mean": round(float(np.mean(diff)), 4), "se": round(float(np.std(diff, ddof=1) / np.sqrt(len(diff))), 4)} if res["ci_lower"] else compute_ci_95(diff)
+                        effect_size = {"cohens_d": res["cohens_d"], "interpretation": interpret_cohens_d(res["cohens_d"])}
+                        if res.get("power"): effect_size["achieved_power"] = res["power"]
                         chart_data = {"type": "histogram", "values": [float(v) for v in diff], "var_name": f"Diferença ({col_a} - {col_b})"}
                         viz = decide_visualization("ttest_paired")
                         
                     elif "Wilcoxon" in test:
-                        res = stats.wilcoxon(vals_a, vals_b)
-                        stat, p_val = res.statistic, res.pvalue
+                        res = pg_wilcoxon(vals_a, vals_b)
+                        stat, p_val = res["statistic"], res["p_value"]
                         diff = vals_a - vals_b
                         median_val = float(np.median(diff))
                         iqr_val = f"{np.percentile(diff, 25):.2f} - {np.percentile(diff, 75):.2f}"
                         ci = compute_ci_95(diff)
-                        effect_size = compute_effect_size("wilcoxon", diff=diff)
+                        effect_size = {"cohens_d": res.get("cohens_d", 0), "interpretation": interpret_cohens_d(res.get("cohens_d", 0))}
                         chart_data = {"type": "histogram", "values": [float(v) for v in diff], "var_name": f"Diferença ({col_a} - {col_b})"}
                         viz = decide_visualization("wilcoxon")
                         
                     elif "Pearson" in test:
-                        res = stats.pearsonr(vals_a, vals_b)
-                        stat, p_val = res.statistic, res.pvalue
+                        res = pg_pearson(vals_a, vals_b)
+                        stat, p_val = res["statistic"], res["p_value"]
                         median_val, iqr_val = None, None
-                        ci = None
-                        effect_size = compute_effect_size("pearson", r=stat)
+                        ci = {"ci_lower": res["ci_lower"], "ci_upper": res["ci_upper"], "mean": round(float(stat), 4), "se": None} if res["ci_lower"] else None
+                        effect_size = {"r_squared": res["r_squared"], "interpretation": interpret_r_squared(res["r_squared"])}
+                        if res.get("power"): effect_size["achieved_power"] = res["power"]
                         chart_data = {"type": "scatter", "x": [float(v) for v in vals_a], "y": [float(v) for v in vals_b], "var_name": f"{col_a} vs {col_b}"}
                         viz = decide_visualization("pearson")
                         
                     elif "Spearman" in test:
-                        res = stats.spearmanr(vals_a, vals_b)
-                        stat, p_val = res.correlation, res.pvalue
+                        res = pg_spearman(vals_a, vals_b)
+                        stat, p_val = res["statistic"], res["p_value"]
                         median_val, iqr_val = None, None
-                        ci = None
-                        effect_size = compute_effect_size("spearman", r=stat)
+                        ci = {"ci_lower": res["ci_lower"], "ci_upper": res["ci_upper"], "mean": round(float(stat), 4), "se": None} if res["ci_lower"] else None
+                        effect_size = {"r_squared": res["r_squared"], "interpretation": interpret_r_squared(res["r_squared"])}
+                        if res.get("power"): effect_size["achieved_power"] = res["power"]
                         chart_data = {"type": "scatter", "x": [float(v) for v in vals_a], "y": [float(v) for v in vals_b], "var_name": f"{col_a} vs {col_b}"}
                         viz = decide_visualization("spearman")
+                        
+                    elif "Regressão" in test or "Regressao" in test or "regress" in test.lower():
+                        lr_res = pg_linear_regression(vals_a, vals_b, x_name=col_a, y_name=col_b)
+                        if lr_res:
+                            stat   = lr_res["slope"]
+                            p_val  = lr_res["p_value"]
+                            ci = {"ci_lower": lr_res["ci_lower"], "ci_upper": lr_res["ci_upper"],
+                                  "mean": round(float(lr_res["slope"]), 4), "se": None}
+                            effect_size = {
+                                "r_squared": lr_res["r_squared"],
+                                "interpretation": interpret_r_squared(lr_res["r_squared"])
+                            }
+                            chart_data = {
+                                "type": "scatter",
+                                "x": [float(v) for v in vals_a],
+                                "y": [float(v) for v in vals_b],
+                                "var_name": f"{col_a} vs {col_b}",
+                                "regression": {
+                                    "slope": lr_res["slope"],
+                                    "intercept": lr_res["intercept"],
+                                    "r_squared": lr_res["r_squared"],
+                                    "ci_lower": lr_res["ci_lower"],
+                                    "ci_upper": lr_res["ci_upper"]
+                                }
+                            }
+                            interpretation_text = lr_res.get("interpretation")
+                            engine_used = lr_res.get("engine", "scipy")
+                        else:
+                            stat = p_val = None
+                            ci = effect_size = chart_data = interpretation_text = None
+                            engine_used = "scipy"
+                        median_val, iqr_val = None, None
+                        viz = decide_visualization("pearson")
                         
                     else:
                         res = stats.spearmanr(vals_a, vals_b)
@@ -1518,18 +2137,19 @@ async def execute_protocol_v8(file: UploadFile = File(...), protocol: str = Form
                             g1 = group_values.get(str(unique_groups[0]), np.array([]))
                             g2 = group_values.get(str(unique_groups[1]), np.array([]))
                             if len(g1) >= 2 and len(g2) >= 2:
-                                res = stats.ttest_ind(g1, g2)
-                                stat, p_val = res.statistic, res.pvalue
-                                effect_size = compute_effect_size("ttest_ind", g1=g1, g2=g2)
+                                res = pg_ttest_ind(g1, g2)
+                                stat, p_val = res["statistic"], res["p_value"]
+                                effect_size = {"cohens_d": res["cohens_d"], "interpretation": interpret_cohens_d(res["cohens_d"])}
+                                if res.get("power"): effect_size["achieved_power"] = res["power"]
                             else:
                                 raise ValueError("Grupos com menos de 2 observações cada.")
                         else:
                             test = "ANOVA One-Way (auto-switch)"
-                            all_groups = [group_values[str(g)] for g in unique_groups if len(group_values.get(str(g), [])) >= 2]
-                            if len(all_groups) >= 2:
-                                res = stats.f_oneway(*all_groups)
-                                stat, p_val = res.statistic, res.pvalue
-                                effect_size = compute_effect_size("anova", groups=all_groups)
+                            pg_res = pg_anova(df_curr, outcome_col_pair, predictor)
+                            if pg_res:
+                                stat, p_val = pg_res["statistic"], pg_res["p_value"]
+                                effect_size = {"eta_squared": pg_res["eta_squared"], "interpretation": interpret_eta_squared(pg_res["eta_squared"])}
+                                if pg_res.get("power"): effect_size["achieved_power"] = pg_res["power"]
                             else:
                                 raise ValueError("Grupos insuficientes para ANOVA.")
                     
@@ -1538,102 +2158,212 @@ async def execute_protocol_v8(file: UploadFile = File(...), protocol: str = Form
                             g1 = group_values.get(str(unique_groups[0]), np.array([]))
                             g2 = group_values.get(str(unique_groups[1]), np.array([]))
                             if len(g1) >= 1 and len(g2) >= 1:
-                                res = stats.mannwhitneyu(g1, g2)
-                                stat, p_val = res.statistic, res.pvalue
-                                effect_size = compute_effect_size("mann_whitney", g1=g1, g2=g2)
+                                res = pg_mannwhitney(g1, g2)
+                                stat, p_val = res["statistic"], res["p_value"]
+                                effect_size = {"cohens_d": res.get("cohens_d", 0), "interpretation": interpret_cohens_d(res.get("cohens_d", 0))}
                             else:
                                 raise ValueError("Grupos com menos de 1 observação.")
                         else:
                             test = "Kruskal-Wallis H (auto-switch)"
-                            all_groups = [group_values[str(g)] for g in unique_groups if len(group_values.get(str(g), [])) >= 1]
-                            if len(all_groups) >= 2:
-                                res = stats.kruskal(*all_groups)
-                                stat, p_val = res.statistic, res.pvalue
-                                effect_size = compute_effect_size("kruskal", groups=all_groups)
+                            pg_res = pg_kruskal(df_curr, outcome_col_pair, predictor)
+                            if pg_res:
+                                stat, p_val = pg_res["statistic"], pg_res["p_value"]
+                                effect_size = {"eta_squared": pg_res["eta_squared"], "interpretation": interpret_eta_squared(pg_res["eta_squared"])}
                             else:
                                 raise ValueError("Grupos insuficientes.")
                     
                     elif "ANOVA" in test:
-                        all_groups = [group_values[str(g)] for g in unique_groups if len(group_values.get(str(g), [])) >= 2]
-                        if len(all_groups) >= 2:
-                            res = stats.f_oneway(*all_groups)
-                            stat, p_val = res.statistic, res.pvalue
-                            effect_size = compute_effect_size("anova", groups=all_groups)
+                        pg_res = pg_anova(df_curr, outcome_col_pair, predictor)
+                        if pg_res:
+                            stat, p_val = pg_res["statistic"], pg_res["p_value"]
+                            effect_size = {"eta_squared": pg_res["eta_squared"], "interpretation": interpret_eta_squared(pg_res["eta_squared"])}
+                            if pg_res.get("power"): effect_size["achieved_power"] = pg_res["power"]
                         else:
                             raise ValueError("Grupos insuficientes para ANOVA.")
                     
                     elif "Kruskal" in test:
-                        all_groups = [group_values[str(g)] for g in unique_groups if len(group_values.get(str(g), [])) >= 1]
-                        if len(all_groups) >= 2:
-                            res = stats.kruskal(*all_groups)
-                            stat, p_val = res.statistic, res.pvalue
-                            effect_size = compute_effect_size("kruskal", groups=all_groups)
+                        pg_res = pg_kruskal(df_curr, outcome_col_pair, predictor)
+                        if pg_res:
+                            stat, p_val = pg_res["statistic"], pg_res["p_value"]
+                            effect_size = {"eta_squared": pg_res["eta_squared"], "interpretation": interpret_eta_squared(pg_res["eta_squared"])}
                         else:
                             raise ValueError("Grupos insuficientes para Kruskal-Wallis.")
                     
                     elif "Qui-Quadrado" in test or "Chi-Square" in test:
                         contingency = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair])
                         if not contingency.empty:
-                            chi2, p, dof, ex = stats.chi2_contingency(contingency)
-                            stat, p_val = chi2, p
-                            effect_size = compute_effect_size("chi2", chi2=chi2, n_total=int(contingency.sum().sum()))
+                            # Para tabela 2x2 com expected < 5, usar Fisher automaticamente
+                            use_fisher = contingency.shape == (2, 2) and np.any(stats.chi2_contingency(contingency)[3] < 5)
                             
-                            # Adicionar porcentagens na tabela de contingência
-                            contingency_pct = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], normalize='index') * 100
-                            contingency_total = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], margins=True)
+                            if use_fisher:
+                                fisher_res = pg_fisher_exact(contingency)
+                                if fisher_res:
+                                    stat, p_val = fisher_res["statistic"], fisher_res["p_value"]
+                                    effect_size = {"cramers_v": fisher_res["cramers_v"], "interpretation": interpret_cramers_v(fisher_res["cramers_v"])}
+                                    test = "Teste Exato de Fisher (auto-switch)"
+                                    
+                                    contingency_pct = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], normalize='index') * 100
+                                    contingency_total = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], margins=True)
+                                    contingency_table = []
+                                    for idx in contingency.index:
+                                        row = {"row_label": str(idx)}
+                                        for col in contingency.columns:
+                                            count = int(contingency.loc[idx, col])
+                                            pct = round(float(contingency_pct.loc[idx, col]), 1)
+                                            row[str(col)] = {"count": count, "pct": f"{pct}%"}
+                                        row["total"] = int(contingency_total.loc[idx].iloc[-1])
+                                        row["total_pct"] = f"{round(int(contingency_total.loc[idx].iloc[-1]) / len(df_curr) * 100, 1)}%"
+                                        contingency_table.append(row)
+                                    
+                                    chart_data = {"type": "contingency_table", "table": contingency_table, "predictor": predictor, "outcome": outcome_col_pair, "var_name": var_name}
+                                    viz = decide_visualization("chi2")
+                                    result_item = {
+                                        "testLabel": f"{var_name} ({test})",
+                                        "statistic": stat,
+                                        "p_value": p_val,
+                                        "median_iqr": None,
+                                        "group_stats": None,
+                                        "chart_data": chart_data,
+                                        "effect_size": effect_size,
+                                        "ci": None,
+                                        "contingency_table": contingency_table,
+                                        "odds_ratio": {"odds_ratio": fisher_res["odds_ratio"], "or_ci_95": fisher_res["or_ci_95"], "risk_ratio": None, "rr_ci_95": None, "interpretation": fisher_res["interpretation"]},
+                                        "visualization": viz
+                                    }
+                                    results.append(result_item)
+                                    continue
+                            else:
+                                chi2, p, dof, ex = stats.chi2_contingency(contingency)
+                                stat, p_val = chi2, p
+                                effect_size = compute_effect_size("chi2", chi2=chi2, n_total=int(contingency.sum().sum()))
+                                
+                                contingency_pct = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], normalize='index') * 100
+                                contingency_total = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], margins=True)
+                                contingency_table = []
+                                for idx in contingency.index:
+                                    row = {"row_label": str(idx)}
+                                    for col in contingency.columns:
+                                        count = int(contingency.loc[idx, col])
+                                        pct = round(float(contingency_pct.loc[idx, col]), 1)
+                                        row[str(col)] = {"count": count, "pct": f"{pct}%"}
+                                    row["total"] = int(contingency_total.loc[idx].iloc[-1])
+                                    row["total_pct"] = f"{round(int(contingency_total.loc[idx].iloc[-1]) / len(df_curr) * 100, 1)}%"
+                                    contingency_table.append(row)
+                                
+                                odds_ratio_data = None
+                                if contingency.shape == (2, 2):
+                                    odds_ratio_data = compute_odds_ratio(contingency)
+                                
+                                chart_data = {"type": "contingency_table", "table": contingency_table, "predictor": predictor, "outcome": outcome_col_pair, "var_name": var_name}
+                                viz = decide_visualization("chi2")
+                                result_item = {
+                                    "testLabel": f"{var_name} ({test})",
+                                    "statistic": round(float(stat), 4) if stat is not None else None,
+                                    "p_value": round(float(p_val), 4) if p_val is not None else None,
+                                    "median_iqr": None,
+                                    "group_stats": None,
+                                    "chart_data": chart_data,
+                                    "effect_size": effect_size,
+                                    "ci": None,
+                                    "contingency_table": contingency_table,
+                                    "odds_ratio": odds_ratio_data,
+                                    "visualization": viz
+                                }
+                                results.append(result_item)
+                                continue
+                        else:
+                            raise ValueError("Tabela de contingência vazia.")
+                    
+                    elif "Fisher" in test or "Exato" in test:
+                        contingency = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair])
+                        if contingency.shape == (2, 2) and not contingency.empty:
+                            fisher_res = pg_fisher_exact(contingency)
+                            if fisher_res:
+                                stat, p_val = fisher_res["statistic"], fisher_res["p_value"]
+                                effect_size = {"cramers_v": fisher_res["cramers_v"], "interpretation": interpret_cramers_v(fisher_res["cramers_v"])}
+                                
+                                contingency_pct = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], normalize='index') * 100
+                                contingency_total = pd.crosstab(df_curr[predictor], df_curr[outcome_col_pair], margins=True)
+                                contingency_table = []
+                                for idx in contingency.index:
+                                    row = {"row_label": str(idx)}
+                                    for col in contingency.columns:
+                                        count = int(contingency.loc[idx, col])
+                                        pct = round(float(contingency_pct.loc[idx, col]), 1)
+                                        row[str(col)] = {"count": count, "pct": f"{pct}%"}
+                                    row["total"] = int(contingency_total.loc[idx].iloc[-1])
+                                    row["total_pct"] = f"{round(int(contingency_total.loc[idx].iloc[-1]) / len(df_curr) * 100, 1)}%"
+                                    contingency_table.append(row)
+                                
+                                chart_data = {"type": "contingency_table", "table": contingency_table, "predictor": predictor, "outcome": outcome_col_pair, "var_name": var_name}
+                                viz = decide_visualization("chi2")
+                                result_item = {
+                                    "testLabel": f"{var_name} ({test})",
+                                    "statistic": stat,
+                                    "p_value": p_val,
+                                    "median_iqr": None,
+                                    "group_stats": None,
+                                    "chart_data": chart_data,
+                                    "effect_size": effect_size,
+                                    "ci": None,
+                                    "contingency_table": contingency_table,
+                                    "odds_ratio": {"odds_ratio": fisher_res["odds_ratio"], "or_ci_95": fisher_res["or_ci_95"], "risk_ratio": None, "rr_ci_95": None, "interpretation": fisher_res["interpretation"]},
+                                    "visualization": viz
+                                }
+                                results.append(result_item)
+                                continue
+                        else:
+                            raise ValueError("Teste Exato de Fisher requer tabela de contingência 2x2.")
+                    
+                    elif "Regressão" in test or "Regressao" in test or "Logística" in test or "Logistica" in test:
+                        logistic_preds = pair_info.get("logistic_predictors")
+                        if logistic_preds and len(logistic_preds) >= 1:
+                            logit_res = pg_logistic_regression(df, logistic_preds, outcome_col_pair)
+                        else:
+                            all_numeric = [c for c in df.columns if c != predictor and c != outcome_col_pair and c in df.select_dtypes(include=[np.number]).columns.tolist()]
+                            if len(all_numeric) >= 1:
+                                logit_res = pg_logistic_regression(df, all_numeric[:5], outcome_col_pair)
+                            else:
+                                logit_res = None
+                        
+                        if logit_res:
+                            stat = logit_res["accuracy"]
+                            p_val = logit_res["overall_p_value"]
+                            effect_size = {"r_squared": logit_res["pseudo_r2"], "interpretation": interpret_r_squared(logit_res["pseudo_r2"])}
                             
-                            # Montar tabela formatada com %
-                            contingency_table = []
-                            for idx in contingency.index:
-                                row = {"row_label": str(idx)}
-                                for col in contingency.columns:
-                                    count = int(contingency.loc[idx, col])
-                                    pct = round(float(contingency_pct.loc[idx, col]), 1)
-                                    row[str(col)] = {"count": count, "pct": f"{pct}%"}
-                                row["total"] = int(contingency_total.loc[idx].iloc[-1])
-                                row["total_pct"] = f"{round(int(contingency_total.loc[idx].iloc[-1]) / len(df_curr) * 100, 1)}%"
-                                contingency_table.append(row)
+                            sig_preds = logit_res.get("significant_predictors", [])
+                            interp_extra = ""
+                            if sig_preds:
+                                pred_strs = [f"{p['predictor']} (OR={p['odds_ratio']})" for p in sig_preds[:3]]
+                                interp_extra = f" Preditores significativos: {', '.join(pred_strs)}."
                             
-                            # Odds Ratio se tabela 2x2
-                            odds_ratio_data = None
-                            if contingency.shape == (2, 2):
-                                odds_ratio_data = compute_odds_ratio(contingency)
-                            
-                            chart_data = {
-                                "type": "contingency_table",
-                                "table": contingency_table,
-                                "predictor": predictor,
-                                "outcome": outcome_col_pair,
-                                "var_name": var_name
-                            }
-                            
-                            # Guardar na resposta
+                            chart_data = {"type": "bar", "labels": [p["predictor"] for p in logit_res["predictors"][:10]], "values": [p["odds_ratio"] for p in logit_res["predictors"][:10]], "var_name": var_name, "logistic_regression": logit_res}
                             viz = decide_visualization("chi2")
                             result_item = {
                                 "testLabel": f"{var_name} ({test})",
-                                "statistic": round(float(stat), 4) if stat is not None else None,
-                                "p_value": round(float(p_val), 4) if p_val is not None else None,
+                                "statistic": stat,
+                                "p_value": p_val,
                                 "median_iqr": None,
                                 "group_stats": None,
                                 "chart_data": chart_data,
                                 "effect_size": effect_size,
                                 "ci": None,
-                                "contingency_table": contingency_table,
-                                "odds_ratio": odds_ratio_data,
+                                "logistic_regression": logit_res,
+                                "assumptions": [{"type": "info", "severity": "info", "message": f"Modelo com {logit_res['n_observations']} observações, {len(logit_res['predictors'])} preditores. Pseudo-R²={logit_res['pseudo_r2']:.4f}.", "recommendation": None}],
+                                "interpretation": f"Regressão Logística: acurácia={logit_res['accuracy']:.1f}%, pseudo-R²={logit_res['pseudo_r2']:.4f} (p={logit_res['overall_p_value']:.4f}).{interp_extra}",
                                 "visualization": viz
                             }
                             results.append(result_item)
                             continue
                         else:
-                            raise ValueError("Tabela de contingência vazia.")
+                            raise ValueError("Preditores insuficientes para Regressão Logística.")
                     
                     else:
-                        all_groups = [group_values[str(g)] for g in unique_groups if len(group_values.get(str(g), [])) >= 1]
-                        if len(all_groups) >= 2:
-                            res = stats.kruskal(*all_groups)
-                            stat, p_val = res.statistic, res.pvalue
-                            test = f"Kruskal-Wallis H (fallback)"
-                            effect_size = compute_effect_size("kruskal", groups=all_groups)
+                        pg_res = pg_kruskal(df_curr, outcome_col_pair, predictor)
+                        if pg_res:
+                            stat, p_val = pg_res["statistic"], pg_res["p_value"]
+                            test = f"Kruskal-Wallis H (pingouin)"
+                            effect_size = {"eta_squared": pg_res["eta_squared"], "interpretation": interpret_eta_squared(pg_res["eta_squared"])}
                         else:
                             raise ValueError(f"Teste não reconhecido: {test}")
                     
@@ -1845,7 +2575,7 @@ async def execute_protocol_v8(file: UploadFile = File(...), protocol: str = Form
         except Exception as db_err:
             print(f"DATABASE ERR: Falha ao salvar histórico -> {db_err}")
 
-        return clean_dict_values({"results": results, "errors": errors_detected})
+        return clean_dict_values({"results": results, "errors": errors_detected, "validation": validation_report})
     except HTTPException:
         raise
     except Exception as e:

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Chart as ChartJS,
@@ -13,7 +13,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import { Bar, Line, Doughnut, Scatter } from 'react-chartjs-2'
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement, PointElement, LineElement,
@@ -23,8 +23,26 @@ ChartJS.register(
 const CHART_TYPES = [
   { value: 'bar', label: 'Barras', icon: 'bar_chart' },
   { value: 'line', label: 'Linha', icon: 'show_chart' },
+  { value: 'scatter', label: 'Dispersão', icon: 'scatter_plot' },
   { value: 'doughnut', label: 'Rosca', icon: 'donut_large' },
 ]
+
+function computeRegressionLine(xVals, yVals) {
+  const n = xVals.length
+  if (n < 2) return null
+  const sumX = xVals.reduce((a, b) => a + b, 0)
+  const sumY = yVals.reduce((a, b) => a + b, 0)
+  const sumXY = xVals.reduce((a, b, i) => a + b * yVals[i], 0)
+  const sumX2 = xVals.reduce((a, b) => a + b * b, 0)
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
+  const intercept = (sumY - slope * sumX) / n
+  const minX = Math.min(...xVals)
+  const maxX = Math.max(...xVals)
+  return [
+    { x: minX, y: slope * minX + intercept },
+    { x: maxX, y: slope * maxX + intercept }
+  ]
+}
 
 export default function ChartGeneratorModal({ isOpen, onClose, chartData, varName }) {
   const [selectedType, setSelectedType] = useState('bar')
@@ -34,26 +52,46 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
 
   const labels = chartData.labels || []
   const values = chartData.values || []
-  const q1 = chartData.q1 || []
-  const q3 = chartData.q3 || []
+  const stds = chartData.stds || []
+  const regression = chartData.regression
+
+  const scatterData = useMemo(() => {
+    if (chartData.type === 'scatter' && chartData.x && chartData.y) {
+      const points = chartData.x.map((x, i) => ({ x, y: chartData.y[i] }))
+      const regLine = chartData.regression
+        ? [{ x: chartData.x[0], y: chartData.regression.intercept + chartData.regression.slope * chartData.x[0] },
+           { x: chartData.x[chartData.x.length - 1], y: chartData.regression.intercept + chartData.regression.slope * chartData.x[chartData.x.length - 1] }]
+        : computeRegressionLine(chartData.x, chartData.y)
+      return { points, regLine }
+    }
+    return null
+  }, [chartData])
+
+  const availableTypes = useMemo(() => {
+    if (chartData.type === 'scatter') {
+      return CHART_TYPES.filter(t => t.value === 'scatter' || t.value === 'bar')
+    }
+    return CHART_TYPES
+  }, [chartData])
 
   const barData = {
     labels,
     datasets: [{
-      label: 'Contagem (N)',
+      label: varName || 'Valores',
       data: values,
       backgroundColor: values.map((_, i) => `rgba(0, 255, 163, ${0.2 + i * 0.1})`),
       borderColor: '#00FFA3',
       borderWidth: 2,
       borderRadius: 8,
       borderSkipped: false,
+      ...(stds.length > 0 && { errorBars: { dataMax: stds.map((s, i) => values[i] + s), dataMin: stds.map((s, i) => values[i] - s) } })
     }]
   }
 
   const lineData = {
     labels,
     datasets: [{
-      label: 'Contagem (N)',
+      label: varName || 'Valores',
       data: values,
       borderColor: '#00FFA3',
       backgroundColor: 'rgba(0, 255, 163, 0.08)',
@@ -66,6 +104,32 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       borderWidth: 3,
     }]
   }
+
+  const scatterChartData = scatterData ? {
+    datasets: [
+      {
+        label: 'Dados',
+        data: scatterData.points,
+        backgroundColor: 'rgba(0, 255, 163, 0.6)',
+        borderColor: '#00FFA3',
+        borderWidth: 1,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+      },
+      scatterData.regLine ? {
+        label: 'Linha de Regressão',
+        data: scatterData.regLine,
+        type: 'line',
+        borderColor: 'rgba(59, 130, 246, 0.8)',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+      } : null
+    ].filter(Boolean)
+  } : null
 
   const doughnutData = {
     labels,
@@ -94,7 +158,7 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       legend: { display: false },
       title: {
         display: true,
-        text: `${varName} — Contagem (N) por Grupo`,
+        text: `${varName}${chartData.type === 'scatter' ? ' — Dispersão' : ' — Contagem (N) por Grupo'}`,
         color: 'rgba(255, 255, 255, 0.8)',
         font: { size: 16, family: 'Inter', weight: '700' }
       },
@@ -110,7 +174,20 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
         titleFont: { size: 14, weight: '700' }
       }
     },
-    scales: selectedType === 'doughnut' ? {} : {
+    scales: selectedType === 'doughnut' ? {} : selectedType === 'scatter' ? {
+      x: {
+        type: 'linear',
+        position: 'bottom',
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#94a3b8', font: { size: 12 } },
+        title: { display: true, text: chartData.var_name || 'X', color: '#94a3b8' }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#94a3b8', font: { size: 12 } },
+        title: { display: true, text: 'Y', color: '#94a3b8' }
+      }
+    } : {
       x: {
         grid: { color: 'rgba(255,255,255,0.04)' },
         ticks: { color: '#94a3b8', font: { size: 12, weight: '600' } }
@@ -164,7 +241,7 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
 
           <div className="p-6">
             <div className="flex gap-3 mb-6">
-              {CHART_TYPES.map(type => (
+              {availableTypes.map(type => (
                 <button
                   key={type.value}
                   onClick={() => setSelectedType(type.value)}
@@ -183,8 +260,17 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
             <div className="h-[350px] bg-white/[0.02] rounded-2xl border border-white/5 p-4">
               {selectedType === 'bar' && <Bar ref={chartRef} options={commonOptions} data={barData} />}
               {selectedType === 'line' && <Line ref={chartRef} options={commonOptions} data={lineData} />}
+              {selectedType === 'scatter' && scatterChartData && <Scatter ref={chartRef} options={commonOptions} data={scatterChartData} />}
               {selectedType === 'doughnut' && <Doughnut ref={chartRef} options={commonOptions} data={doughnutData} />}
             </div>
+
+            {regression && (
+              <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                <p className="text-[10px] text-slate-300 font-mono">
+                  <span className="text-primary font-bold">Regressão Linear:</span> y = {regression.slope}x + {regression.intercept} | R² = {regression.r_squared} | Erro padrão = {regression.std_err}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 p-6 pt-0">
