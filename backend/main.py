@@ -23,6 +23,7 @@ from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 from bs4 import BeautifulSoup
 from stats_engine import engine as premium_engine
+from meta_pipeline import run_pipeline
 
 try:
     import pingouin as pg
@@ -2835,10 +2836,46 @@ class ChatRequest(BaseModel):
 class StudyExtractRequest(BaseModel):
     url: Optional[str] = None
 
+def _try_pubmed_api(url: str) -> str:
+    """Tenta buscar abstract via PubMed API (E-utilities) se for um link PubMed."""
+    import re as _re
+    m = _re.search(r'pubmed\.ncbi\.nlm\.nih\.gov/(\d+)', url)
+    if not m:
+        m = _re.search(r'PMID[:\s]*(\d+)', url, _re.IGNORECASE)
+    if not m:
+        return ""
+    pmid = m.group(1)
+    try:
+        resp = requests.get(
+            f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&rettype=abstract&retmode=text",
+            timeout=10
+        )
+        if resp.ok and len(resp.text.strip()) > 100:
+            return resp.text.strip()[:15000]
+    except Exception:
+        pass
+    return ""
+
+def _resolve_doi(url: str) -> str:
+    """Se for DOI, tenta resolver para URL final."""
+    import re as _re
+    m = _re.search(r'(10\.\d{4,}/[^\s]+)', url)
+    if m:
+        doi = m.group(1).rstrip('.')
+        return f"https://doi.org/{doi}"
+    if 'doi.org/' in url:
+        return url
+    return ""
+
 def fetch_url_content(url: str) -> str:
     """Busca conteúdo de uma URL (artigo científico, PubMed, etc)."""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
     }
     try:
         resp = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
@@ -2861,6 +2898,54 @@ def fetch_url_content(url: str) -> str:
             tag.decompose()
         text = soup.get_text(separator='\n', strip=True)
         return text[:15000]
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response is not None else 0
+        # Para 403/429, tentar fallbacks antes de falhar
+        if status_code in (403, 429, 503):
+            # Fallback 1: PubMed API (se for link PubMed ou tiver PMID)
+            pubmed_text = _try_pubmed_api(url)
+            if pubmed_text:
+                return pubmed_text
+
+            # Fallback 2: Tentar Google Scholar cache ou DOI metadata
+            doi_url = _resolve_doi(url)
+            if doi_url and doi_url != url:
+                try:
+                    # Tentar via Crossref API para obter metadados do DOI
+                    import re as _re
+                    doi_match = _re.search(r'(10\.\d{4,}/[^\s]+)', doi_url)
+                    if doi_match:
+                        doi = doi_match.group(1).rstrip('.')
+                        cr_resp = requests.get(
+                            f"https://api.crossref.org/works/{doi}",
+                            headers={'Accept': 'application/json'},
+                            timeout=10
+                        )
+                        if cr_resp.ok:
+                            data = cr_resp.json().get('message', {})
+                            parts = []
+                            parts.append(f"Title: {' '.join(data.get('title', []))}")
+                            if data.get('abstract'):
+                                parts.append(f"Abstract: {data['abstract']}")
+                            authors = data.get('author', [])
+                            if authors:
+                                author_str = ', '.join(f"{a.get('family', '')} {a.get('given', '')}" for a in authors[:10])
+                                parts.append(f"Authors: {author_str}")
+                            parts.append(f"Journal: {' '.join(data.get('container-title', []))}")
+                            issued = data.get('issued', {}).get('date-parts', [[]])
+                            if issued and issued[0]:
+                                parts.append(f"Year: {issued[0][0]}")
+                            text = '\n'.join(parts)
+                            if len(text) > 100:
+                                return text[:15000]
+                except Exception:
+                    pass
+
+            raise HTTPException(
+                status_code=400,
+                detail=f"Acesso bloqueado pelo site ({status_code}). Tente: 1) Colar o link do PubMed do mesmo artigo, ou 2) Baixar o PDF e anexar diretamente."
+            )
+        raise HTTPException(status_code=400, detail=f"Erro ao acessar URL: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao acessar URL: {str(e)}")
 
@@ -2890,7 +2975,7 @@ async def extract_study(
     file: Optional[UploadFile] = File(None),
     user_id: str = Depends(get_current_user)
 ):
-    if not model:
+    if not openai_client:
         raise HTTPException(status_code=503, detail="Serviço de IA não configurado.")
 
     text_content = ""
@@ -2919,8 +3004,8 @@ async def extract_study(
         raise HTTPException(status_code=400, detail="Não foi possível extrair texto do documento.")
 
     try:
-        response = model.generate_content(EXTRACT_PROMPT + text_content[:12000])
-        raw = response.text.strip()
+        raw = ask_gpt(EXTRACT_PROMPT + text_content[:12000])
+        raw = raw.strip()
         raw = re.sub(r'^```json\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)
 
@@ -2930,6 +3015,51 @@ async def extract_study(
         return {"raw_response": raw, "error": "Não foi possível parsear a resposta da IA. Extraia manualmente."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na extração: {str(e)}")
+
+# ============================================================
+# Pipeline de Meta-análise (5 estágios)
+# ============================================================
+
+@app.post("/api/meta/pipeline")
+async def meta_pipeline(
+    url: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    user_id: str = Depends(get_current_user)
+):
+    """Pipeline completo de extração de meta-análise em 5 estágios."""
+    if not openai_client:
+        raise HTTPException(status_code=503, detail="Serviço de IA não configurado.")
+
+    text_content = ""
+
+    if file:
+        contents = await file.read()
+        try:
+            if file.filename.endswith('.pdf'):
+                import PyPDF2
+                pdf_reader = PyPDF2.PdfReader(io.BytesIO(contents))
+                for page in pdf_reader.pages[:10]:
+                    text_content += page.extract_text() or ""
+            elif file.filename.endswith('.csv'):
+                df = robust_read_csv(contents)
+                text_content = f"Dataset CSV com {len(df)} linhas e {len(df.columns)} colunas.\nColunas: {df.columns.tolist()}\n{df.head(20).to_string()}"
+            else:
+                text_content = contents.decode('utf-8', errors='ignore')[:15000]
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
+    elif url:
+        text_content = fetch_url_content(url)
+    else:
+        raise HTTPException(status_code=400, detail="Forneça uma URL ou um arquivo.")
+
+    if not text_content.strip():
+        raise HTTPException(status_code=400, detail="Não foi possível extrair texto do documento.")
+
+    try:
+        result = run_pipeline(text_content, ask_gpt)
+        return clean_dict_values(result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no pipeline de meta-análise: {str(e)}")
 
 # ============================================================
 # Curva ROC / AUC

@@ -8,9 +8,8 @@ services:
     volumes:
       - ./backend:/app
       - /app/__pycache__ # Evitar conflitos de cache
-    environment:
-      - DATABASE_URL=postgresql://neondb_owner:npg_kHnN4hmF2LMw@ep-summer-queen-ac9q4qes-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require
-      - GOOGLE_API_KEY=AIzaSyCibhp0sp8Xb2B8uXXdb3xG1JVayPZhvqE
+    env_file:
+      - ./backend/.env
     networks:
       - scistat-network
 

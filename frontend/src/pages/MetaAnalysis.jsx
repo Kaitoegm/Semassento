@@ -103,36 +103,66 @@ export default function MetaAnalysis() {
   )
 }
 
-function MetaAnalysisContent({ session }) {
-  const [settings, setSettings] = useState({ measure: 'MD', model: 'random', ci: '95' })
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [studies, setStudies] = useState([
-    { name: '', n: '', effect: '', se: '', source: 'manual', confidence: null }
-  ])
-  const [importUrl, setImportUrl] = useState('')
-  const [importing, setImporting] = useState(false)
-  const [importError, setImportError] = useState(null)
-  const [activeTab, setActiveTab] = useState('import')
-  const pdfInputRef = useRef(null)
+const PIPELINE_STEPS = [
+  { key: 'classifier', label: 'Classificação', icon: 'category' },
+  { key: 'structure', label: 'Mapeamento', icon: 'account_tree' },
+  { key: 'extractor', label: 'Extração', icon: 'auto_awesome' },
+  { key: 'validator', label: 'Validação', icon: 'verified' },
+  { key: 'plot_data', label: 'Geração', icon: 'insert_chart' },
+]
 
-  const addStudy = () => setStudies(prev => [...prev, { name: '', n: '', effect: '', se: '', source: 'manual', confidence: null }])
+function MetaAnalysisContent({ session }) {
+  const API_URL = import.meta.env.VITE_API_BASE_URL
+  const [settings, setSettings] = useState({ measure: 'MD', model: 'random' })
+  const [importUrl, setImportUrl] = useState('')
+  const [pipelineRunning, setPipelineRunning] = useState(false)
+  const [pipelineError, setPipelineError] = useState(null)
+  const [pipelineResult, setPipelineResult] = useState(null)
+  const [pipelineSteps, setPipelineSteps] = useState({})
+  const [studies, setStudies] = useState([])
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [tableSelectModal, setTableSelectModal] = useState(null)
+  const [expandedWarnings, setExpandedWarnings] = useState({})
+  const pdfInputRef = useRef(null)
+  const forestRef = useRef(null)
+
+  const addStudy = () => setStudies(prev => [...prev, { name: '', n: '', effect: '', se: '', ci_lower: '', ci_upper: '', weight: null, subgroup: null, source: 'manual', warnings: [] }])
   const removeStudy = (idx) => setStudies(prev => prev.filter((_, i) => i !== idx))
   const updateStudy = (idx, field, value) => {
     setStudies(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s))
   }
 
-  const extractFromUrl = async () => {
-    if (!importUrl.trim()) return
-    setImporting(true)
-    setImportError(null)
-    const API_URL = import.meta.env.VITE_API_BASE_URL
+  const _mapStudy = (s, i, source) => ({
+    name: s.name || `Estudo ${i + 1}`,
+    n: s.n?.toString() || '',
+    effect: s.effect?.toString() || '',
+    se: s.se?.toString() || '',
+    ci_lower: s.ci_lower?.toString() || '',
+    ci_upper: s.ci_upper?.toString() || '',
+    weight: s.weight,
+    subgroup: s.subgroup,
+    source: source || 'ai',
+    warnings: s.warnings || []
+  })
+
+  const runPipeline = async (formData) => {
+    setPipelineRunning(true)
+    setPipelineError(null)
+    setPipelineResult(null)
+    setPipelineSteps({})
+
+    PIPELINE_STEPS.forEach((step, i) => {
+      setTimeout(() => {
+        setPipelineSteps(prev => {
+          if (prev[step.key]?.status === 'done' || prev[step.key]?.status === 'failed') return prev
+          return { ...prev, [step.key]: { status: 'running', duration_ms: null } }
+        })
+      }, i * 600)
+    })
 
     try {
-      const formData = new FormData()
-      formData.append('url', importUrl.trim())
-
-      const res = await fetch(`${API_URL}/api/meta/extract`, {
+      const res = await fetch(`${API_URL}/api/meta/pipeline`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session?.sessionToken}` },
         body: formData
@@ -140,84 +170,87 @@ function MetaAnalysisContent({ session }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Erro ao extrair dados do artigo.')
+        throw new Error(err.detail || 'Erro ao processar o pipeline.')
       }
 
       const data = await res.json()
-      if (data.error) {
-        setImportError(data.error)
-      } else {
-        setStudies(prev => [...prev, {
-          name: data.name || '',
-          n: data.n?.toString() || '',
-          effect: data.effect?.toString() || '',
-          se: data.se?.toString() || '',
-          source: 'link',
-          confidence: data.confidence || 'baixa',
-          year: data.year,
-          journal: data.journal,
-          design: data.design,
-          outcome: data.outcome,
-          measure: data.measure
-        }])
-        setImportUrl('')
-        setActiveTab('manual')
+      setPipelineResult(data)
+
+      const finalSteps = {}
+      PIPELINE_STEPS.forEach(step => {
+        const stepData = data.pipeline?.[step.key]
+        if (stepData) {
+          const failed = step.key === 'classifier' ? !stepData.passed :
+                         step.key === 'validator' ? !stepData.passed : false
+          finalSteps[step.key] = {
+            status: failed ? 'failed' : 'done',
+            duration_ms: stepData.duration_ms,
+            data: stepData
+          }
+        } else {
+          finalSteps[step.key] = { status: data.status === 'failed' ? 'failed' : 'done', duration_ms: null }
+        }
+      })
+      setPipelineSteps(finalSteps)
+
+      if (data.pipeline?.classifier && !data.pipeline.classifier.passed) {
+        setPipelineError(`Artigo não classificado como metanálise (probabilidade: ${data.pipeline.classifier.probability}%). ${data.pipeline.classifier.reason || ''}`)
+        setPipelineRunning(false)
+        return
       }
+
+      if (data.needs_user_input?.type === 'multiple_tables') {
+        setTableSelectModal(data.needs_user_input.details)
+      }
+
+      // Extrair novos estudos e ADICIONAR aos existentes (não substituir)
+      const source = data.pipeline?.extractor?.method || 'ai'
+      let newStudies = []
+      if (data.pipeline?.validator?.studies?.length > 0) {
+        newStudies = data.pipeline.validator.studies.map((s, i) => _mapStudy(s, i, source))
+      } else if (data.studies?.length > 0) {
+        newStudies = data.studies.map((s, i) => _mapStudy(s, i, source))
+      }
+
+      if (newStudies.length > 0) {
+        // Filtrar estudos vazios existentes (placeholders) antes de adicionar
+        setStudies(prev => {
+          const existing = prev.filter(s => s.name || s.effect || s.se)
+          return [...existing, ...newStudies]
+        })
+        setImportUrl('')
+      } else if (data.needs_user_input?.type === 'no_data') {
+        setPipelineError('Nenhum dado numérico encontrado neste artigo. Tente outro link ou insira os dados manualmente.')
+      }
+
     } catch (err) {
-      setImportError(err.message)
+      setPipelineError(err.message)
+      const failedSteps = {}
+      PIPELINE_STEPS.forEach(step => {
+        failedSteps[step.key] = { status: 'failed', duration_ms: null }
+      })
+      setPipelineSteps(failedSteps)
     }
-    setImporting(false)
+    setPipelineRunning(false)
   }
 
-  const extractFromPdf = async (e) => {
+  const submitUrl = async () => {
+    if (!importUrl.trim()) return
+    const formData = new FormData()
+    formData.append('url', importUrl.trim())
+    await runPipeline(formData)
+  }
+
+  const submitPdf = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setImporting(true)
-    setImportError(null)
-    const API_URL = import.meta.env.VITE_API_BASE_URL
-
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch(`${API_URL}/api/meta/extract`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session?.sessionToken}` },
-        body: formData
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Erro ao extrair dados do PDF.')
-      }
-
-      const data = await res.json()
-      if (data.error) {
-        setImportError(data.error)
-      } else {
-        setStudies(prev => [...prev, {
-          name: data.name || file.name.replace('.pdf', ''),
-          n: data.n?.toString() || '',
-          effect: data.effect?.toString() || '',
-          se: data.se?.toString() || '',
-          source: 'pdf',
-          confidence: data.confidence || 'baixa',
-          year: data.year,
-          journal: data.journal,
-          design: data.design,
-          outcome: data.outcome,
-          measure: data.measure
-        }])
-        setActiveTab('manual')
-      }
-    } catch (err) {
-      setImportError(err.message)
-    }
-    setImporting(false)
+    const formData = new FormData()
+    formData.append('file', file)
+    await runPipeline(formData)
     e.target.value = ''
   }
 
-  const runAnalysis = async () => {
+  const runAnalysis = () => {
     setLoading(true)
     const validStudies = studies
       .filter(s => s.name && s.effect && s.se)
@@ -235,40 +268,372 @@ function MetaAnalysisContent({ session }) {
       return
     }
 
+    const wTotal = validStudies.reduce((sum, s) => sum + 1 / (s.se * s.se), 0)
     const annotated = validStudies.map(s => {
       const [ciLow, ciHigh] = ci95(s.effect, s.se)
-      return { ...s, ciLow, ciHigh }
+      const w = 1 / (s.se * s.se)
+      return { ...s, ciLow, ciHigh, weight: (w / wTotal) * 100 }
     })
+
     const pooledData = computePooled(annotated, settings.model)
     const [pLow, pHigh] = ci95(pooledData.effect, pooledData.se)
     const heterogeneity = computeHeterogeneity(annotated, pooledData)
-    setResult({
-      studies: annotated,
-      pooled: { effect: pooledData.effect, ciLow: pLow, ciHigh: pHigh },
-      heterogeneity
-    })
+
+    const plotStudies = pipelineResult?.pipeline?.plot_data?.studies
+    const plotPooledRandom = pipelineResult?.pipeline?.plot_data?.pooled_random
+    const plotPooledFixed = pipelineResult?.pipeline?.plot_data?.pooled_fixed
+    const plotHeterogeneity = pipelineResult?.pipeline?.plot_data?.heterogeneity
+    const plotScale = pipelineResult?.pipeline?.plot_data?.scale
+
+    if (plotStudies && plotStudies.length > 0) {
+      setResult({
+        studies: annotated,
+        pooled: settings.model === 'random'
+          ? { effect: plotPooledRandom?.effect ?? pooledData.effect, ciLow: plotPooledRandom?.ci_lower ?? pLow, ciHigh: plotPooledRandom?.ci_upper ?? pHigh }
+          : { effect: plotPooledFixed?.effect ?? pooledData.effect, ciLow: plotPooledFixed?.ci_lower ?? pLow, ciHigh: plotPooledFixed?.ci_upper ?? pHigh },
+        heterogeneity: plotHeterogeneity
+          ? { i2: plotHeterogeneity.i2?.toFixed(1), q: plotHeterogeneity.q?.toFixed(2), tau2: plotHeterogeneity.tau2?.toFixed(4), p: plotHeterogeneity.p, df: plotHeterogeneity.df }
+          : heterogeneity,
+        scale: plotScale
+      })
+    } else {
+      setResult({
+        studies: annotated,
+        pooled: { effect: pooledData.effect, ciLow: pLow, ciHigh: pHigh },
+        heterogeneity,
+        scale: null
+      })
+    }
     setLoading(false)
   }
 
-  const toX = (v) => 200 + ((v + 0.2) / 1.4) * 350
+  const getNullValue = () => (settings.measure === 'OR' || settings.measure === 'RR') ? 1 : 0
 
-  const confidenceBadge = (conf) => {
-    if (!conf) return null
-    const colors = { alta: 'text-primary bg-primary/10 border-primary/20', média: 'text-amber-400 bg-amber-400/10 border-amber-400/20', baixa: 'text-rose-400 bg-rose-400/10 border-rose-400/20' }
-    return <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${colors[conf] || colors.baixa}`}>{conf}</span>
+  const getForestScale = () => {
+    if (result?.scale) return result.scale
+    if (!result?.studies) return { min: -2, max: 4, null_value: getNullValue() }
+    const allVals = []
+    result.studies.forEach(s => { allVals.push(s.ciLow, s.ciHigh, s.effect) })
+    if (result.pooled) { allVals.push(result.pooled.ciLow, result.pooled.ciHigh) }
+    const dataMin = Math.min(...allVals)
+    const dataMax = Math.max(...allVals)
+    const pad = (dataMax - dataMin) * 0.15 || 0.5
+    return { min: dataMin - pad, max: dataMax + pad, null_value: getNullValue() }
   }
+
+  const exportForestPng = () => {
+    if (!forestRef.current) return
+    const svgEl = forestRef.current.querySelector('svg')
+    if (!svgEl) return
+
+    // Clonar SVG e adaptar cores para fundo branco
+    const clone = svgEl.cloneNode(true)
+
+    // Mapa de substituição: cores escuras do tema → cores para fundo branco
+    const colorMap = {
+      'rgba(255,255,255,0.35)': 'rgba(0,0,0,0.5)',
+      'rgba(255,255,255,0.25)': 'rgba(0,0,0,0.35)',
+      'rgba(255,255,255,0.15)': 'rgba(0,0,0,0.2)',
+      'rgba(255,255,255,0.1)': 'rgba(0,0,0,0.12)',
+      'rgba(255,255,255,0.08)': 'rgba(0,0,0,0.1)',
+      'rgba(148,163,184,0.3)': 'rgba(100,116,139,0.5)',
+    }
+
+    // Trocar cores inline (stroke, fill)
+    clone.querySelectorAll('*').forEach(el => {
+      const stroke = el.getAttribute('stroke')
+      if (stroke && colorMap[stroke]) el.setAttribute('stroke', colorMap[stroke])
+      const fill = el.getAttribute('fill')
+      if (fill && colorMap[fill]) el.setAttribute('fill', colorMap[fill])
+    })
+
+    // Trocar gradientes do hover para transparente (não aparece no export)
+    clone.querySelectorAll('stop').forEach(stop => {
+      const color = stop.getAttribute('stop-color') || ''
+      if (color.includes('0,255,163')) {
+        stop.setAttribute('stop-color', 'rgba(0,0,0,0)')
+      }
+    })
+
+    // Trocar marcadores de efeito (verde → preto)
+    clone.querySelectorAll('rect[fill="#00FFA3"], polygon[fill="#00FFA3"]').forEach(el => {
+      el.setAttribute('fill', '#111827')
+    })
+
+    // Remover filtros de glow (não fazem sentido em fundo branco)
+    clone.querySelectorAll('[filter]').forEach(el => el.removeAttribute('filter'))
+
+    // Injetar estilo para sobrescrever classes Tailwind
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = `
+      text { fill: #1e293b !important; font-family: Arial, Helvetica, sans-serif !important; }
+      .fill-slate-400, .fill-slate-500, .fill-slate-600 { fill: #475569 !important; }
+      .fill-white { fill: #111827 !important; }
+      .fill-primary { fill: #059669 !important; }
+    `
+    clone.insertBefore(style, clone.firstChild)
+
+    const svgData = new XMLSerializer().serializeToString(clone)
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    const img = new Image()
+    img.onload = () => {
+      const scale = 3
+      const plotW = 900
+      const plotH = 600
+      const footerH = 40
+      const canvas = document.createElement('canvas')
+      canvas.width = plotW * scale
+      canvas.height = (plotH + footerH) * scale
+      const ctx = canvas.getContext('2d')
+
+      // Fundo branco
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.scale(scale, scale)
+
+      // Desenhar SVG
+      ctx.drawImage(img, 0, 0, plotW, plotH)
+      URL.revokeObjectURL(url)
+
+      // Footer: "Feito com PaperMetrics ©"
+      ctx.fillStyle = '#9ca3af'
+      ctx.font = '12px Arial, Helvetica, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('Feito com PaperMetrics \u00A9', plotW / 2, plotH + 26)
+
+      const link = document.createElement('a')
+      link.download = `forest_plot_${Date.now()}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
+    img.src = url
+  }
+
+  const sourceBadge = (src) => {
+    const conf = {
+      'ai': { label: 'AI', cls: 'text-violet-400 bg-violet-400/10 border-violet-400/20' },
+      'ai+regex': { label: 'AI+Regex', cls: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
+      'regex': { label: 'Regex', cls: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
+      'manual': { label: 'Manual', cls: 'text-slate-400 bg-white/5 border-white/10' },
+      'link': { label: 'Link', cls: 'text-primary bg-primary/10 border-primary/20' },
+      'pdf': { label: 'PDF', cls: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+    }
+    const c = conf[src] || conf.manual
+    return <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${c.cls}`}>{c.label}</span>
+  }
+
+  const studyValidationClass = (s) => {
+    if (!s.effect || !s.se) return 'border-rose-500/30 bg-rose-500/5'
+    if (s.warnings && s.warnings.length > 0) return 'border-amber-500/30 bg-amber-500/5'
+    return 'border-primary/20 bg-primary/5'
+  }
+
+  const validStudyCount = studies.filter(s => s.name && s.effect && s.se).length
+
+  const allWarnings = pipelineResult?.pipeline?.validator?.warnings || []
+  const validityScore = pipelineResult?.pipeline?.validator?.validity_score
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* ===== LEFT PANEL ===== */}
       <div className="space-y-6">
+
+        {/* Import Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-6 flex items-center gap-2">
+            {META_ICONS.link} Importar Artigo
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">Colar link do artigo</label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={importUrl}
+                  onChange={e => setImportUrl(e.target.value)}
+                  placeholder="https://pubmed.ncbi.nlm.nih.gov/..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitUrl() } }}
+                  disabled={pipelineRunning}
+                />
+                <button
+                  onClick={submitUrl}
+                  disabled={pipelineRunning || !importUrl.trim()}
+                  className="px-4 bg-primary/10 border border-primary/20 text-primary rounded-xl hover:bg-primary/20 transition-all disabled:opacity-40"
+                >
+                  {pipelineRunning ? <span className="animate-spin block w-[18px] h-[18px] border-2 border-primary/30 border-t-primary rounded-full"></span> : META_ICONS.extract}
+                </button>
+              </div>
+              <p className="text-[9px] text-slate-600 mt-1.5">PubMed, SciELO, Google Scholar, DOI, ou qualquer URL</p>
+            </div>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+              <div className="relative flex justify-center text-[9px] font-bold text-slate-600 bg-transparent px-3">ou</div>
+            </div>
+
+            <button
+              onClick={() => pdfInputRef.current?.click()}
+              disabled={pipelineRunning}
+              className="w-full py-3.5 border border-dashed border-white/10 rounded-xl text-xs font-bold text-slate-400 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+            >
+              {pipelineRunning ? <span className="animate-spin w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full"></span> : META_ICONS.upload}
+              {pipelineRunning ? 'Processando pipeline...' : 'Anexar PDF do artigo'}
+            </button>
+            <input ref={pdfInputRef} type="file" accept=".pdf" onChange={submitPdf} className="hidden" />
+          </div>
+        </motion.div>
+
+        {/* Pipeline Progress */}
+        {Object.keys(pipelineSteps).length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-5 flex items-center gap-2">
+              <span className="material-symbols-rounded text-[18px]">timeline</span> Pipeline de Processamento
+            </h3>
+            <div className="space-y-1">
+              {PIPELINE_STEPS.map((step, idx) => {
+                const stepState = pipelineSteps[step.key] || { status: 'pending' }
+                const statusColors = {
+                  pending: 'text-slate-600 border-white/5 bg-white/[0.02]',
+                  running: 'text-amber-400 border-amber-400/20 bg-amber-400/5',
+                  done: 'text-primary border-primary/20 bg-primary/5',
+                  failed: 'text-rose-400 border-rose-400/20 bg-rose-400/5',
+                }
+                const statusIcons = {
+                  pending: 'radio_button_unchecked',
+                  running: 'sync',
+                  done: 'check_circle',
+                  failed: 'cancel',
+                }
+                return (
+                  <motion.div
+                    key={step.key}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.08 }}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all ${statusColors[stepState.status]}`}
+                  >
+                    <span className={`material-symbols-rounded text-[16px] ${stepState.status === 'running' ? 'animate-spin' : ''}`}>
+                      {statusIcons[stepState.status]}
+                    </span>
+                    <span className="material-symbols-rounded text-[16px] opacity-60">{step.icon}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider flex-1">{step.label}</span>
+                    {stepState.duration_ms != null && (
+                      <span className="text-[9px] font-mono text-slate-500">{stepState.duration_ms}ms</span>
+                    )}
+                  </motion.div>
+                )
+              })}
+            </div>
+            {pipelineError && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-[10px] font-bold leading-relaxed">
+                {META_ICONS.warn} <span className="ml-1">{pipelineError}</span>
+              </motion.div>
+            )}
+            {pipelineResult?.pipeline?.classifier && !pipelineResult.pipeline.classifier.passed && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl space-y-2">
+                <p className="text-rose-400 text-[10px] font-black uppercase tracking-wider">Artigo não reconhecido como metanálise</p>
+                <p className="text-slate-400 text-[10px] leading-relaxed">
+                  Probabilidade: <span className="text-rose-400 font-bold">{pipelineResult.pipeline.classifier.probability}%</span>
+                </p>
+                {pipelineResult.pipeline.classifier.reason && (
+                  <p className="text-slate-500 text-[9px] leading-relaxed">{pipelineResult.pipeline.classifier.reason}</p>
+                )}
+              </motion.div>
+            )}
+            {validityScore != null && (
+              <div className="mt-4 flex items-center gap-3 px-3 py-2 bg-white/5 rounded-lg border border-white/5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Score de Validade</span>
+                <span className={`text-lg font-black ${validityScore >= 80 ? 'text-primary' : validityScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                  {validityScore}%
+                </span>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Validation Warnings */}
+        {allWarnings.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border-amber-500/10">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 mb-4 flex items-center gap-2">
+              {META_ICONS.warn} Avisos de Validação
+            </h3>
+            <div className="space-y-2">
+              {allWarnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-2 px-3 py-2 bg-amber-400/5 border border-amber-400/10 rounded-lg">
+                  <span className="material-symbols-rounded text-[14px] text-amber-400 mt-0.5 shrink-0">info</span>
+                  <span className="text-[10px] text-slate-300 leading-relaxed">{w}</span>
+                </div>
+              ))}
+            </div>
+            {studies.some(s => s.warnings && s.warnings.length > 0) && (
+              <div className="mt-4 space-y-2">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Avisos por estudo</p>
+                {studies.map((s, idx) => (s.warnings && s.warnings.length > 0) ? (
+                  <div key={idx}>
+                    <button
+                      onClick={() => setExpandedWarnings(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                      className="flex items-center gap-2 text-[10px] font-bold text-amber-400 hover:text-amber-300 transition-colors w-full text-left"
+                    >
+                      <span className="material-symbols-rounded text-[14px]">{expandedWarnings[idx] ? 'expand_less' : 'expand_more'}</span>
+                      {s.name || `Estudo ${idx + 1}`} ({s.warnings.length})
+                    </button>
+                    <AnimatePresence>
+                      {expandedWarnings[idx] && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                          <div className="pl-6 pt-1 space-y-1">
+                            {s.warnings.map((w, wi) => (
+                              <p key={wi} className="text-[9px] text-slate-400">{w}</p>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : null)}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Settings Card */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-6 flex items-center gap-2">
             {META_ICONS.settings} Parâmetros do Modelo
           </h3>
           <div className="space-y-5">
             {[
-              { label: 'Medida de Efeito', key: 'measure', options: ['MD', 'OR', 'RR', 'SMD'] },
-              { label: 'Modelo de Agrupamento', key: 'model', options: [{ v: 'random', l: 'Efeitos Aleatórios' }, { v: 'fixed', l: 'Efeitos Fixos' }] },
+              {
+                label: 'Medida de Efeito',
+                key: 'measure',
+                hint: 'Tipo de dado que os estudos reportam',
+                options: [
+                  { v: 'MD', l: 'MD — Diferença de Médias' },
+                  { v: 'OR', l: 'OR — Odds Ratio (Razão de Chances)' },
+                  { v: 'RR', l: 'RR — Risco Relativo' },
+                  { v: 'SMD', l: 'SMD — Diferença de Médias Padronizada' },
+                ],
+                descriptions: {
+                  MD: 'Use quando os estudos medem o mesmo desfecho na mesma escala (ex: pressão arterial em mmHg).',
+                  OR: 'Use para desfechos binários (sim/não). Compara as chances de um evento entre grupos.',
+                  RR: 'Use para desfechos binários. Compara a probabilidade do evento entre grupos.',
+                  SMD: 'Use quando os estudos medem o mesmo desfecho mas em escalas diferentes (ex: dor em escalas distintas).',
+                }
+              },
+              {
+                label: 'Modelo de Agrupamento',
+                key: 'model',
+                hint: 'Como combinar os resultados dos estudos',
+                options: [
+                  { v: 'random', l: 'Efeitos Aleatórios' },
+                  { v: 'fixed', l: 'Efeitos Fixos' },
+                ],
+                descriptions: {
+                  random: 'Recomendado na maioria dos casos. Assume que os estudos estimam efeitos diferentes (heterogeneidade esperada).',
+                  fixed: 'Use quando os estudos são muito semelhantes (mesma população, intervenção e desfecho).',
+                }
+              },
             ].map(field => (
               <div key={field.key} className="space-y-2">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">{field.label}</label>
@@ -277,203 +642,465 @@ function MetaAnalysisContent({ session }) {
                   onChange={e => setSettings(p => ({ ...p, [field.key]: e.target.value }))}
                   className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
-                  {field.options.map(o => <option key={o.v || o} value={o.v || o} className="bg-slate-900">{o.l || o}</option>)}
+                  {field.options.map(o => <option key={o.v} value={o.v} className="bg-slate-900">{o.l}</option>)}
                 </select>
+                {field.hint && <p className="text-[9px] text-slate-600">{field.hint}</p>}
+                {field.descriptions && (
+                  <p className="text-[9px] text-slate-400 bg-white/5 rounded-lg px-3 py-2 leading-relaxed">
+                    {field.descriptions[settings[field.key]]}
+                  </p>
+                )}
               </div>
             ))}
           </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6">
-          <div className="flex gap-1 mb-4 bg-white/5 rounded-xl p-1">
-            <button onClick={() => setActiveTab('import')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'import' ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-white'}`}>
-              {META_ICONS.link} Importar
-            </button>
-            <button onClick={() => setActiveTab('manual')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'manual' ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-white'}`}>
-              {META_ICONS.add} Manual
-            </button>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {activeTab === 'import' ? (
-              <motion.div key="import" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">Colar link do artigo</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={importUrl}
-                      onChange={e => setImportUrl(e.target.value)}
-                      placeholder="https://pubmed.ncbi.nlm.nih.gov/..."
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); extractFromUrl() } }}
-                    />
-                    <button
-                      onClick={extractFromUrl}
-                      disabled={importing || !importUrl.trim()}
-                      className="px-4 bg-primary/10 border border-primary/20 text-primary rounded-xl hover:bg-primary/20 transition-all disabled:opacity-40"
-                    >
-                      {importing ? <span className="animate-spin block w-[18px] h-[18px] border-2 border-primary/30 border-t-primary rounded-full"></span> : META_ICONS.extract}
-                    </button>
-                  </div>
-                  <p className="text-[9px] text-slate-600 mt-1.5">PubMed, SciELO, Google Scholar, DOI, ou qualquer URL</p>
-                </div>
-
-                <div className="relative py-2">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-                  <div className="relative flex justify-center text-[9px] font-bold text-slate-600 bg-transparent px-3">ou</div>
-                </div>
-
-                <button
-                  onClick={() => pdfInputRef.current?.click()}
-                  disabled={importing}
-                  className="w-full py-3.5 border border-dashed border-white/10 rounded-xl text-xs font-bold text-slate-400 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-                >
-                  {importing ? <span className="animate-spin w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full"></span> : META_ICONS.upload}
-                  {importing ? 'Extraindo dados...' : 'Anexar PDF do artigo'}
-                </button>
-                <input ref={pdfInputRef} type="file" accept=".pdf" onChange={extractFromPdf} className="hidden" />
-
-                {importError && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-[10px] font-bold">
-                    {META_ICONS.warn} <span className="ml-1">{importError}</span>
-                  </motion.div>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div key="manual" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                  {studies.map((s, idx) => (
-                    <div key={idx} className={`p-3 rounded-xl border space-y-2 ${s.source === 'link' ? 'bg-primary/5 border-primary/10' : s.source === 'pdf' ? 'bg-accent/5 border-accent/10' : 'bg-white/5 border-white/5'}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold text-slate-500 uppercase">Estudo {idx + 1}</span>
-                          {s.source === 'link' && <span className="text-[8px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase">link</span>}
-                          {s.source === 'pdf' && <span className="text-[8px] font-black text-accent bg-accent/10 px-1.5 py-0.5 rounded uppercase">pdf</span>}
-                          {confidenceBadge(s.confidence)}
-                        </div>
-                        {studies.length > 1 && (
-                          <button onClick={() => removeStudy(idx)} className="text-rose-400/60 hover:text-rose-400 transition-colors">
-                            {META_ICONS.delete}
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        placeholder="Nome (ex: Smith et al. 2019)"
-                        value={s.name}
-                        onChange={e => updateStudy(idx, 'name', e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg text-xs py-2 px-3 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                      />
-                      {(s.year || s.journal || s.design) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {s.year && <span className="text-[8px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">{s.year}</span>}
-                          {s.journal && <span className="text-[8px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full truncate max-w-[150px]">{s.journal}</span>}
-                          {s.design && <span className="text-[8px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">{s.design}</span>}
-                        </div>
-                      )}
-                      <div className="grid grid-cols-3 gap-2">
-                        <input
-                          placeholder="N" type="number"
-                          value={s.n} onChange={e => updateStudy(idx, 'n', e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-lg text-xs py-2 px-3 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                        />
-                        <input
-                          placeholder="Efeito" type="number" step="0.01"
-                          value={s.effect} onChange={e => updateStudy(idx, 'effect', e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-lg text-xs py-2 px-3 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                        />
-                        <input
-                          placeholder="SE" type="number" step="0.01"
-                          value={s.se} onChange={e => updateStudy(idx, 'se', e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-lg text-xs py-2 px-3 text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={addStudy}
-                  className="w-full mt-4 py-2 border border-dashed border-white/10 rounded-xl text-xs font-bold text-slate-500 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2"
-                >
-                  {META_ICONS.add} Adicionar Estudo Manual
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           <button
             onClick={runAnalysis}
-            disabled={loading}
-            className="w-full bg-primary hover:bg-primary-hover text-slate-900 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
+            disabled={loading || validStudyCount < 2}
+            className="w-full bg-primary hover:bg-primary-hover text-slate-900 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-6"
           >
             <span className={loading ? 'animate-spin' : ''}>{META_ICONS.play}</span>
-            {loading ? 'Processando...' : `Executar Metanálise (${studies.filter(s => s.name && s.effect && s.se).length} estudos)`}
+            {loading ? 'Processando...' : `Executar Metanálise (${validStudyCount} estudos)`}
           </button>
         </motion.div>
 
+        {/* Heterogeneity / Stats Summary (left panel, compact) */}
         {result && !result.error && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-6 border-primary/20">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 flex items-center gap-2">
-              {META_ICONS.layers} Heterogeneidade
+              {META_ICONS.layers} Estatísticas
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-white/5 rounded-xl border border-white/5">
                 <p className="text-xl font-black text-primary">{result.heterogeneity.i2}%</p>
                 <p className="text-[9px] font-bold text-slate-500 uppercase">I-Quadrado</p>
               </div>
               <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                <p className="text-xl font-black text-white">{result.heterogeneity.p}</p>
+                <p className="text-xl font-black text-white">{result.heterogeneity.q}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Q de Cochran</p>
+              </div>
+              {result.heterogeneity.tau2 != null && (
+                <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                  <p className="text-lg font-black text-white">{result.heterogeneity.tau2}</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase">Tau-quadrado</p>
+                </div>
+              )}
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                <p className={`text-lg font-black ${parseFloat(result.heterogeneity.p) < 0.05 ? 'text-amber-400' : 'text-primary'}`}>{result.heterogeneity.p}</p>
                 <p className="text-[9px] font-bold text-slate-500 uppercase">P-Valor (Q)</p>
               </div>
+            </div>
+            <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/5">
+              <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Efeito Combinado ({settings.model === 'random' ? 'Aleatório' : 'Fixo'})</p>
+              <p className="text-lg font-black text-primary">
+                {result.pooled.effect.toFixed(3)}{' '}
+                <span className="text-slate-400 text-xs font-mono">[{result.pooled.ciLow.toFixed(3)}, {result.pooled.ciHigh.toFixed(3)}]</span>
+              </p>
             </div>
           </motion.div>
         )}
       </div>
 
+      {/* ===== RIGHT PANEL ===== */}
       <div className="lg:col-span-2 space-y-6">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-8 min-h-[500px] flex flex-col justify-center">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-8 border-l-2 border-primary/30 pl-4">Gráfico de Floresta (Forest Plot)</h3>
-          {result?.error ? (
-            <div className="flex-1 flex items-center justify-center text-rose-400 text-xs font-bold">{result.error}</div>
-          ) : !result ? (
-            <div className="flex-1 flex items-center justify-center text-slate-600 text-xs italic">Importe estudos por link/PDF ou insira manualmente e execute o modelo...</div>
+
+        {/* Table Select Modal */}
+        <AnimatePresence>
+          {tableSelectModal && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="glass-card p-6 border-amber-400/20">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 mb-4 flex items-center gap-2">
+                <span className="material-symbols-rounded text-[18px]">table_chart</span> Múltiplas Tabelas Detectadas
+              </h3>
+              <p className="text-[10px] text-slate-400 mb-4">Selecione qual tabela contém os dados dos estudos para a metanálise:</p>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {(tableSelectModal.tables || []).map((tbl, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      if (tbl.studies) {
+                        setStudies(tbl.studies.map((s, si) => ({
+                          name: s.name || `Estudo ${si + 1}`,
+                          n: s.n?.toString() || '',
+                          effect: s.effect?.toString() || '',
+                          se: s.se?.toString() || '',
+                          ci_lower: s.ci_lower?.toString() || '',
+                          ci_upper: s.ci_upper?.toString() || '',
+                          weight: s.weight,
+                          subgroup: s.subgroup,
+                          source: 'ai',
+                          warnings: s.warnings || []
+                        })))
+                      }
+                      setTableSelectModal(null)
+                    }}
+                    className="w-full text-left p-4 bg-white/5 border border-white/10 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all"
+                  >
+                    <p className="text-xs font-bold text-white">{tbl.id || `Tabela ${i + 1}`}</p>
+                    {tbl.preview && <p className="text-[9px] text-slate-500 mt-1 truncate">{tbl.preview}</p>}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setTableSelectModal(null)}
+                className="mt-4 w-full py-2 border border-white/10 rounded-xl text-[10px] font-bold text-slate-500 hover:text-white transition-colors"
+              >
+                Ignorar e inserir manualmente
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Document Structure (shown on no_data) */}
+        {pipelineResult?.needs_user_input?.type === 'no_data' && pipelineResult?.pipeline?.structure && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border-slate-500/20">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 flex items-center gap-2">
+              <span className="material-symbols-rounded text-[18px]">description</span> Estrutura do Documento
+            </h3>
+            <p className="text-[10px] text-slate-500 mb-3">Seções encontradas no documento. Insira os estudos manualmente na tabela abaixo.</p>
+            <div className="flex flex-wrap gap-2">
+              {(pipelineResult.pipeline.structure.sections || []).map((sec, i) => (
+                <span key={i} className="text-[9px] font-bold text-slate-400 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">{sec.name}</span>
+              ))}
+            </div>
+            {(pipelineResult.pipeline.structure.tables || []).length > 0 && (
+              <div className="mt-3">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-2">Tabelas encontradas</p>
+                <div className="flex flex-wrap gap-2">
+                  {pipelineResult.pipeline.structure.tables.map((tbl, i) => (
+                    <span key={i} className="text-[9px] font-bold text-amber-400 bg-amber-400/5 px-3 py-1.5 rounded-lg border border-amber-400/10">{tbl.id}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Studies Table */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 border-l-2 border-primary/30 pl-4">
+              Estudos Extraídos ({studies.length})
+            </h3>
+            <button
+              onClick={addStudy}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
+            >
+              {META_ICONS.add} Adicionar
+            </button>
+          </div>
+
+          {studies.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-600 text-xs italic">
+              <span className="material-symbols-rounded text-[40px] mb-3 opacity-30">science</span>
+              Importe um artigo por link ou PDF para extrair os estudos automaticamente, ou adicione manualmente.
+            </div>
           ) : (
-            <svg viewBox="0 0 600 400" className="w-full h-auto text-white">
-              <defs>
-                <filter id="glow-meta" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-                <linearGradient id="forest-grad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="rgba(0,255,163,0)" />
-                  <stop offset="50%" stopColor="rgba(0,255,163,0.1)" />
-                  <stop offset="100%" stopColor="rgba(0,255,163,0)" />
-                </linearGradient>
-              </defs>
-              <line x1={toX(0)} y1="40" x2={toX(0)} y2="340" stroke="rgba(255,255,255,0.1)" strokeDasharray="4 2" />
-              {result.studies.map((s, i) => {
-                const y = 60 + i * 35; return (
-                  <g key={s.id} className="group">
-                    <rect x="0" y={y - 15} width="600" height="30" fill="url(#forest-grad)" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <text x="10" y={y + 4} className="text-[10px] fill-slate-400 font-medium">{s.name}</text>
-                    <line x1={toX(s.ciLow)} y1={y} x2={toX(s.ciHigh)} y2={y} stroke="white" strokeWidth="1" strokeOpacity="0.3" />
-                    <rect x={toX(s.effect) - 3} y={y - 3} width={6} height={6} fill="#00FFA3" rx="1" filter="url(#glow-meta)" />
-                    <text x="590" y={y + 4} textAnchor="end" className="text-[9px] fill-slate-500 font-mono">{s.effect.toFixed(2)} [{s.ciLow.toFixed(2)}, {s.ciHigh.toFixed(2)}]</text>
-                  </g>
-                )
-              })}
-              <g className="result-diamond">
-                <line x1="10" y1="360" x2="590" y2="360" stroke="rgba(255,255,255,0.05)" />
-                <text x="10" y="385" className="fill-white font-black text-[11px] uppercase tracking-wider">Efeito Combinado</text>
-                <polygon
-                  points={`${toX(result.pooled.effect)},370 ${toX(result.pooled.ciHigh)},380 ${toX(result.pooled.effect)},390 ${toX(result.pooled.ciLow)},380`}
-                  fill="#00FFA3" filter="url(#glow-meta)"
-                />
-                <text x="590" y="385" textAnchor="end" className="fill-primary font-black text-xs font-mono">{result.pooled.effect.toFixed(2)}</text>
-              </g>
-            </svg>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-left py-2 px-2 min-w-[140px]">Estudo</th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-center py-2 px-1 w-[60px]">N</th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-center py-2 px-1 w-[80px]">Efeito</th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-center py-2 px-1 w-[80px]">IC Inf</th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-center py-2 px-1 w-[80px]">IC Sup</th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-center py-2 px-1 w-[70px]">SE</th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-slate-500 text-center py-2 px-1 w-[60px]">Fonte</th>
+                    <th className="w-[30px]"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studies.map((s, idx) => (
+                    <tr key={idx} className={`border-b border-white/5 transition-colors ${studyValidationClass(s)} rounded`}>
+                      <td className="py-1.5 px-1">
+                        <input
+                          placeholder="Nome do estudo"
+                          value={s.name}
+                          onChange={e => updateStudy(idx, 'name', e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-0 py-1"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <input
+                          type="number" placeholder="N"
+                          value={s.n}
+                          onChange={e => updateStudy(idx, 'n', e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-white text-center placeholder-slate-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <input
+                          type="number" step="0.01" placeholder="0.00"
+                          value={s.effect}
+                          onChange={e => updateStudy(idx, 'effect', e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-white text-center placeholder-slate-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <input
+                          type="number" step="0.01" placeholder="IC-"
+                          value={s.ci_lower}
+                          onChange={e => updateStudy(idx, 'ci_lower', e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-slate-400 text-center placeholder-slate-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <input
+                          type="number" step="0.01" placeholder="IC+"
+                          value={s.ci_upper}
+                          onChange={e => updateStudy(idx, 'ci_upper', e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-slate-400 text-center placeholder-slate-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <input
+                          type="number" step="0.01" placeholder="SE"
+                          value={s.se}
+                          onChange={e => updateStudy(idx, 'se', e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-white text-center placeholder-slate-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                        />
+                      </td>
+                      <td className="py-1.5 px-1 text-center">{sourceBadge(s.source)}</td>
+                      <td className="py-1.5 px-1">
+                        <button onClick={() => removeStudy(idx)} className="text-rose-400/40 hover:text-rose-400 transition-colors">
+                          {META_ICONS.delete}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </motion.div>
+
+        {/* Forest Plot */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-8 min-h-[500px] flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 border-l-2 border-primary/30 pl-4">Gráfico de Floresta (Forest Plot)</h3>
+            {result && !result.error && (
+              <button
+                onClick={exportForestPng}
+                className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
+              >
+                {META_ICONS.download} Exportar PNG
+              </button>
+            )}
+          </div>
+
+          <div ref={forestRef} className="flex-1 flex items-center justify-center">
+            {result?.error ? (
+              <div className="text-rose-400 text-xs font-bold">{result.error}</div>
+            ) : !result ? (
+              <div className="text-slate-600 text-xs italic text-center max-w-sm">
+                Importe estudos por link/PDF ou insira manualmente, configure os parametros e execute o modelo para gerar o grafico.
+              </div>
+            ) : (() => {
+              const scale = getForestScale()
+              const svgW = 900
+              const leftMargin = 180
+              const rightMargin = 180
+              const plotLeft = leftMargin
+              const plotRight = svgW - rightMargin
+              const plotWidth = plotRight - plotLeft
+              const studyCount = result.studies.length
+              const rowH = Math.min(35, Math.max(22, 350 / studyCount))
+              const topPad = 50
+              const bottomPad = 80
+              const svgH = topPad + studyCount * rowH + bottomPad
+
+              const toX = (v) => {
+                const ratio = (v - scale.min) / (scale.max - scale.min)
+                return plotLeft + ratio * plotWidth
+              }
+
+              const nullX = toX(scale.null_value)
+              const maxWeight = Math.max(...result.studies.map(s => s.weight || 0), 1)
+
+              return (
+                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-auto">
+                  <defs>
+                    <filter id="glow-forest" x="-30%" y="-30%" width="160%" height="160%">
+                      <feGaussianBlur stdDeviation="2.5" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <linearGradient id="forest-row-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="rgba(0,255,163,0)" />
+                      <stop offset="50%" stopColor="rgba(0,255,163,0.08)" />
+                      <stop offset="100%" stopColor="rgba(0,255,163,0)" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Header */}
+                  <text x={plotLeft - 10} y={topPad - 20} textAnchor="end" className="fill-slate-500 font-black" style={{ fontSize: '9px' }}>ESTUDO</text>
+                  <text x={plotLeft + plotWidth / 2} y={topPad - 20} textAnchor="middle" className="fill-slate-500 font-black" style={{ fontSize: '9px' }}>EFEITO (IC 95%)</text>
+                  <text x={svgW - 10} y={topPad - 20} textAnchor="end" className="fill-slate-500 font-black" style={{ fontSize: '9px' }}>PESO</text>
+
+                  {/* Null line */}
+                  <line x1={nullX} y1={topPad - 5} x2={nullX} y2={topPad + studyCount * rowH + 5} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 3" />
+                  <text x={nullX} y={topPad - 8} textAnchor="middle" className="fill-slate-600" style={{ fontSize: '8px' }}>{scale.null_value}</text>
+
+                  {/* Tick marks */}
+                  {(() => {
+                    const range = scale.max - scale.min
+                    const rawStep = range / 6
+                    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)))
+                    const stepOptions = [1, 2, 2.5, 5, 10]
+                    const step = stepOptions.map(s => s * mag).find(s => range / s <= 8) || rawStep
+                    const ticks = []
+                    let t = Math.ceil(scale.min / step) * step
+                    while (t <= scale.max) {
+                      ticks.push(parseFloat(t.toFixed(6)))
+                      t += step
+                    }
+                    return ticks.map(tick => {
+                      const x = toX(tick)
+                      return (
+                        <g key={tick}>
+                          <line x1={x} y1={topPad + studyCount * rowH + 5} x2={x} y2={topPad + studyCount * rowH + 10} stroke="rgba(255,255,255,0.1)" />
+                          <text x={x} y={topPad + studyCount * rowH + 22} textAnchor="middle" className="fill-slate-600" style={{ fontSize: '8px' }}>{tick}</text>
+                        </g>
+                      )
+                    })
+                  })()}
+
+                  {/* Study rows */}
+                  {result.studies.map((s, i) => {
+                    const y = topPad + i * rowH + rowH / 2
+                    const ciLowX = toX(Math.max(s.ciLow, scale.min))
+                    const ciHighX = toX(Math.min(s.ciHigh, scale.max))
+                    const effectX = toX(s.effect)
+                    const w = s.weight || (1 / result.studies.length * 100)
+                    const markerSize = Math.max(4, Math.min(14, 4 + (w / maxWeight) * 10))
+
+                    return (
+                      <g key={s.id || i} className="group">
+                        <rect x="0" y={y - rowH / 2} width={svgW} height={rowH} fill="url(#forest-row-grad)" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                        {/* Study name */}
+                        <text x={plotLeft - 10} y={y + 4} textAnchor="end" className="fill-slate-400" style={{ fontSize: '10px' }}>
+                          {s.name.length > 22 ? s.name.substring(0, 22) + '...' : s.name}
+                        </text>
+
+                        {/* CI line */}
+                        <line x1={ciLowX} y1={y} x2={ciHighX} y2={y} stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+
+                        {/* CI whiskers */}
+                        {s.ciLow >= scale.min && <line x1={ciLowX} y1={y - 3} x2={ciLowX} y2={y + 3} stroke="rgba(255,255,255,0.25)" strokeWidth="1" />}
+                        {s.ciHigh <= scale.max && <line x1={ciHighX} y1={y - 3} x2={ciHighX} y2={y + 3} stroke="rgba(255,255,255,0.25)" strokeWidth="1" />}
+
+                        {/* Arrow if CI extends beyond scale */}
+                        {s.ciLow < scale.min && <polygon points={`${plotLeft},${y} ${plotLeft + 5},${y - 3} ${plotLeft + 5},${y + 3}`} fill="rgba(255,255,255,0.25)" />}
+                        {s.ciHigh > scale.max && <polygon points={`${plotRight},${y} ${plotRight - 5},${y - 3} ${plotRight - 5},${y + 3}`} fill="rgba(255,255,255,0.25)" />}
+
+                        {/* Effect marker (square proportional to weight) */}
+                        <rect
+                          x={effectX - markerSize / 2}
+                          y={y - markerSize / 2}
+                          width={markerSize}
+                          height={markerSize}
+                          fill="#00FFA3"
+                          rx="1"
+                          filter="url(#glow-forest)"
+                        />
+
+                        {/* Effect value + CI */}
+                        <text x={plotRight + 8} y={y + 4} className="fill-slate-400 font-mono" style={{ fontSize: '9px' }}>
+                          {s.effect.toFixed(2)} [{s.ciLow.toFixed(2)}, {s.ciHigh.toFixed(2)}]
+                        </text>
+
+                        {/* Weight */}
+                        <text x={svgW - 10} y={y + 4} textAnchor="end" className="fill-slate-600 font-mono" style={{ fontSize: '9px' }}>
+                          {w.toFixed(1)}%
+                        </text>
+                      </g>
+                    )
+                  })}
+
+                  {/* Separator line */}
+                  <line x1={plotLeft - 10} y1={topPad + studyCount * rowH + 2} x2={plotRight + 10} y2={topPad + studyCount * rowH + 2} stroke="rgba(255,255,255,0.08)" />
+
+                  {/* Pooled diamond */}
+                  {(() => {
+                    const dy = topPad + studyCount * rowH + 30
+                    const diamondCenterX = toX(result.pooled.effect)
+                    const diamondLeftX = toX(Math.max(result.pooled.ciLow, scale.min))
+                    const diamondRightX = toX(Math.min(result.pooled.ciHigh, scale.max))
+                    const diamondH = 8
+                    return (
+                      <g>
+                        <text x={plotLeft - 10} y={dy + 4} textAnchor="end" className="fill-white font-black" style={{ fontSize: '10px' }}>
+                          {settings.model === 'random' ? 'Ef. Aleatório' : 'Ef. Fixo'}
+                        </text>
+                        <polygon
+                          points={`${diamondCenterX},${dy - diamondH} ${diamondRightX},${dy} ${diamondCenterX},${dy + diamondH} ${diamondLeftX},${dy}`}
+                          fill="#00FFA3"
+                          filter="url(#glow-forest)"
+                        />
+                        <text x={plotRight + 8} y={dy + 4} className="fill-primary font-mono font-bold" style={{ fontSize: '10px' }}>
+                          {result.pooled.effect.toFixed(2)} [{result.pooled.ciLow.toFixed(2)}, {result.pooled.ciHigh.toFixed(2)}]
+                        </text>
+                      </g>
+                    )
+                  })()}
+
+                  {/* Bottom labels */}
+                  {(() => {
+                    const labelY = topPad + studyCount * rowH + 55
+                    return (
+                      <g>
+                        <text x={toX(scale.null_value) - 30} y={labelY} textAnchor="end" className="fill-slate-500" style={{ fontSize: '9px' }}>
+                          Favorece Controle
+                        </text>
+                        <text x={toX(scale.null_value) + 30} y={labelY} textAnchor="start" className="fill-slate-500" style={{ fontSize: '9px' }}>
+                          Favorece Tratamento
+                        </text>
+                        {/* Arrows */}
+                        <line x1={toX(scale.null_value) - 35} y1={labelY - 4} x2={plotLeft + 20} y2={labelY - 4} stroke="rgba(148,163,184,0.3)" strokeWidth="1" markerEnd="" />
+                        <polygon points={`${plotLeft + 20},${labelY - 4} ${plotLeft + 26},${labelY - 7} ${plotLeft + 26},${labelY - 1}`} fill="rgba(148,163,184,0.3)" />
+                        <line x1={toX(scale.null_value) + 35} y1={labelY - 4} x2={plotRight - 20} y2={labelY - 4} stroke="rgba(148,163,184,0.3)" strokeWidth="1" />
+                        <polygon points={`${plotRight - 20},${labelY - 4} ${plotRight - 26},${labelY - 7} ${plotRight - 26},${labelY - 1}`} fill="rgba(148,163,184,0.3)" />
+                      </g>
+                    )
+                  })()}
+                </svg>
+              )
+            })()}
+          </div>
+        </motion.div>
+
+        {/* Stats Summary (below forest) */}
+        {result && !result.error && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 border-l-2 border-primary/30 pl-4">Resumo Estatístico</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
+                <p className={`text-2xl font-black ${parseFloat(result.heterogeneity.i2) > 50 ? 'text-amber-400' : parseFloat(result.heterogeneity.i2) > 75 ? 'text-rose-400' : 'text-primary'}`}>
+                  {result.heterogeneity.i2}%
+                </p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Heterogeneidade (I2)</p>
+                <p className="text-[8px] text-slate-600 mt-0.5">
+                  {parseFloat(result.heterogeneity.i2) < 25 ? 'Baixa' : parseFloat(result.heterogeneity.i2) < 50 ? 'Moderada' : parseFloat(result.heterogeneity.i2) < 75 ? 'Substancial' : 'Considerável'}
+                </p>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
+                <p className="text-2xl font-black text-primary">{result.pooled.effect.toFixed(3)}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Efeito Combinado</p>
+                <p className="text-[8px] text-slate-600 mt-0.5 font-mono">[{result.pooled.ciLow.toFixed(3)}, {result.pooled.ciHigh.toFixed(3)}]</p>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
+                <p className="text-2xl font-black text-white">{result.studies.length}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Estudos Incluídos</p>
+                <p className="text-[8px] text-slate-600 mt-0.5">N total: {result.studies.reduce((sum, s) => sum + (s.n || 0), 0)}</p>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
+                <p className="text-lg font-black text-white uppercase">{settings.model === 'random' ? 'Aleatório' : 'Fixo'}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Modelo</p>
+                <p className="text-[8px] text-slate-600 mt-0.5">{settings.measure}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   )
@@ -579,22 +1206,75 @@ function RocCurveContent({ session }) {
   const exportRocPng = () => {
     if (!svgRef.current) return
     const svgEl = svgRef.current.querySelector('svg')
-    const svgData = new XMLSerializer().serializeToString(svgEl)
+    if (!svgEl) return
+
+    // Clonar e adaptar cores para fundo branco
+    const clone = svgEl.cloneNode(true)
+
+    const colorMap = {
+      'rgba(255,255,255,0.04)': 'rgba(0,0,0,0.06)',
+      'rgba(255,255,255,0.15)': 'rgba(0,0,0,0.2)',
+    }
+    clone.querySelectorAll('*').forEach(el => {
+      const stroke = el.getAttribute('stroke')
+      if (stroke && colorMap[stroke]) el.setAttribute('stroke', colorMap[stroke])
+    })
+
+    // Substituir gradientes para fundo branco
+    clone.querySelectorAll('stop').forEach(stop => {
+      const color = stop.getAttribute('stop-color') || ''
+      if (color === 'rgba(0,255,163,0.25)') stop.setAttribute('stop-color', 'rgba(5,150,105,0.15)')
+      if (color === 'rgba(0,255,163,0.02)') stop.setAttribute('stop-color', 'rgba(5,150,105,0.02)')
+      if (color === '#00FFA3') stop.setAttribute('stop-color', '#059669')
+      if (color === '#00CC82') stop.setAttribute('stop-color', '#047857')
+    })
+
+    // Trocar cores da curva e badge
+    clone.querySelectorAll('path[stroke="url(#roc-line-grad)"]').forEach(el => {
+      el.setAttribute('stroke', '#059669')
+    })
+    clone.querySelectorAll('rect[fill="rgba(10,10,26,0.85)"]').forEach(el => {
+      el.setAttribute('fill', 'rgba(255,255,255,0.9)')
+      el.setAttribute('stroke', 'rgba(5,150,105,0.4)')
+    })
+
+    // Remover filtros de glow
+    clone.querySelectorAll('[filter]').forEach(el => el.removeAttribute('filter'))
+
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = `
+      text { fill: #334155 !important; font-family: Arial, Helvetica, sans-serif !important; }
+      .fill-slate-400, .fill-slate-500, .fill-slate-600 { fill: #475569 !important; }
+      .fill-primary { fill: #059669 !important; }
+    `
+    clone.insertBefore(style, clone.firstChild)
+
+    const svgData = new XMLSerializer().serializeToString(clone)
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
 
     const img = new Image()
     img.onload = () => {
+      const scale = 3
+      const plotW = 800
+      const plotH = 500
+      const footerH = 40
       const canvas = document.createElement('canvas')
-      const scale = 2
-      canvas.width = 800 * scale
-      canvas.height = 500 * scale
+      canvas.width = plotW * scale
+      canvas.height = (plotH + footerH) * scale
       const ctx = canvas.getContext('2d')
-      ctx.fillStyle = '#0a0a1a'
+
+      ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.scale(scale, scale)
-      ctx.drawImage(img, 0, 0, 800, 500)
+      ctx.drawImage(img, 0, 0, plotW, plotH)
       URL.revokeObjectURL(url)
+
+      // Footer
+      ctx.fillStyle = '#9ca3af'
+      ctx.font = '12px Arial, Helvetica, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('Feito com PaperMetrics \u00A9', plotW / 2, plotH + 26)
 
       const link = document.createElement('a')
       link.download = `curva_roc_${Date.now()}.png`
