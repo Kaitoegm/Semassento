@@ -7,6 +7,7 @@ import BioSummaryTable from '../components/BioSummaryTable'
 import AnalysisReviewPlan from '../components/AnalysisReviewPlan'
 import ChartGeneratorModal from '../components/ChartGeneratorModal'
 import StatTooltip from '../components/StatTooltip'
+import OutcomeSelector from '../components/OutcomeSelector'
 
 // Capability cards shown on the empty state instead of mock charts
 const ANALYSIS_CATEGORIES = [
@@ -137,6 +138,10 @@ export default function Dashboard() {
   const [apaCopied, setApaCopied] = useState(null)  // stores testLabel of last copied
   const [premiumAnalysis, setPremiumAnalysis] = useState(null)
   const [premiumLoading, setPremiumLoading] = useState(false)
+  // Passo 0 — seleção de outcome antes da análise
+  const [columnOptions, setColumnOptions] = useState([])
+  const [showOutcomeSelector, setShowOutcomeSelector] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null)
   const fileInputRef = useRef(null)
   const premiumRef = useRef(null)
 
@@ -245,6 +250,9 @@ export default function Dashboard() {
 
   const toggleTest = (id) => setSelectedTests(prev => ({ ...prev, [id]: !prev[id] }))
 
+  // ============================================================
+  // PASSO 0: Ao selecionar arquivo -> chama /get-columns primeiro
+  // ============================================================
   const handleFileUpload = async (e) => {
     let file;
     if (e.target && e.target.files) {
@@ -252,23 +260,52 @@ export default function Dashboard() {
     } else if (e.dataTransfer && e.dataTransfer.files) {
       file = e.dataTransfer.files[0];
     }
-    
     if (!file) return
-    
+
     setResults([])
     setDescriptiveData(null)
     setGroupedSummary(null)
     setAnalysisProtocol(null)
     setShowReview(false)
-    
     setLoading(true)
     setIsDragging(false)
-    
-    const formData = new FormData()
-    formData.append('file', file)
-    
+
     const headers = { 'Authorization': `Bearer ${session?.sessionToken}` }
     const API_URL = import.meta.env.VITE_API_BASE_URL
+
+    try {
+      const colFormData = new FormData()
+      colFormData.append('file', file)
+      const colRes = await fetch(`${API_URL}/api/data/get-columns`, {
+        method: 'POST',
+        headers,
+        body: colFormData
+      })
+      if (!colRes.ok) throw new Error(`Erro ao ler colunas: ${colRes.status}`)
+      const colData = await colRes.json()
+      setColumnOptions(colData.columns || [])
+      setPendingFile(file)
+      setShowOutcomeSelector(true)
+    } catch (err) {
+      alert(`Erro no upload: ${err.message}`);
+    }
+    setLoading(false)
+  }
+
+  // ============================================================
+  // PASSO 0 -> ANÁLISE: chamado após o usuário confirmar o outcome
+  // ============================================================
+  const handleOutcomeConfirmed = async (outcomeCol) => {
+    setShowOutcomeSelector(false)
+    if (!pendingFile) return
+
+    const headers = { 'Authorization': `Bearer ${session?.sessionToken}` }
+    const API_URL = import.meta.env.VITE_API_BASE_URL
+    setLoading(true)
+
+    const formData = new FormData()
+    formData.append('file', pendingFile)
+    formData.append('outcome_col', outcomeCol)
 
     try {
       const protocolRes = await fetch(`${API_URL}/api/data/analyze-protocol`, {
@@ -276,7 +313,6 @@ export default function Dashboard() {
         headers,
         body: formData
       })
-      
       if (!protocolRes.ok) throw new Error(`Erro no servidor: ${protocolRes.status}`);
 
       const protocolData = await protocolRes.json()
@@ -285,12 +321,15 @@ export default function Dashboard() {
         setOutcomeOptions(allVars)
         setAnalysisProtocol({
           items: protocolData.protocol,
-          outcome: protocolData.outcome
+          outcome: protocolData.outcome,
+          meta: protocolData.meta || null
         })
         setShowReview(true)
       }
 
-      setFileData({ filename: file.name, formData })
+      const pendingFormData = new FormData()
+      pendingFormData.append('file', pendingFile)
+      setFileData({ filename: pendingFile.name, formData: pendingFormData })
 
     } catch (err) {
       alert(`Erro no upload: ${err.message}`);
@@ -584,11 +623,21 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-12 pb-20">
+      {/* Passo 0 — Seleção de Desfecho */}
+      {showOutcomeSelector && (
+        <OutcomeSelector
+          columns={columnOptions}
+          onConfirm={handleOutcomeConfirmed}
+          onCancel={() => { setShowOutcomeSelector(false); setPendingFile(null) }}
+        />
+      )}
+
       <AnimatePresence>
         {showReview && (
           <section className="mb-12">
               <AnalysisReviewPlan 
                 protocol={analysisProtocol?.items || []} 
+                meta={analysisProtocol?.meta || null}
                 outcome={analysisProtocol?.outcome || 'Resultado'} 
                 outcomeOptions={outcomeOptions}
                 onOptionChange={handleProtocolOptionChange}
@@ -599,6 +648,7 @@ export default function Dashboard() {
           </section>
         )}
       </AnimatePresence>
+
 
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>

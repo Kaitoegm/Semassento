@@ -592,8 +592,52 @@ async def upload_file_v6(file: UploadFile = File(...), user_id: str = Depends(ge
         print(f"ERR: API Upload -> {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/api/data/get-columns")
+async def get_columns_endpoint(file: UploadFile = File(...)):
+    """Retorna as colunas do arquivo com tipo, amostra e sugestão de outcome — sem execução estatística."""
+    contents = await file.read()
+    try:
+        if file.filename.endswith('.csv'):
+            df = robust_read_csv(contents)
+        else:
+            df = robust_read_excel(contents)
+        df = sanitize_df(df)
+
+        # Heurísticas para sugerir o outcome
+        outcome_keywords = [
+            'desfecho', 'outcome', 'resultado', 'diagnose', 'diagnostico',
+            'morte', 'obito', 'alta', 'cura', 'resposta', 'target',
+            'sobrevida', 'prognostico', 'recidiva', 'progrssao'
+        ]
+        suggested_col = df.columns[-1]  # fallback: última coluna
+        for col in reversed(df.columns.tolist()):
+            if any(kw in col.lower() for kw in outcome_keywords):
+                suggested_col = col
+                break
+
+        columns = []
+        for col in df.columns:
+            col_series = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
+            unique_count = len(df[col].dropna().unique())
+            is_numeric_col = not col_series.isna().all() and unique_count >= 5
+            dtype_label = "Numérico" if is_numeric_col else ("Binário" if unique_count == 2 else "Categórico")
+            sample_vals = df[col].dropna().head(3).astype(str).tolist()
+            columns.append({
+                "name": col,
+                "type": dtype_label,
+                "unique_count": unique_count,
+                "sample": sample_vals,
+                "suggested": col == suggested_col
+            })
+
+        return {"columns": columns, "suggested_outcome": suggested_col}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler colunas: {str(e)}")
+
 @app.post("/api/data/analyze-protocol")
-async def analyze_protocol_v7(file: UploadFile = File(...)):
+async def analyze_protocol_v7(file: UploadFile = File(...), outcome_col: str = Form(None)):
     contents = await file.read()
     try:
         if file.filename.endswith('.csv'): df = robust_read_csv(contents)
@@ -813,116 +857,188 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
                 })
         
         # ============================================================
-        # PASSO 5: Montar protocolo final
+        # PASSO 5: Montar protocolo final com Smart Selection
         # ============================================================
-        # ============================================================
-        # PASSO 5: Montar protocolo final com Escalonamento de Relevância
-        # ============================================================
+        # Determinar outcome sugerido ANTES de qualquer loop (Passos 5 e 6 dependem disso)
+        candidate_cols = [c for c in df.columns if is_meaningful_variable(c)]
+        # Usa o outcome confirmado pelo usuário; fallback para auto-detecção apenas se não informado
+        if outcome_col and outcome_col in df.columns:
+            outcome_suggested = outcome_col
+        else:
+            outcome_suggested = candidate_cols[-1] if candidate_cols else df.columns[-1]
+        outcome_series = pd.to_numeric(df[outcome_suggested].astype(str).str.replace(',', '.'), errors='coerce')
+        is_outcome_numeric = not outcome_series.isna().all() and len(outcome_series.dropna().unique()) >= 5
+
         variables = []
         var_id = 0
         total_rows = len(df)
-        
-        def calculate_relevance(col_name, info):
-            """Calcula score de relevância (0-100)."""
+
+        def calculate_relevance(col_name, info, involves_outcome=False):
+            """Calcula score de relevância (0-100). Bônus para desfecho e penalidade para missing data."""
             if not info: return 50
+            # 1. Completude (máx 60)
             completion = (info['n'] / total_rows) * 60
+            # 2. Diversidade (máx 20)
             diversity = min(info['unique_count'] / 10, 1.0) * 20
-            # Bonus para variáveis clínicas conhecidas
+            # 3. Bônus clínicos (máx 20)
             clinical_bonus = 0
             name_lower = col_name.lower()
             if any(w in name_lower for w in ['idade', 'age', 'sex', 'gender', 'outcome', 'desfecho', 'morte', 'alta', 'intern', 'weight', 'peso', 'imc', 'bmi']):
                 clinical_bonus = 20
-            return min(completion + diversity + clinical_bonus, 100)
+            # 4. Bônus de desfecho
+            outcome_bonus = 25 if involves_outcome else 0
+            
+            # 5. Penalidade por dados faltantes (>25% missing)
+            missing_penalty = 0
+            pct_missing = (total_rows - info['n']) / total_rows * 100
+            if pct_missing > 25:
+                missing_penalty = (pct_missing - 25) * 0.8 # Penalidade agressiva para variáveis vazias
+                
+            score = completion + diversity + clinical_bonus + outcome_bonus - missing_penalty
+            return max(0, min(score, 100))
 
-        # 5a. Pares pareados
+
+        # 5a. Pares pareados (sempre selecionados — alto valor analítico)
         for pair in detected_pairs:
-            var_id += 1
-            rel = max(calculate_relevance(pair['col_a'], var_info.get(pair['col_a'])), 
-                      calculate_relevance(pair['col_b'], var_info.get(pair['col_b'])))
+            inv_out = (pair['col_a'] == outcome_suggested or pair['col_b'] == outcome_suggested)
+            rel = max(calculate_relevance(pair['col_a'], var_info.get(pair['col_a']), inv_out),
+                      calculate_relevance(pair['col_b'], var_info.get(pair['col_b']), inv_out))
+            rationale = pair['rationale']
+            if inv_out: rationale = "⭐ [DESFECHO] " + rationale
+            
             variables.append({
-                "id": f"V{var_id:03d}",
+                "id": "TEMP",
                 "name": f"{pair['col_a']} ↔ {pair['col_b']}",
                 "variable_group": pair['col_a'],
                 "type": pair['type'],
                 "unique_count": 0,
                 "recommended_test": pair['test'],
                 "test_options": pair['test_options'],
-                "rationale": pair['rationale'],
+                "rationale": rationale,
                 "relevance": rel,
-                "is_selected": rel > 70, 
+                "is_selected": inv_out,  # Pares pareados: selecionado só se envolve o outcome
                 "pair": {"col_a": pair['col_a'], "col_b": pair['col_b']}
             })
         
-        # 5b. Correlações
+        # 5b. Correlações (selecionadas se envolvem o desfecho ou alta relevância clínica)
         for pair in correlation_pairs:
-            var_id += 1
-            rel = max(calculate_relevance(pair['col_a'], var_info.get(pair['col_a'])), 
-                      calculate_relevance(pair['col_b'], var_info.get(pair['col_b'])))
+            inv_out = (pair['col_a'] == outcome_suggested or pair['col_b'] == outcome_suggested)
+            rel = max(calculate_relevance(pair['col_a'], var_info.get(pair['col_a']), inv_out),
+                      calculate_relevance(pair['col_b'], var_info.get(pair['col_b']), inv_out))
+            rationale = pair['rationale']
+            if inv_out: rationale = "⭐ [DESFECHO] " + rationale
+
             variables.append({
-                "id": f"V{var_id:03d}",
+                "id": "TEMP",
                 "name": f"{pair['col_a']} ↔ {pair['col_b']}",
                 "variable_group": pair['col_a'],
                 "type": pair['type'],
                 "unique_count": 0,
                 "recommended_test": pair['test'],
                 "test_options": pair['test_options'],
-                "rationale": pair['rationale'],
+                "rationale": rationale,
                 "relevance": rel,
-                "is_selected": rel > 75,
+                "is_selected": inv_out,  # Correlações: selecionado APENAS se envolve o outcome
                 "pair": {"col_a": pair['col_a'], "col_b": pair['col_b']}
             })
         
-        # 5c. Comparações de grupos
+        # 5c. Comparações de grupos (selecionadas se envolvem o desfecho)
         for comp in group_comparisons:
-            var_id += 1
-            rel = max(calculate_relevance(comp['predictor'], var_info.get(comp['predictor'])), 
-                      calculate_relevance(comp['outcome'], var_info.get(comp['outcome'])))
+            inv_out = (comp['predictor'] == outcome_suggested or comp['outcome'] == outcome_suggested)
+            rel = max(calculate_relevance(comp['predictor'], var_info.get(comp['predictor']), inv_out),
+                      calculate_relevance(comp['outcome'], var_info.get(comp['outcome']), inv_out))
+            rationale = comp['rationale']
+            if inv_out: rationale = "⭐ [DESFECHO] " + rationale
+
             variables.append({
-                "id": f"V{var_id:03d}",
+                "id": "TEMP",
                 "name": f"{comp['predictor']} → {comp['outcome']}",
                 "variable_group": comp['predictor'],
                 "type": comp['type'],
                 "unique_count": var_info[comp['predictor']]['unique_count'],
                 "recommended_test": comp['test'],
                 "test_options": comp['test_options'],
-                "rationale": comp['rationale'],
+                "rationale": rationale,
                 "relevance": rel,
-                "is_selected": rel > 70,
+                "is_selected": inv_out,  # Comparações: selecionado APENAS se envolve o outcome
                 "pair": {"predictor": comp['predictor'], "outcome": comp['outcome']}
             })
         
-        # 5c2. Regressão Logística
+        # 5c2. Regressão Logística (sempre selecionada — alto valor preditivo)
         binary_outcomes = [c for c in df.columns if var_info.get(c, {}).get('unique_count') == 2 and not var_info.get(c, {}).get('is_numeric') and is_meaningful_variable(c)]
         numeric_predictors = [c for c in df.columns if var_info.get(c, {}).get('is_numeric') and c not in used_in_pair and is_meaningful_variable(c)]
-        
+
         for bin_out in binary_outcomes:
             if len(numeric_predictors) >= 1:
-                var_id += 1
-                pred_names = ', '.join(numeric_predictors[:5])
-                rel = calculate_relevance(bin_out, var_info.get(bin_out)) + 15
+                is_out_bin = (bin_out == outcome_suggested)
+                rel = calculate_relevance(bin_out, var_info.get(bin_out), is_out_bin) + 15
+                rationale = f"Modelo preditivo para '{bin_out}' usando {len(numeric_predictors)} preditor(es) numérico(s)."
+                if is_out_bin: rationale = "⭐ [DESFECHO] " + rationale
+
                 variables.append({
-                    "id": f"V{var_id:03d}",
+                    "id": "TEMP",
                     "name": f"Regressão Logística → {bin_out}",
                     "variable_group": bin_out,
                     "type": "Regressão Logística",
                     "unique_count": 2,
                     "recommended_test": "Regressão Logística",
                     "test_options": ["Regressão Logística", "Qui-Quadrado (X²)", "Teste Exato de Fisher", "Excluir"],
-                    "rationale": f"Modelo preditivo para '{bin_out}' usando {len(numeric_predictors)} preditor(es) numérico(s).",
+                    "rationale": rationale,
                     "relevance": min(rel, 100),
-                    "is_selected": True, 
+                    "is_selected": is_out_bin,  # Regressão Logística: selecionada APENAS se o outcome é binário
                     "pair": {"predictor": bin_out, "outcome": bin_out, "logistic_predictors": numeric_predictors[:5]}
                 })
-        
-        # 5d. Variáveis individuais descritivas
+
+        # ============================================================
+        # PASSO 6: Associações Categórica × Categórica (Chi² / Fisher)
+        # ============================================================
+        meaningful_cats = [c for c in categorical_cols if is_meaningful_variable(c)]
+        for i, col_a in enumerate(meaningful_cats):
+            for col_b in meaningful_cats[i + 1:]:
+                inv_out = (col_a == outcome_suggested or col_b == outcome_suggested)
+                n_valid = int(len(df[[col_a, col_b]].dropna()))
+                ua = var_info.get(col_a, {}).get('unique_count', 2)
+                ub = var_info.get(col_b, {}).get('unique_count', 2)
+                is_2x2 = (ua == 2 and ub == 2)
+                # Fisher recomendado: n<15 ou tabela 2×2 com n<40
+                if n_valid < 15 or (is_2x2 and n_valid < 40):
+                    rec_test = "Teste Exato de Fisher"
+                    opt_tests = ["Teste Exato de Fisher", "Qui-Quadrado (X²)", "Excluir"]
+                    rationale = f"Associação entre '{col_a}' e '{col_b}'. Fisher recomendado (n={n_valid})."
+                else:
+                    rec_test = "Qui-Quadrado (X²)"
+                    opt_tests = ["Qui-Quadrado (X²)", "Teste Exato de Fisher", "Excluir"]
+                    rationale = f"Associação entre '{col_a}' e '{col_b}' (tabela {ua}×{ub}, n={n_valid})."
+                
+                if inv_out: rationale = "⭐ [DESFECHO] " + rationale
+
+                rel = max(
+                    calculate_relevance(col_a, var_info.get(col_a), inv_out),
+                    calculate_relevance(col_b, var_info.get(col_b), inv_out)
+                )
+                variables.append({
+                    "id": "TEMP",
+                    "name": f"{col_a} ↔ {col_b}",
+                    "variable_group": col_a,
+                    "type": "Associação Categórica",
+                    "unique_count": ua,
+                    "recommended_test": rec_test,
+                    "test_options": opt_tests,
+                    "rationale": rationale,
+                    "relevance": rel,
+                    "is_selected": inv_out,  # Associações categóricas: selecionado APENAS se envolve o outcome
+                    "pair": {"predictor": col_a, "outcome": col_b}
+                })
+
+        # 5d. Variáveis individuais descritivas (excluindo o desfecho)
         for col in df.columns:
             if not is_meaningful_variable(col): continue
+            if col == outcome_suggested: continue
             vi = var_info.get(col, {})
-            var_id += 1
             rel = calculate_relevance(col, vi)
             if vi.get('is_numeric'):
                 variables.append({
-                    "id": f"V{var_id:03d}",
+                    "id": "TEMP",
                     "name": col,
                     "variable_group": col,
                     "type": "Descritiva (Numérica)",
@@ -931,12 +1047,12 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
                     "test_options": ["Estatística Descritiva"],
                     "rationale": f"Estatísticas descritivas de '{col}'.",
                     "relevance": rel,
-                    "is_selected": rel > 50,
+                    "is_selected": rel > 75,
                     "pair": {"col_a": col}
                 })
             else:
                 variables.append({
-                    "id": f"V{var_id:03d}",
+                    "id": "TEMP",
                     "name": col,
                     "variable_group": col,
                     "type": "Descritiva (Categórica)",
@@ -945,16 +1061,20 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
                     "test_options": ["Estatística Descritiva", "Qui-Quadrado (X²)", "Teste Exato de Fisher"],
                     "rationale": f"Distribuição de frequências de '{col}'.",
                     "relevance": rel,
-                    "is_selected": rel > 50,
+                    "is_selected": rel > 75,
                     "pair": {"col_a": col}
                 })
+
+        # ============================================================
+        # PASSO CENTRALIZADO: Ordenação por Importância (is_selected -> relevance)
+        # ============================================================
+        variables.sort(key=lambda x: (x['is_selected'], x['relevance']), reverse=True)
         
-        # 5e. Outcome sugerido
-        candidate_cols = [c for c in df.columns if is_meaningful_variable(c)]
-        outcome_suggested = candidate_cols[-1] if candidate_cols else df.columns[-1]
-        outcome_series = pd.to_numeric(df[outcome_suggested].astype(str).str.replace(',', '.'), errors='coerce')
-        is_outcome_numeric = not outcome_series.isna().all() and len(outcome_series.dropna().unique()) >= 5
-        
+        # Reatribuição de IDs após ordenação
+        for idx, var in enumerate(variables):
+            var["id"] = f"V{idx+1:03d}"
+
+        # 5e. Inserir o desfecho principal no topo (sempre selecionado)
         variables.insert(0, {
             "id": "V000",
             "name": outcome_suggested,
@@ -969,16 +1089,18 @@ async def analyze_protocol_v7(file: UploadFile = File(...)):
             "pair": {"col_a": outcome_suggested}
         })
 
-        
-        # Metadata para o frontend saber que há pares inteligentes
+        # Metadata enriquecida com contadores de Smart Selection
+        cat_assoc_count = sum(1 for v in variables if v.get('type') == 'Associação Categórica')
         meta = {
-            "total_pairs_detected": len(detected_pairs) + len(correlation_pairs) + len(group_comparisons),
+            "total_pairs_detected": len(detected_pairs) + len(correlation_pairs) + len(group_comparisons) + cat_assoc_count,
             "paired_tests": len(detected_pairs),
             "correlation_tests": len(correlation_pairs),
             "group_comparison_tests": len(group_comparisons),
-            "descriptive_only": len(variables) - len(detected_pairs) - len(correlation_pairs) - len(group_comparisons) - 1,
+            "categorical_association_tests": cat_assoc_count,
+            "selected_count": sum(1 for v in variables if v.get('is_selected')),
+            "optional_count": sum(1 for v in variables if not v.get('is_selected')),
         }
-        
+
         return clean_dict_values({
             "outcome": outcome_suggested,
             "protocol": variables,
