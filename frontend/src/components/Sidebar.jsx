@@ -5,12 +5,12 @@ import { useAuth } from '../AuthContext'
 
 const NAV = [
   { to: '/dashboard',          icon: 'dashboard',         label: 'Painel Central' },
+  { to: '/archive',            icon: 'folder',            label: 'Meus Projetos' },
   { to: '/clinical-trials',    icon: 'biotech',           label: 'Ensaios Clínicos' },
   { to: '/survival-analysis',  icon: 'monitoring',        label: 'Sobrevivência' },
   { to: '/meta-analysis',      icon: 'stacked_bar_chart', label: 'Metanálise' },
   { to: '/visualizations',     icon: 'stacked_line_chart',label: 'Visualizações' },
   { to: '/power-calculator',   icon: 'calculate',         label: 'Cálculo de Poder' },
-  { to: '/archive',            icon: 'inventory_2',       label: 'Histórico' },
   { to: '/settings',           icon: 'settings',          label: 'Ajustes' },
 ]
 

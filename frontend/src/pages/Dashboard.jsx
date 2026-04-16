@@ -9,6 +9,228 @@ import ChartGeneratorModal from '../components/ChartGeneratorModal'
 import StatTooltip from '../components/StatTooltip'
 import OutcomeSelector from '../components/OutcomeSelector'
 
+const TEST_EXPLANATIONS = {
+  'Teste Qui-Quadrado (χ²)': {
+    title: 'Teste Qui-Quadrado (χ²)',
+    what: 'Compara frequências observadas com frequências esperadas para verificar se duas variáveis categóricas estão associadas.',
+    when: 'Use quando tiver duas variáveis categóricas (ex: sexo vs diagnóstico) e quiser saber se existe relação entre elas.',
+    example: 'Verificar se há associação entre fumar (sim/não) e doença pulmonar (sim/não).',
+    assumption: 'Esperas ≥ 5 em cada célula da tabela. Se não inúmer, use Fisher.'
+  },
+  'Teste Exato de Fisher': {
+    title: 'Teste Exato de Fisher',
+    what: 'Versão do Qui-Quadrado para amostras pequenas ou tabelas desbalanceadas.',
+    when: 'Use quando o Qui-Quadrado não funciona (células com esperados < 5), especialmente em tabelas 2x2.',
+    example: 'Comparar sucesso de tratamento entre 2 grupos muito desbalanceados (ex: 3 vs 15 pacientes).',
+    assumption: 'Não requer distribuição normal. Ideal para N total < 20.'
+  },
+  'Teste t de Student (pareado)': {
+    title: 'Teste t Pareado',
+    what: 'Compara duas médias de grupos pareados (mesmos indivíduos medidos duas vezes).',
+    when: 'Use antes/depois de um tratamento no mesmo grupo de pacientes.',
+    example: 'Comparar pressão arterial antes e depois de um medicamento nos mesmos pacientes.',
+    assumption: 'Diferenças devem ter distribuição normal (ou N > 30).'
+  },
+  'Teste t de Student (independente)': {
+    title: 'Teste t Independente',
+    what: 'Compara médias de dois grupos independentes (diferentes indivíduos).',
+    when: 'Use para comparar médias entre dois grupos diferentes de sujeitos.',
+    example: 'Comparar nota média de alunos que estudaram 2h vs 4h por dia.',
+    assumption: 'Dados normais em cada grupo e variâncias homogêneas.'
+  },
+  'ANOVA One-Way': {
+    title: 'ANOVA One-Way',
+    what: 'Compara médias de 3 ou mais grupos independentes.',
+    when: 'Use quando quiser comparar mais de dois grupos ao mesmo tempo.',
+    example: 'Comparar eficácia de 3 tipos de medicamento para pressão.',
+    assumption: 'Normalidade e homogeneidade de variâncias. Se não cumprir, use Kruskal-Wallis.'
+  },
+  'ANOVA Two-Way': {
+    title: 'ANOVA Two-Way',
+    what: 'Compara médias considerando duas variáveis independentes simultaneamente.',
+    when: 'Use quando tiver dois fatores influenciando o resultado (ex: tratamento + sexo).',
+    example: 'Verificar se efeito de medicamento varia entre homens e mulheres.',
+    assumption: 'Normalidade, homogeneidade e independência das observações.'
+  },
+  'ANOVA com Medidas Repetidas': {
+    title: 'ANOVA Medidas Repetidas',
+    what: 'Compara médias quando os mesmos indivíduos são medidos em múltiplas condições.',
+    when: 'Use no mesmo sujeito em diferentes momentos ou condições.',
+    example: 'Medir glicemia em jejum, 1h e 2h após refeição nos mesmos pacientes.',
+    assumption: 'Normalidade e esfericidade (variâncias das diferenças iguais).'
+  },
+  'Teste de Tukey (Post-hoc)': {
+    title: 'Teste de Tukey',
+    what: 'Teste post-hoc para comparar pares de grupos após ANOVA significativa.',
+    when: 'Use depois de ANOVA significativa para saber exatamente quais grupos diferem.',
+    example: 'Após encontrar diferença entre 4 medicamentos, descobrir qual par específico.',
+    assumption: 'Aplicado após ANOVA significativa.'
+  },
+  'Teste de Bonferroni': {
+    title: 'Teste de Bonferroni',
+    what: 'Correção para comparações múltiplas, reduzindo o risco de falso positivo.',
+    when: 'Use quando fizer muitas comparações simultâneas.',
+    example: 'Comparar 6 tratamentos entre si (15 comparações).',
+    assumption: 'Conservative mas válido para qualquer tipo de dado.'
+  },
+  'Teste de Kruskal-Wallis': {
+    title: 'Teste de Kruskal-Wallis',
+    what: 'Versão não-paramétrica da ANOVA — compara distribuições de 3+ grupos.',
+    when: 'Use quando dados não forem normais ou tiverem outliers.',
+    example: 'Comparar tempo de recuperação entre 3 tratamentos com dados muito variados.',
+    assumption: 'Variâncias semelhantes. Não requer normalidade.'
+  },
+  'Teste de Mann-Whitney U': {
+    title: 'Teste de Mann-Whitney U',
+    what: 'Versão não-paramétrica do teste t — compara distribuições de 2 grupos.',
+    when: 'Use quando dados não forem normais ou forem ordinais.',
+    example: 'Comparar satisfação (ruim/bom/ótimo) entre dois hospitais.',
+    assumption: 'Não requer normalidade. Compara medianas/ordens.'
+  },
+  'Teste de Wilcoxon': {
+    title: 'Teste de Wilcoxon',
+    what: 'Versão não-paramétrica do teste t pareado.',
+    when: 'Use para dados pareados que não seguem distribuição normal.',
+    example: 'Comparar dor antes/depois (escala 0-10) sem assumir normalidade.',
+    assumption: 'Dados pareados, distribuição não-normal.'
+  },
+  'Teste de Friedman': {
+    title: 'Teste de Friedman',
+    what: 'ANOVA não-paramétrica para medidas repetidas.',
+    when: 'Use quando os mesmos sujeitos forem medidos múltiplas vezes com dados não-normais.',
+    example: 'Avaliar preferência por 4 marcas em múltiplas visitas.',
+    assumption: 'Não requer normalidade. Dados ordinais também servem.'
+  },
+  'Teste de Spearman': {
+    title: 'Correlação de Spearman',
+    what: 'Mede correlação baseada em ranks (não requer normalidade).',
+    when: 'Use para dados não-normais, ordinais ou com outliers.',
+    example: 'Correlacionar idade com nível de dor (escala ordinal).',
+    assumption: 'Não requer normalidade. Sensível a outliers.'
+  },
+  'Correlação de Pearson': {
+    title: 'Correlação de Pearson',
+    what: 'Mede força e direção da relação linear entre duas variáveis contínuas.',
+    when: 'Use para variáveis contínuas com distribuição normal.',
+    example: 'Correlacionar altura com peso em adultos.',
+    assumption: 'Ambas variáveis contínuas e normalmente distribuídas.'
+  },
+  'Regressão Linear Simples': {
+    title: 'Regressão Linear Simples',
+    what: 'Modelo para prever uma variável contínua baseado em uma previsora.',
+    when: 'Use para prever um valor baseado em uma variável.',
+    example: 'Prever pressão arterial baseado na idade.',
+    assumption: 'Linearidade, normalidade dos resíduos, homocedasticidade.'
+  },
+  'Regressão Linear Múltipla': {
+    title: 'Regressão Linear Múltipla',
+    what: 'Modelo para prever uma variável contínua baseado em múltiplas previsoras.',
+    when: 'Use quando múltiplos fatores influenciam o resultado.',
+    example: 'Prever pressão considerando idade, peso e exercício.',
+    assumption: 'Mesmas da regressão simples, mais ausência de multicolinearidade.'
+  },
+  'Regressão Logística': {
+    title: 'Regressão Logística',
+    what: 'Modelo para prever variável dependente binária (sim/não).',
+    when: 'Use para prever probabilidade de um evento binário.',
+    example: 'Prever se paciente terá complicações após cirurgia.',
+    assumption: 'Variável dependente binária, amostra suficiente, sem multicolinearidade.'
+  },
+  'Teste de Shapiro-Wilk': {
+    title: 'Teste de Shapiro-Wilk',
+    what: 'Teste para verificar se os dados seguem distribuição normal.',
+    when: 'Use antes de testes paramétricos para verificar pressupostos.',
+    example: 'Verificar se notas de alunos seguem distribuição normal.',
+    assumption: 'Ideal para N < 50. Para N maior, use Kolmogorov-Smirnov.'
+  },
+  'Teste de Kolmogorov-Smirnov': {
+    title: 'Teste de Kolmogorov-Smirnov',
+    what: 'Teste de normalidade para amostras maiores.',
+    when: 'Use para N > 50 para verificar distribuição normal.',
+    example: 'Verificar normalidade em grande estudo clínico.',
+    assumption: 'Não paramétrico, mas sensível a grandes amostras.'
+  },
+  'Teste de Levene': {
+    title: 'Teste de Levene',
+    what: 'Teste para verificar se as variâncias são iguais entre grupos.',
+    when: 'Use antes de ANOVA ou teste t para verificar homogeneidade.',
+    example: 'Verificar se variância de idade é igual em 3 grupos.',
+    assumption: 'Robusto a não-normalidade.'
+  },
+  'Análise de Sobrevivência (Kaplan-Meier)': {
+    title: 'Kaplan-Meier',
+    what: 'Estima a probabilidade de sobrevivência em diferentes momentos do tempo.',
+    when: 'Use quando tiver dados de tempo-até-evento com censuras.',
+    example: 'Estimar probabilidade de sobreviver 5 anos após diagnóstico de cáncer.',
+    assumption: 'Censuras independentes do tempo de sobrevivência.'
+  },
+  'Modelo de Cox (Riscos Proporcionais)': {
+    title: 'Modelo de Cox',
+    what: 'Regressão para dados de sobrevivência, estimando efeito de covariáveis.',
+    when: 'Use para entender quais fatores influenciam o tempo até evento.',
+    example: 'Verificar se tratamento afeta tempo de sobrevida controlando por idade.',
+    assumption: 'Riscos proporcionais (constantes ao longo do tempo).'
+  },
+  'Teste Log-Rank': {
+    title: 'Teste Log-Rank',
+    what: 'Compara curvas de sobrevivência entre dois ou mais grupos.',
+    when: 'Use para testar se há diferença significativa entre grupos.',
+    example: 'Comparar sobrevivência entre grupo tratado e placebo.',
+    assumption: 'Censuras similares entre grupos.'
+  },
+  'Metanálise (Efeito Fixo)': {
+    title: 'Metanálise Efeito Fixo',
+    what: 'Combina múltiplos estudos assumindo que todos estimam o mesmo efeito.',
+    when: 'Use quando os estudos forem muito similares (baixa heterogeneidade).',
+    example: 'Combinar resultados de 10 ensaios clínicos do mesmo medicamento.',
+    assumption: 'Baixa heterogeneidade entre estudos (I² < 50%).'
+  },
+  'Metanálise (Efeito Aleatório)': {
+    title: 'Metanálise Efeito Aleatório',
+    what: 'Combina estudos considerando que cada um tem seu próprio efeito.',
+    when: 'Use quando houver heterogeneidade significativa entre estudos.',
+    example: 'Combinar estudos com diferentes populações ou intervenções.',
+    assumption: 'Heterogeneidade alta (I² > 50%). Mais conservador.'
+  },
+  'Funnel Plot / Viés de Publicação': {
+    title: 'Funnel Plot',
+    what: 'Gráfico para detectar viés de publicação em metanálises.',
+    when: 'Use para verificar se estudos pequenos com resultados negativos estão faltando.',
+    example: 'Verificar se estudos com N pequeno e resultado negativo foram publicados.',
+    assumption: 'Simetria indica ausência de viés.'
+  },
+  'Cálculo de Poder Amostral': {
+    title: 'Poder Amostral',
+    what: 'Calcula o número de sujeitos necessários para detectar um efeito.',
+    when: 'Use no planejamento do estudo para garantir que será possível detectar diferença.',
+    example: 'Calcular quantos pacientes precisa para detectar efeito de 0.5 com 80% poder.',
+    assumption: 'Baseado no efeito esperado, nível de significância e poder.'
+  },
+  'Teste de McNemar': {
+    title: 'Teste de McNemar',
+    what: 'Compara proporções em dados pareados com variável dicotômica.',
+    when: 'Use para dados pareados onde ambos os resultados são binários.',
+    example: 'Comparar cura antes/depois em 50 pacientes pareados.',
+    assumption: 'Pareamento, variável dicotômica.'
+  },
+  'Teste de Cochran Q': {
+    title: 'Teste de Cochran Q',
+    what: 'Extensão do McNemar para 3+ condições pareadas.',
+    when: 'Use para comparar múltiplas condições nos mesmos sujeitos.',
+    example: 'Comparar eficácia de 3 tratamentos nos mesmos 100 pacientes.',
+    assumption: 'Variável dicotômica, mesmo tamanho de amostra.'
+  }
+}
+
+function getExplanation(testName) {
+  if (TEST_EXPLANATIONS[testName]) return TEST_EXPLANATIONS[testName]
+  const key = Object.keys(TEST_EXPLANATIONS).find(k => 
+    testName.toLowerCase().includes(k.toLowerCase()) ||
+    k.toLowerCase().includes(testName.toLowerCase().replace('teste de ', '').replace('teste ', ''))
+  )
+  return key ? TEST_EXPLANATIONS[key] : null
+}
+
 // Capability cards shown on the empty state instead of mock charts
 const ANALYSIS_CATEGORIES = [
   {
@@ -71,7 +293,7 @@ const STATISTICAL_TESTS = [
   { name: 'Modelo de Cox (Riscos Proporcionais)', icon: 'speed', desc: 'Regressão para dados de sobrevivência', category: 'Sobrevivência' },
   { name: 'Teste Log-Rank', icon: 'equalizer', desc: 'Comparação de curvas de sobrevivência', category: 'Sobrevivência' },
   { name: 'Metanálise (Efeito Fixo)', icon: 'hub', desc: 'Combinação de estudos com efeito fixo', category: 'Metanálise' },
-  { name: 'Metanálise (Efeito Aleatório)', icon: 'random', desc: 'Combinação de estudos com efeito aleatório', category: 'Metanálise' },
+  { name: 'Metanálise (Efeito Aleatório)', icon: 'shuffle', desc: 'Combinação de estudos com efeito aleatório', category: 'Metanálise' },
   { name: 'Funnel Plot / Viés de Publicação', icon: 'filter_alt', desc: 'Detecção de viés de publicação', category: 'Metanálise' },
   { name: 'Cálculo de Poder Amostral', icon: 'bolt', desc: 'Determinação do tamanho amostral necessário', category: 'Poder' },
   { name: 'Teste de McNemar', icon: 'toggle_on', desc: 'Comparação de proporções pareadas', category: 'Categórico' },
@@ -142,8 +364,19 @@ export default function Dashboard() {
   const [columnOptions, setColumnOptions] = useState([])
   const [showOutcomeSelector, setShowOutcomeSelector] = useState(false)
   const [pendingFile, setPendingFile] = useState(null)
+  const [testExplanationModal, setTestExplanationModal] = useState(null)
   const fileInputRef = useRef(null)
   const premiumRef = useRef(null)
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && testExplanationModal) {
+        setTestExplanationModal(null)
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [testExplanationModal])
 
   useEffect(() => {
     if (premiumAnalysis && premiumRef.current) {
@@ -1546,6 +1779,101 @@ export default function Dashboard() {
       />
 
       <AnimatePresence>
+        {testExplanationModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-lg"
+            onClick={() => setTestExplanationModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md"
+            >
+              {(() => {
+                const exp = getExplanation(testExplanationModal)
+                if (!exp) return null
+                return (
+                  <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 shadow-2xl shadow-black/50">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"></div>
+                    
+                    <div className="p-6 pb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20 flex items-center justify-center">
+                          <span className="material-symbols-rounded text-emerald-400 text-2xl">science</span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-white">{exp.title}</h3>
+                          <p className="text-xs text-slate-500 font-medium">Guia do Teste Estatístico</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-6 pb-6 space-y-4">
+                      <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-5 h-5 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                            <span className="material-symbols-rounded text-blue-400 text-xs">lightbulb</span>
+                          </span>
+                          <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider">O que é?</h4>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-relaxed">{exp.what}</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-5 h-5 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                            <span className="material-symbols-rounded text-emerald-400 text-xs">check_circle</span>
+                          </span>
+                          <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Quando usar</h4>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-relaxed">{exp.when}</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-5 h-5 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                            <span className="material-symbols-rounded text-purple-400 text-xs">help</span>
+                          </span>
+                          <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider">Exemplo</h4>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-relaxed">{exp.example}</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-5 h-5 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                            <span className="material-symbols-rounded text-amber-400 text-xs">info</span>
+                          </span>
+                          <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">Pressupostos</h4>
+                        </div>
+                        <p className="text-sm text-slate-400 leading-relaxed">{exp.assumption}</p>
+                      </div>
+                    </div>
+
+                    <div className="px-6 pb-6">
+                      <button
+                        onClick={() => setTestExplanationModal(null)}
+                        className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm rounded-2xl transition-all flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-rounded text-lg">close</span>
+                        Entendi!
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {detailModal && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1921,8 +2249,13 @@ export default function Dashboard() {
                   viewport={{ once: true }}
                   transition={{ delay: ci * 0.07 }}
                   whileHover={{ y: -4, scale: 1.01 }}
-                  className="glass-card rounded-2xl p-5 border border-white/5 hover:border-primary/20 transition-all group"
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setTestExplanationModal(cat.tests[0])}
+                  className="glass-card rounded-2xl p-5 border border-white/5 hover:border-primary/20 transition-all group cursor-pointer"
                 >
+                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                    <span className="material-symbols-rounded text-[10px] text-primary">info</span>
+                  </div>
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                       cat.color === 'primary' ? 'bg-primary/10 text-primary group-hover:bg-primary/20' : 'bg-accent/10 text-accent group-hover:bg-accent/20'
@@ -1975,8 +2308,13 @@ export default function Dashboard() {
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.05 }}
                       whileHover={{ y: -2, scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setTestExplanationModal(test.name)}
                       className="glass-card rounded-2xl p-4 cursor-pointer group hover:border-primary/20 transition-all analysis-grid-item relative"
                     >
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                        <span className="material-symbols-rounded text-[10px] text-primary">info</span>
+                      </div>
                       <div className="flex items-start gap-3">
                         <div className="w-9 h-9 rounded-xl bg-primary/5 flex items-center justify-center text-primary/70 group-hover:text-primary group-hover:bg-primary/10 transition-all shrink-0">
                           <span className="material-symbols-rounded text-sm">{test.icon}</span>

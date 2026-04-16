@@ -11,6 +11,7 @@ import Archive from './pages/Archive'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import { SciStatProvider } from './SciStatContext'
 import { AuthProvider } from './AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -38,16 +39,16 @@ function App() {
       <SciStatProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/landing" element={<Landing />} />
+          <Route path="/" element={<Landing />} />
           
-          <Route path="/" element={
+          <Route path="/dashboard" element={
             <ProtectedRoute>
               <Layout dark={dark} setDark={setDark}>
                 <Dashboard />
               </Layout>
             </ProtectedRoute>
           } />
-
-          <Route path="/dashboard" element={<Navigate to="/" replace />} />
 
           {[
             { path: '/clinical-trials', element: <ClinicalTrials /> },

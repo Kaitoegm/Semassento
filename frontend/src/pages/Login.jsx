@@ -14,7 +14,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     }
   }, [isAuthenticated, authLoading, navigate])
 
@@ -51,7 +51,7 @@ export default function Login() {
       const data = await res.json()
       if (data.token) {
         localStorage.setItem('scistat-token', data.token)
-        window.location.href = '/'
+        window.location.href = '/dashboard'
       }
     } catch (err) {
       setError(err.message || 'Falha ao autenticar. Verifique suas credenciais.')

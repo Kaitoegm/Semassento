@@ -30,8 +30,8 @@ const CHART_TYPES = [
 ]
 
 function computeRegressionLine(xVals, yVals) {
-  const n = xVals.length
-  if (n < 2) return null
+  const n = xVals?.length
+  if (!n || n < 2) return null
   const sumX = xVals.reduce((a, b) => a + b, 0)
   const sumY = yVals.reduce((a, b) => a + b, 0)
   const sumXY = xVals.reduce((a, b, i) => a + b * yVals[i], 0)
@@ -74,26 +74,23 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
   const { activeProjectId } = useSciStat()
   const { session } = useAuth()
 
-  const safeLabels = chartData?.labels || []
-  const safeValues = chartData?.values || []
-  const stds = chartData?.stds || []
+  const safeLabels = chartData?.labels ?? []
+  const safeValues = chartData?.values ?? []
+  const cType = chartData?.type ?? 'bar'
   const regression = chartData?.regression
-  const cType = chartData?.type || 'bar'
 
   useEffect(() => {
-    if (isOpen && chartData) {
-      if (cType === 'histogram') setSelectedType('bar')
-      else if (cType === 'scatter') setSelectedType('scatter')
-      else if (cType === 'contingency_table') setSelectedType('bar')
-      else setSelectedType('bar')
+    if (chartData?.type) {
+      const type = chartData.type
+      if (type === 'histogram' || type === 'scatter' || type === 'contingency_table') {
+        setSelectedType('bar')
+      }
     }
-  }, [isOpen, chartData, cType])
+  }, [chartData?.type])
 
-  // Auto-save logic
   useEffect(() => {
     if (!isOpen || !activeProjectId || !chartRef.current) return
     
-    // Using a timeout to ensure chart animation has finished/rendered
     const timer = setTimeout(async () => {
       try {
         const dataUrl = chartRef.current.toBase64Image()
@@ -117,63 +114,95 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     }, 1200)
 
     return () => clearTimeout(timer)
-  }, [isOpen, selectedType, activeProjectId, varName, session])
+  }, [isOpen, activeProjectId, selectedType, varName, session])
 
-  if (!chartData || !isOpen) return null
-
-  const histogramBins = useMemo(() => buildHistogramBins(chartData.values), [chartData.values])
+  const histogramBins = useMemo(() => {
+    const values = chartData?.values
+    if (!values) return null
+    return buildHistogramBins(values)
+  }, [chartData?.values])
 
   const scatterData = useMemo(() => {
-    if (cType === 'scatter' && chartData.x && chartData.y) {
-      const points = chartData.x.map((x, i) => ({ x, y: chartData.y[i] }))
-      const regLine = chartData.regression
-        ? [{ x: chartData.x[0], y: chartData.regression.intercept + chartData.regression.slope * chartData.x[0] },
-           { x: chartData.x[chartData.x.length - 1], y: chartData.regression.intercept + chartData.regression.slope * chartData.x[chartData.x.length - 1] }]
-        : computeRegressionLine(chartData.x, chartData.y)
-      return { points, regLine }
-    }
-    return null
+    const x = chartData?.x
+    const y = chartData?.y
+    if (cType !== 'scatter' || !x || !y) return null
+    const points = x.map((xVal, i) => ({ x: xVal, y: y[i] }))
+    const regLine = chartData?.regression
+      ? [{ x: x[0], y: chartData.regression.intercept + chartData.regression.slope * x[0] },
+         { x: x[x.length - 1], y: chartData.regression.intercept + chartData.regression.slope * x[x.length - 1] }]
+      : computeRegressionLine(x, y)
+    return { points, regLine }
   }, [chartData, cType])
 
   const availableTypes = useMemo(() => {
-    if (cType === 'histogram') {
-      return CHART_TYPES.filter(t => t.value === 'bar' || t.value === 'line')
+    if (cType === 'histogram' || cType === 'contingency_table') {
+      return CHART_TYPES.filter(t => t.value === 'bar' || t.value === 'doughnut')
     }
     if (cType === 'scatter') {
       return CHART_TYPES.filter(t => t.value === 'scatter' || t.value === 'bar')
     }
-    if (cType === 'contingency_table') {
-      return CHART_TYPES.filter(t => t.value === 'bar' || t.value === 'doughnut')
-    }
     return CHART_TYPES
   }, [cType])
 
-  const barLabels = histogramBins ? histogramBins.labels : safeLabels
-  const barValues = histogramBins ? histogramBins.counts : safeValues
-
   const contingencyBarData = useMemo(() => {
-    if (cType === 'contingency_table' && chartData.table) {
-      const tbl = chartData.table
-      const cats = Object.keys(tbl[0]).filter(k => k !== 'row_label' && k !== 'total' && k !== 'total_pct')
-      const rowLabels = tbl.map(r => r.row_label)
-      const datasets = cats.map((cat, ci) => ({
-        label: cat,
-        data: tbl.map(r => r[cat]?.count ?? 0),
+    const table = chartData?.table
+    if (cType !== 'contingency_table' || !table) return null
+    const cats = Object.keys(table[0] || {}).filter(k => k !== 'row_label' && k !== 'total' && k !== 'total_pct')
+    const rowLabels = table.map(r => r.row_label)
+    const datasets = cats.map((cat, ci) => ({
+      label: cat,
+      data: table.map(r => r[cat]?.count ?? 0),
+      backgroundColor: [
+        'rgba(0, 255, 163, 0.7)',
+        'rgba(59, 130, 246, 0.7)',
+        'rgba(147, 51, 234, 0.7)',
+        'rgba(251, 146, 60, 0.7)',
+        'rgba(244, 63, 94, 0.7)',
+      ][ci % 5],
+      borderColor: ['#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E'][ci % 5],
+      borderWidth: 2,
+      borderRadius: 8,
+    }))
+    return { labels: rowLabels, datasets }
+  }, [chartData, cType])
+
+  const contingencyDoughnutData = useMemo(() => {
+    const table = chartData?.table
+    if (cType !== 'contingency_table' || !table) return null
+    const totalCounts = table.map(r => r.total)
+    const rowLabels = table.map(r => r.row_label)
+    return {
+      labels: rowLabels,
+      datasets: [{
+        data: totalCounts,
         backgroundColor: [
-          'rgba(0, 255, 163, 0.7)',
+          'rgba(0, 255, 163, 0.8)',
           'rgba(59, 130, 246, 0.7)',
           'rgba(147, 51, 234, 0.7)',
           'rgba(251, 146, 60, 0.7)',
           'rgba(244, 63, 94, 0.7)',
-        ][ci % 5],
-        borderColor: ['#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E'][ci % 5],
+          'rgba(34, 211, 238, 0.7)',
+        ],
+        borderColor: [
+          '#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
+        ],
         borderWidth: 2,
-        borderRadius: 8,
-      }))
-      return { labels: rowLabels, datasets }
+        hoverOffset: 12
+      }]
     }
-    return null
   }, [chartData, cType])
+
+  const chartTitleText = useMemo(() => {
+    if (cType === 'scatter') return `${varName} — Dispersão`
+    if (cType === 'histogram') return `${varName} — Distribuição`
+    if (cType === 'contingency_table') return `${varName} — Tabela de Contingência`
+    return `${varName} — Contagem (N) por Grupo`
+  }, [cType, varName])
+
+  if (!isOpen || !chartData) return null
+
+  const barLabels = histogramBins ? histogramBins.labels : safeLabels
+  const barValues = histogramBins ? histogramBins.counts : safeValues
 
   const barData = contingencyBarData || {
     labels: barLabels,
@@ -233,34 +262,6 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     ].filter(Boolean)
   } : null
 
-  const contingencyDoughnutData = useMemo(() => {
-    if (cType === 'contingency_table' && chartData.table) {
-      const tbl = chartData.table
-      const totalCounts = tbl.map(r => r.total)
-      const rowLabels = tbl.map(r => r.row_label)
-      return {
-        labels: rowLabels,
-        datasets: [{
-          data: totalCounts,
-          backgroundColor: [
-            'rgba(0, 255, 163, 0.8)',
-            'rgba(59, 130, 246, 0.7)',
-            'rgba(147, 51, 234, 0.7)',
-            'rgba(251, 146, 60, 0.7)',
-            'rgba(244, 63, 94, 0.7)',
-            'rgba(34, 211, 238, 0.7)',
-          ],
-          borderColor: [
-            '#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
-          ],
-          borderWidth: 2,
-          hoverOffset: 12
-        }]
-      }
-    }
-    return null
-  }, [chartData, cType])
-
   const doughnutData = contingencyDoughnutData || {
     labels: safeLabels.length > 0 ? safeLabels : barLabels,
     datasets: [{
@@ -280,13 +281,6 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       hoverOffset: 12
     }]
   }
-
-  const chartTitleText = useMemo(() => {
-    if (cType === 'scatter') return `${varName} — Dispersão`
-    if (cType === 'histogram') return `${varName} — Distribuição`
-    if (cType === 'contingency_table') return `${varName} — Tabela de Contingência`
-    return `${varName} — Contagem (N) por Grupo`
-  }, [cType, varName])
 
   const commonOptions = {
     responsive: true,

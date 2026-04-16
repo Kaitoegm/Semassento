@@ -13,7 +13,7 @@ const PAGE_NAMES = {
   '/meta-analysis': 'Metanálise',
   '/visualizations': 'Visualizações',
   '/power-calculator': 'Cálculo de Poder',
-  '/archive': 'Arquivo Histórico',
+  '/archive': 'Meus Projetos',
   '/profile': 'Perfil',
   '/settings': 'Ajustes',
 }

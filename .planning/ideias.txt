@@ -1,0 +1,54 @@
+"Invoque as skills frontend-design, tailwind-mastery e react-patterns. Atue como um especialista sênior em UI/UX com foco em visualizações de dados científicas para aprimorar o componente 'Linha do Tempo de Projetos' do dashboard SciStat em modo escuro (dark mode). Forneça código React + Framer Motion + Tailwind CSS para implementar:
+
+---
+
+**DESIGN SYSTEM (REQUIRED):**
+- Platform: Web, Desktop-first
+- Theme: Dark mode com fundo slate-900 (#0f172a), superfícies em slate-800/900
+- Primary Accent: Emerald (#22c55e) para pontos de "em andamento"
+- Secondary Accent: Blue (#3b82f6) para pontos intermediários
+- Tertiary Accent: Purple/Fuchsia (#a855f7) para pontos de "publicado"
+- Text Primary: White (#fafafa) para títulos
+- Text Secondary: Zinc (#71717a) para labels e datas
+- Glassmorphism: bg-slate-800/80 com backdrop-blur-md para tooltips
+
+**Page Structure:**
+1. **Container:** Glass card com borda white/10, padding p-6
+2. **Header:** Título "Linha do Tempo de Projetos" + ícone timeline
+3. **Gráfico SVG:** Área de 800x220px com viewBox adequada
+4. **Tooltip flutuante:** Card com glassmorphism, posicionado above-point
+
+---
+
+1. **Gráfico de Área Estilizado CDF**:
+   - Transforme a linha simples em um gráfico de área com preenchimento em gradiente suave (verde emerald → azul → roxo pêssego) sob a curva
+   - Use opacity sutil (10-20%) para não esconder elementos abaixo
+   - A curva deve representar a progressão temporal dos projetos (eixo X = tempo, eixo Y = número acumulado)
+
+2. **Tooltips Interativos**:
+   - Exiba ao passar o cursor sobre os pontos: título do projeto, status (badge colorido), data de criação formatada
+   - Use tooltip estilo "card flutuante" com glassmorphism (bg-slate-800/80, backdrop-blur-md, border border-white/10)
+   - Posicione acima do ponto com seta pointing down (clip-path triangle)
+   - Adicione sombra sutil (shadow-xl) e border-radius (rounded-lg)
+
+3. **Marcações de Tempo no Eixo X**:
+   - Substitua os textos nas pontas por datas/meses espaçados ao longo do eixo
+   - Use ticks verticais com labels abaixo (ex: "Jan", "Fev", "Mar" ou datas específicas)
+   - Intervalos dinâmios baseados no período dos dados
+   - Use stroke-dasharray para criar ticks красиві
+
+4. **Animações Premium**:
+   - Animação de desenho da curva (stroke-dashoffset animation) da esquerda para direita ao carregar
+   - Pontos surgem com delay progressivo após a curva completar (staggered animation)
+   - Hover nos pontos: scale(1.5) + glow effect (box-shadow com cor do status)
+   - Use Framer Motion para transições suaves
+
+5. **Performance & Acessibilidade**:
+   - Código minimalista e otimizado
+   - Use React.memo para componentes de tooltip
+   - Suporte a keyboard navigation nos pontos (tabIndex, onKeyDown)
+   - SR-only labels para acessibilidade (sr-only class)
+
+---
+
+💡 **Resultado esperado:** Visualização científica profissional de função de distribuição acumulada (CDF), digna de um paper acadêmico, com animações fluidas que encantam o usuário ao mesmo tempo que transmitem credibilidade."

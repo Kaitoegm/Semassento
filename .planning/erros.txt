@@ -1,0 +1,63 @@
+ChartGeneratorModal.jsx:124 React has detected a change in the order of Hooks called by ChartGeneratorModal. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useState                   useState
+2. useRef                     useRef
+3. useContext                 useContext
+4. useContext                 useContext
+5. useEffect                  useEffect
+6. useEffect                  useEffect
+7. undefined                  useMemo
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+updateHookTypesDev @ react-dom_client.js?v=e4a24e2c:4180
+useMemo @ react-dom_client.js?v=e4a24e2c:13272
+exports.useMemo @ react.js?v=e4a24e2c:736
+(anônimo) @ ChartGeneratorModal.jsx:124
+react_stack_bottom_frame @ react-dom_client.js?v=e4a24e2c:12868
+renderWithHooks @ react-dom_client.js?v=e4a24e2c:4213
+updateFunctionComponent @ react-dom_client.js?v=e4a24e2c:5569
+beginWork @ react-dom_client.js?v=e4a24e2c:6140
+runWithFiberInDEV @ react-dom_client.js?v=e4a24e2c:851
+performUnitOfWork @ react-dom_client.js?v=e4a24e2c:8429
+workLoopSync @ react-dom_client.js?v=e4a24e2c:8325
+renderRootSync @ react-dom_client.js?v=e4a24e2c:8309
+performWorkOnRoot @ react-dom_client.js?v=e4a24e2c:7957
+performSyncWorkOnRoot @ react-dom_client.js?v=e4a24e2c:9067
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=e4a24e2c:8984
+processRootScheduleInMicrotask @ react-dom_client.js?v=e4a24e2c:9005
+(anônimo) @ react-dom_client.js?v=e4a24e2c:9078Entenda o erro
+react-dom_client.js?v=e4a24e2c:4327 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (react-dom_client.js?v=e4a24e2c:4327:12)
+    at updateMemo (react-dom_client.js?v=e4a24e2c:4944:15)
+    at Object.useMemo (react-dom_client.js?v=e4a24e2c:13276:13)
+    at exports.useMemo (react.js?v=e4a24e2c:736:31)
+    at ChartGeneratorModal (ChartGeneratorModal.jsx:124:25)
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=e4a24e2c:12868:12)
+    at renderWithHooks (react-dom_client.js?v=e4a24e2c:4213:19)
+    at updateFunctionComponent (react-dom_client.js?v=e4a24e2c:5569:16)
+    at beginWork (react-dom_client.js?v=e4a24e2c:6140:20)
+    at runWithFiberInDEV (react-dom_client.js?v=e4a24e2c:851:66)
+updateWorkInProgressHook @ react-dom_client.js?v=e4a24e2c:4327
+updateMemo @ react-dom_client.js?v=e4a24e2c:4944
+useMemo @ react-dom_client.js?v=e4a24e2c:13276
+exports.useMemo @ react.js?v=e4a24e2c:736
+(anônimo) @ ChartGeneratorModal.jsx:124
+react_stack_bottom_frame @ react-dom_client.js?v=e4a24e2c:12868
+renderWithHooks @ react-dom_client.js?v=e4a24e2c:4213
+updateFunctionComponent @ react-dom_client.js?v=e4a24e2c:5569
+beginWork @ react-dom_client.js?v=e4a24e2c:6140
+runWithFiberInDEV @ react-dom_client.js?v=e4a24e2c:851
+performUnitOfWork @ react-dom_client.js?v=e4a24e2c:8429
+workLoopSync @ react-dom_client.js?v=e4a24e2c:8325
+renderRootSync @ react-dom_client.js?v=e4a24e2c:8309
+performWorkOnRoot @ react-dom_client.js?v=e4a24e2c:7994
+performSyncWorkOnRoot @ react-dom_client.js?v=e4a24e2c:9067
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=e4a24e2c:8984
+processRootScheduleInMicrotask @ react-dom_client.js?v=e4a24e2c:9005
+(anônimo) @ react-dom_client.js?v=e4a24e2c:9078Entenda o erro
+react-dom_client.js?v=e4a24e2c:5258 An error occurred in the <ChartGeneratorModal> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.

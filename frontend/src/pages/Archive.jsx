@@ -44,8 +44,9 @@ export default function Archive() {
    const [sortBy, setSortBy] = useState('created_at_desc') // created_at_desc, created_at_asc, title_asc, title_desc, analyses_desc, analyses_asc
    const [page, setPage] = useState(1)
    const [totalProjects, setTotalProjects] = useState(0)
-   const [viewMode, setViewMode] = useState('detalhado')
-   const limit = 10
+    const [viewMode, setViewMode] = useState('detalhado')
+    const limit = 10
+    const totalPages = Math.ceil(totalProjects / limit)
    
    // Analyses state and functions
    const [analyses, setAnalyses] = useState([])
@@ -53,9 +54,12 @@ export default function Archive() {
    const [fullHistory, setFullHistory] = useState([])
    const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false)
   
-  // Modal Novo Projeto
+   // Modal Novo Projeto
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newProject, setNewProject] = useState({ title: '', author: '', institution: '', doi: '', status: 'em_andamento', notes: '', tags: '' })
+  const [isCreating, setIsCreating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(null)
+  const [notification, setNotification] = useState(null)
   
   // Expandir Card
   const [expandedCard, setExpandedCard] = useState(null)
@@ -66,7 +70,22 @@ export default function Archive() {
   // Modal para visualização do arquivo
   const [previewFile, setPreviewFile] = useState(null)
 
+  // Modal de detalhes do projeto (para viewMode compacto)
+  const [projectDetailModal, setProjectDetailModal] = useState(null)
+  const [projectDetailLoading, setProjectDetailLoading] = useState(false)
+  const [projectDetailData, setProjectDetailData] = useState(null)
+
+  // Tooltip do gráfico timeline
+  const [tooltipData, setTooltipData] = useState(null)
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
+
   const searchInputRef = useRef(null)
+
+  // Toast notification helper
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 4000)
+  }
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -84,6 +103,7 @@ export default function Archive() {
       if (e.key === 'Escape') {
         setIsModalOpen(false)
         setPreviewFile(null)
+        setProjectDetailModal(null)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -103,7 +123,7 @@ export default function Archive() {
      const fetchTags = async () => {
        try {
          const res = await fetch(`${API_URL}/api/projects`, {
-           headers: { 'Authorization': `Bearer ${session?.sessionToken}` }
+           headers: { 'Authorization': `Bearer ${session?.token}` }
          })
          if (res.ok) {
            const data = await res.json()
@@ -119,7 +139,7 @@ export default function Archive() {
        }
      }
      
-     if (isAuthenticated && session?.sessionToken) {
+     if (isAuthenticated && session?.token) {
        fetchTags()
      }
    }, [isAuthenticated, session])
@@ -131,7 +151,7 @@ export default function Archive() {
     // Fetch analyses for the currently expanded project
     useEffect(() => {
       const fetchAnalysesData = async () => {
-        if (!expandedCard || !isAuthenticated || !session?.sessionToken) {
+        if (!expandedCard || !isAuthenticated || !session?.token) {
           setAnalyses([])
           return
         }
@@ -139,7 +159,7 @@ export default function Archive() {
         setAnalysesLoading(true)
         try {
           const res = await fetch(`${API_URL}/api/projects/${expandedCard}/analyses`, {
-            headers: { 'Authorization': `Bearer ${session.sessionToken}` }
+            headers: { 'Authorization': `Bearer ${session.token}` }
           })
           
           if (res.ok) {
@@ -156,13 +176,13 @@ export default function Archive() {
         }
       }
       
-      if (isAuthenticated && session?.sessionToken && activeTabUrl === 'analises') {
+      if (isAuthenticated && session?.token && activeTabUrl === 'analises') {
         fetchAnalysesData()
       }
     }, [expandedCard, isAuthenticated, session, activeTabUrl])
 
    const fetchProjects = async () => {
-     if (!isAuthenticated || !session?.sessionToken) {
+     if (!isAuthenticated || !session?.token) {
        setLoading(false)
        return
      }
@@ -186,7 +206,7 @@ export default function Archive() {
        }
        
        const res = await fetch(url.toString(), {
-         headers: { 'Authorization': `Bearer ${session.sessionToken}` }
+         headers: { 'Authorization': `Bearer ${session.token}` }
        })
        if (res.ok) {
          const data = await res.json()
@@ -202,7 +222,18 @@ export default function Archive() {
 
   const handleCreateProject = async (e) => {
     e.preventDefault()
-    if (!newProject.title) return
+    
+    if (!newProject.title?.trim()) {
+      showNotification('Por favor, insira um título para o projeto.', 'error')
+      return
+    }
+
+    if (!session?.token) {
+      showNotification('Sessão expirada. Faça login novamente.', 'error')
+      return
+    }
+
+    setIsCreating(true)
 
     let tagsArr = []
     if (newProject.tags) {
@@ -213,22 +244,29 @@ export default function Archive() {
       const res = await fetch(`${API_URL}/api/projects`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.sessionToken}`,
+          'Authorization': `Bearer ${session.token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           ...newProject,
-          tags: JSON.stringify(tagsArr)
+          tags: tagsArr
         })
       })
       if (res.ok) {
+        showNotification('Projeto criado com sucesso!', 'success')
         setIsModalOpen(false)
         setNewProject({ title: '', author: '', institution: '', doi: '', status: 'em_andamento', notes: '', tags: '' })
         fetchProjects()
         refreshContext()
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        showNotification(errorData.detail || 'Erro ao criar projeto.', 'error')
       }
     } catch (err) {
       console.error('Create error:', err)
+      showNotification('Erro de conexão. Tente novamente.', 'error')
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -244,7 +282,7 @@ export default function Archive() {
       const res = await fetch(`${API_URL}/api/projects/${id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${session.sessionToken}`,
+          'Authorization': `Bearer ${session.token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -266,7 +304,7 @@ export default function Archive() {
   const handleExportProject = async (id) => {
     try {
       const res = await fetch(`${API_URL}/api/projects/${id}/export`, {
-        headers: { 'Authorization': `Bearer ${session.sessionToken}` }
+        headers: { 'Authorization': `Bearer ${session.token}` }
       })
       if (!res.ok) throw new Error('Falha na exportação')
       const blob = await res.blob()
@@ -284,28 +322,58 @@ export default function Archive() {
     }
   }
 
-   const handleDeleteProject = async (id) => {
-     if (!confirm('Deseja realmente deletar este projeto e todos os seus anexos e gráficos?')) return
-     try {
-       const res = await fetch(`${API_URL}/api/projects/${id}`, {
-         method: 'DELETE',
-         headers: { 'Authorization': `Bearer ${session.sessionToken}` }
-       })
-       if (res.ok) {
-         if (expandedCard === id) setExpandedCard(null)
-         fetchProjects()
-         refreshContext()
-       }
-     } catch (err) {
-       console.error(err)
-     }
-   }
+  const handleDeleteProject = async (id) => {
+    setIsDeleting(id)
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      })
+      if (res.ok) {
+        showNotification('Projeto deletado com sucesso.', 'success')
+        if (expandedCard === id) setExpandedCard(null)
+        fetchProjects()
+        refreshContext()
+      } else {
+        showNotification('Erro ao deletar projeto.', 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      showNotification('Erro de conexão.', 'error')
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  const fetchProjectDetails = async (projectId) => {
+    if (!session?.token) return
+    setProjectDetailLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setProjectDetailData(data)
+      }
+    } catch (err) {
+      console.error('Error fetching project details:', err)
+      showNotification('Erro ao carregar detalhes.', 'error')
+    } finally {
+      setProjectDetailLoading(false)
+    }
+  }
+
+  const handleOpenProjectDetail = (project) => {
+    setProjectDetailModal(project)
+    fetchProjectDetails(project.id)
+  }
 
     const fetchFullHistory = async () => {
-      if (!isAuthenticated || !session?.sessionToken) return
+      if (!isAuthenticated || !session?.token) return
       try {
         const res = await fetch(`${API_URL}/api/history`, {
-          headers: { 'Authorization': `Bearer ${session.sessionToken}` }
+          headers: { 'Authorization': `Bearer ${session.token}` }
         })
         if (res.ok) {
           const data = await res.json()
@@ -324,7 +392,7 @@ export default function Archive() {
         const res = await fetch(`${API_URL}/api/projects/${projectId}/analyses`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.sessionToken}`,
+            'Authorization': `Bearer ${session.token}`,
             'Content-Type': 'application/x-www-form-urlencoded'
           },
           body: formData.toString()
@@ -332,7 +400,7 @@ export default function Archive() {
         if (res.ok) {
           // Refresh linked analyses
           const refetchRes = await fetch(`${API_URL}/api/projects/${projectId}/analyses`, {
-            headers: { 'Authorization': `Bearer ${session.sessionToken}` }
+            headers: { 'Authorization': `Bearer ${session.token}` }
           })
           if (refetchRes.ok) {
             const data = await refetchRes.json()
@@ -352,7 +420,7 @@ export default function Archive() {
       try {
         const res = await fetch(`${API_URL}/api/projects/${projectId}/analyses/${historyId}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${session.sessionToken}` }
+          headers: { 'Authorization': `Bearer ${session.token}` }
         })
         if (res.ok) {
           setAnalyses(prev => prev.filter(a => a.id !== historyId))
@@ -383,26 +451,67 @@ export default function Archive() {
 
   return (
     <div className="space-y-10 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -50, x: '-50%' }}
+            className={`fixed top-6 left-1/2 z-[200] px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md border-2 ${
+              notification.type === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' :
+              notification.type === 'error' ? 'bg-red-600 border-red-400 text-white' :
+              'bg-slate-800 border-slate-600 text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2 font-bold">
+              <span className="material-symbols-rounded">
+                {notification.type === 'success' ? 'check_circle' : notification.type === 'error' ? 'error' : 'info'}
+              </span>
+              {notification.message}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 relative z-10">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white mb-1 md:mb-2">
             <span className="text-primary glow-text-sm">Projetos de Pesquisa</span>
           </h1>
-          <p className="text-slate-400 max-w-2xl">Gerencie seus estudos, visualize gráficos salvos, e gerencie anexos (PDFs, CSVs) em um só lugar.</p>
+          <p className="text-slate-400 text-sm md:text-base max-w-2xl">Gerencie seus estudos, visualize gráficos salvos, e gerencie anexos (PDFs, CSVs) em um só lugar.</p>
         </motion.div>
         
         <motion.button 
           initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-secondary font-black uppercase tracking-widest text-xs rounded-xl hover:bg-primary-light transition-all active:scale-95 shadow-lg shadow-primary/20"
+          className="flex items-center gap-2 px-5 md:px-6 py-3 bg-primary text-secondary font-black uppercase tracking-widest text-xs rounded-xl hover:bg-primary-light transition-all active:scale-95 shadow-lg shadow-primary/20 hover:shadow-primary/40"
         >
           <span className="material-symbols-rounded text-lg">add_box</span>
-          Novo Projeto
+          <span className="hidden sm:inline">Novo Projeto</span>
+          <span className="sm:hidden">Novo</span>
         </motion.button>
       </header>
 
       {/* Cards de Estatística */}
-       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      {loading && totalProjects === 0 ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="glass-card p-5 flex items-center gap-4 animate-pulse">
+              <div className="p-3 bg-white/5 rounded-2xl">
+                <div className="w-6 h-6 bg-white/10 rounded" />
+              </div>
+              <div>
+                <div className="h-6 w-12 bg-white/10 rounded mb-2" />
+                <div className="h-3 w-20 bg-white/5 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
          {[
            { label: 'Projetos', value: totalProjects, icon: 'folder', color: 'text-primary' },
            { label: 'Publicados', value: projects.filter(p => p.status === 'publicado').length, icon: 'public', color: 'text-fuchsia-400' },
@@ -411,109 +520,131 @@ export default function Archive() {
          ].map((s, i) => (
           <motion.div 
             key={i}
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
-            className="glass-card p-5 flex items-center gap-4 hover:border-white/20 transition-colors"
+            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: i * 0.08, type: "spring", stiffness: 150, damping: 20 }}
+            whileHover={{ scale: 1.05, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            className="glass-card p-4 md:p-5 flex items-center gap-3 md:gap-4 hover:border-primary/30 cursor-pointer"
           >
-            <div className={`p-3 bg-white/5 rounded-2xl ${s.color}`}>
-              <span className="material-symbols-rounded">{s.icon}</span>
-            </div>
-            <div>
-              <p className="text-xl font-black text-white">{s.value}</p>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{s.label}</p>
-            </div>
+           <motion.div 
+             className={`p-3 bg-white/5 rounded-2xl ${s.color}`}
+             whileHover={{ rotate: 5, scale: 1.1 }}
+             transition={{ type: "spring", stiffness: 300 }}
+           >
+             <span className="material-symbols-rounded">{s.icon}</span>
+           </motion.div>
+           <div>
+             <motion.p 
+               className="text-xl font-black text-white"
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               transition={{ delay: i * 0.1 + 0.2 }}
+             >
+               {s.value}
+             </motion.p>
+             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{s.label}</p>
+           </div>
           </motion.div>
         ))}
-      </div>
+        </div>
+      )}
 
-      {/* Barra de Filtros */}
+{/* Barra de Filtros */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white/5 border border-white/10 p-3 rounded-2xl"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between bg-white/5 border border-white/10 p-3 rounded-2xl"
       >
-        <div className="flex bg-white/5 p-1 rounded-xl">
-          {['todos', 'em_andamento', 'concluido', 'publicado'].map(status => (
-            <button
+        {/* Status Pills */}
+        <div className="flex bg-white/5 p-1 rounded-xl overflow-x-auto">
+          {['todos', 'em_andamento', 'concluido', 'publicado'].map((status, i) => (
+            <motion.button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize ${statusFilter === status ? 'bg-primary/20 text-primary shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${statusFilter === status ? 'bg-primary/20 text-primary shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
               {status === 'todos' ? 'Todos' : STATUS_LABELS[status]}
-            </button>
+            </motion.button>
           ))}
         </div>
         
-        <div className="relative flex-1 max-w-md w-full">
+        {/* Search */}
+        <div className="relative flex-1 max-w-xs lg:max-w-sm">
           <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Buscar por título, autor... (Ctrl+K)"
+            placeholder="Buscar... (Ctrl+K)"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary/50"
           />
         </div>
-         <div className="flex gap-4">
-           <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-             <button 
-               onClick={() => setViewMode('compacto')}
-               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'compacto' ? 'bg-primary text-secondary shadow-lg' : 'text-zinc-400 hover:text-white'}`}
-               title="Modo Compacto (Tabela)"
-             >
-               <span className="material-symbols-rounded text-sm">view_list</span>
-               <span className="hidden sm:inline">Lista</span>
-             </button>
-             <button 
-               onClick={() => setViewMode('detalhado')}
-               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'detalhado' ? 'bg-primary text-secondary shadow-lg' : 'text-zinc-400 hover:text-white'}`}
-               title="Modo Detalhado (Cards)"
-             >
-               <span className="material-symbols-rounded text-sm">grid_view</span>
-               <span className="hidden sm:inline">Cards</span>
-             </button>
-             <button 
-               onClick={() => setViewMode('timeline')}
-               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'timeline' ? 'bg-primary text-secondary shadow-lg' : 'text-zinc-400 hover:text-white'}`}
-               title="Linha do Tempo"
-             >
-               <span className="material-symbols-rounded text-sm">timeline</span>
-               <span className="hidden sm:inline">Tempo</span>
-             </button>
-           </div>
-           <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-             <select 
-               value={tagFilter}
-               onChange={e => setTagFilter(e.target.value)}
-               className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50 appearance-none"
-             >
-               <option value="">Filtrar por tag</option>
-               {availableTags.map(tag => (
-                 <option key={tag} value={tag}>
-                   #{tag}
-                 </option>
-               ))}
-             </select>
-           </div>
-           <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-             <select 
-               value={sortBy}
-               onChange={e => setSortBy(e.target.value)}
-               className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50 appearance-none"
-             >
-               <option value="created_at_desc">Ordenar: Mais recente</option>
-               <option value="created_at_asc">Ordenar: Mais antigo</option>
-               <option value="title_asc">Ordenar: Nome A-Z</option>
-               <option value="title_desc">Ordenar: Nome Z-A</option>
-               <option value="analyses_desc">Ordenar: Mais análises</option>
-               <option value="analyses_asc">Ordenar: Menos análises</option>
-             </select>
-           </div>
-         </div>
+        
+        {/* View Mode + Tag + Sort */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* View Mode Toggle */}
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+            <button 
+              onClick={() => setViewMode('compacto')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'compacto' ? 'bg-primary text-secondary' : 'text-zinc-400 hover:text-white'}`}
+              title="Modo Lista"
+            >
+              <span className="material-symbols-rounded text-sm">view_list</span>
+              <span className="hidden md:inline">Lista</span>
+            </button>
+            <button 
+              onClick={() => setViewMode('detalhado')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'detalhado' ? 'bg-primary text-secondary' : 'text-zinc-400 hover:text-white'}`}
+              title="Modo Cards"
+            >
+              <span className="material-symbols-rounded text-sm">grid_view</span>
+              <span className="hidden md:inline">Cards</span>
+            </button>
+            <button 
+              onClick={() => setViewMode('timeline')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'timeline' ? 'bg-primary text-secondary' : 'text-zinc-400 hover:text-white'}`}
+              title="Linha do Tempo"
+            >
+              <span className="material-symbols-rounded text-sm">timeline</span>
+              <span className="hidden md:inline">Tempo</span>
+            </button>
+          </div>
+          
+          {/* Tag Filter */}
+          <select 
+            value={tagFilter}
+            onChange={e => setTagFilter(e.target.value)}
+            className="text-xs border border-white/20 bg-slate-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
+          >
+            <option value="">Tag</option>
+            {availableTags.map(tag => (
+              <option key={tag} value={tag}>#{tag}</option>
+            ))}
+          </select>
+          
+          {/* Sort */}
+          <select 
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="text-xs border border-white/20 bg-slate-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
+          >
+            <option value="created_at_desc">Recente</option>
+            <option value="created_at_asc">Antigo</option>
+            <option value="title_asc">A-Z</option>
+            <option value="title_desc">Z-A</option>
+            <option value="analyses_desc">+Análises</option>
+          </select>
+        </div>
       </motion.div>
 
       <motion.div 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-        className={viewMode === 'detalhado' ? "grid grid-cols-1 gap-6" : "space-y-4"}
+        className={viewMode === 'detalhado' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6" : "space-y-4"}
       >
         <AnimatePresence>
           {loading ? (
@@ -529,10 +660,12 @@ export default function Archive() {
                 <motion.div 
                   layout
                   key={item.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className={`glass-card overflow-hidden transition-colors border ${isExpanded ? 'border-primary/30 ring-1 ring-primary/20' : 'border-white/5 hover:border-white/20'}`}
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -20 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 25 }}
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  className={`glass-card overflow-hidden transition-colors border ${isExpanded ? 'border-primary/30 ring-1 ring-primary/20' : 'border-white/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10'}`}
                 >
                   {/* Cabeçalho do Card */}
                   <div 
@@ -752,11 +885,20 @@ export default function Archive() {
                                       Exportar (.zip)
                                     </button>
                                     <button
-                                      onClick={() => handleDeleteProject(item.id)}
-                                      className="px-4 py-2 text-xs font-bold text-red-400 hover:bg-red-400/10 rounded-lg transition-colors flex items-center gap-2 border border-red-400/20"
+                                      onClick={() => {
+                                        if (window.confirm('Deseja realmente deletar este projeto e todos os seus anexos e gráficos?')) {
+                                          handleDeleteProject(item.id)
+                                        }
+                                      }}
+                                      disabled={isDeleting === item.id}
+                                      className="px-4 py-2 text-xs font-bold text-red-400 hover:bg-red-400/10 rounded-lg transition-colors flex items-center gap-2 border border-red-400/20 disabled:opacity-50"
                                     >
-                                      <span className="material-symbols-rounded text-sm">delete</span>
-                                      Deletar
+                                      {isDeleting === item.id ? (
+                                        <span className="animate-spin material-symbols-rounded text-sm">sync</span>
+                                      ) : (
+                                        <span className="material-symbols-rounded text-sm">delete</span>
+                                      )}
+                                      {isDeleting === item.id ? 'Deletando...' : 'Deletar'}
                                     </button>
                                   </div>
                                 </div>
@@ -829,41 +971,310 @@ export default function Archive() {
                 </motion.div>
               )
             })
-          ) : viewMode === 'timeline' ? (
-            <div className="relative border-l-2 border-white/10 ml-6 md:ml-20 py-8 space-y-12">
-              {projects.map((item) => {
-                return (
-                  <motion.div 
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    className="relative pl-8 md:pl-0"
-                  >
-                    <div className={`absolute left-[-5px] md:left-[-11px] top-6 w-4 h-4 md:w-5 md:h-5 rounded-full border-4 border-slate-900 bg-current z-10 ${STATUS_COLORS[item.status || 'em_andamento'].includes('emerald') ? 'text-emerald-400' : STATUS_COLORS[item.status || 'em_andamento'].includes('fuchsia') ? 'text-fuchsia-400' : 'text-amber-400'}`}></div>
-                    
-                    <div className="md:absolute top-5 md:left-[-150px] text-xs font-bold text-zinc-500 mb-2 md:mb-0 w-32 md:text-right mt-1">
-                      {new Date(item.created_at).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric', day: 'numeric'})}
-                    </div>
-
-                    <div className="glass-card p-5 border border-white/5 hover:border-white/20 transition-all cursor-pointer w-full md:ml-12 max-w-3xl" onClick={() => { setViewMode('detalhado'); setExpandedCard(item.id); }}>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-3">
-                            <span className={`self-start px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
-                            {STATUS_LABELS[item.status || 'em_andamento']}
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold text-white leading-tight">{item.title}</h3>
-                        <p className="text-sm text-zinc-400">{item.author}</p>
+) : viewMode === 'timeline' ? (
+            <div className="space-y-8">
+              {/* Gráfico de Timeline Estilo CDF */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="glass-card p-6 border border-white/10"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">Linha do Tempo de Projetos</h3>
+                  <span className="material-symbols-rounded text-primary/50">timeline</span>
+                </div>
+                
+                {/* Tooltip State */}
+                {(() => {
+                  return (
+                    <>
+                      <div className="h-64 relative">
+                        <svg className="w-full h-full" viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet">
+                          {/* Eixo horizontal com ticks */}
+                          <line x1="60" y1="180" x2="760" y2="180" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+                          
+                          {/* Ticks do eixo X (marcações de tempo) */}
+                          {(() => {
+                            const sorted = [...projects].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                            if (sorted.length < 2) return null
+                            const minDate = new Date(sorted[0].created_at).getTime()
+                            const maxDate = new Date(sorted[sorted.length - 1].created_at).getTime()
+                            const range = maxDate - minDate || 1
+                            const numTicks = Math.min(5, sorted.length)
+                            const ticks = []
+                            for (let i = 0; i <= numTicks; i++) {
+                              const x = 60 + (i / numTicks) * 700
+                              const date = new Date(minDate + (i / numTicks) * range)
+                              ticks.push({ x, date })
+                            }
+                            return ticks.map((tick, i) => (
+                              <g key={i}>
+                                <line x1={tick.x} y1="180" x2={tick.x} y2="185" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                                <text 
+                                  x={tick.x} 
+                                  y="198" 
+                                  fill="#71717a" 
+                                  fontSize="9" 
+                                  fontFamily="inherit" 
+                                  textAnchor="middle"
+                                >
+                                  {tick.date.toLocaleDateString('pt-BR', { month: 'short' })}
+                                </text>
+                              </g>
+                            ))
+})()}
+                           
+                           {/* Gradiente para linha */}
+                           <defs>
+                            <linearGradient id="timelineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="#22c55e" />
+                              <stop offset="50%" stopColor="#3b82f6" />
+                              <stop offset="100%" stopColor="#a855f7" />
+                            </linearGradient>
+                            <filter id="glow">
+                              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                              <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                              </feMerge>
+                            </filter>
+                          </defs>
+                          
+                          {/* Linha da CDF - curva suave */}
+                          <motion.path 
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: 1 }}
+                            transition={{ duration: 1.5, ease: "easeInOut" }}
+                            d={(() => {
+                              const sorted = [...projects].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                              if (sorted.length === 0) return ''
+                              const minDate = new Date(sorted[0].created_at).getTime()
+                              const maxDate = new Date(sorted[sorted.length - 1].created_at).getTime()
+                              const range = maxDate - minDate || 1
+                              
+                              const points = sorted.map((p, i) => {
+                                const x = 60 + ((new Date(p.created_at).getTime() - minDate) / range) * 700
+                                const y = 180 - ((i + 1) / sorted.length) * 130
+                                return `${x},${y}`
+                              })
+                              
+                              let d = `M 60,180 `
+                              points.forEach((pt, i) => {
+                                const [x, y] = pt.split(',').map(Number)
+                                if (i === 0) {
+                                  d += `L ${x},${y} `
+                                } else {
+                                  const prev = points[i-1].split(',').map(Number)
+                                  const cp1x = prev[0] + (x - prev[0]) * 0.5
+                                  const cp2x = prev[0] + (x - prev[0]) * 0.5
+                                  d += `C ${cp1x},${prev[1]} ${cp2x},${y} ${x},${y} `
+                                }
+                              })
+                              return d
+                            })()}
+                            fill="none"
+                            stroke="url(#timelineGradient)"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                          
+                          {/* Pontos nos projetos com labels e tooltips */}
+                          {(() => {
+                            const sorted = [...projects].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                            if (sorted.length === 0) return null
+                            const minDate = new Date(sorted[0].created_at).getTime()
+                            const maxDate = new Date(sorted[sorted.length - 1].created_at).getTime()
+                            const range = maxDate - minDate || 1
+                            
+                            return sorted.map((p, i) => {
+                              const x = 60 + ((new Date(p.created_at).getTime() - minDate) / range) * 700
+                              const y = 180 - ((i + 1) / sorted.length) * 130
+                              const color = p.status === 'publicado' ? '#a855f7' : p.status === 'concluido' ? '#22c55e' : '#f59e0b'
+                              const dateStr = new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                              const title = p.title.length > 25 ? p.title.substring(0, 25) + '...' : p.title
+                              const statusLabel = p.status === 'publicado' ? 'Publicado' : p.status === 'concluido' ? 'Concluído' : 'Em Andamento'
+                              
+                              return (
+                                <g 
+                                  key={p.id} 
+                                  className="cursor-pointer"
+                                  onClick={() => handleOpenProjectDetail(p)}
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    const containerRect = e.currentTarget.closest('svg').getBoundingClientRect()
+                                    setTooltipPos({ 
+                                      x: x, 
+                                      y: y - 50 
+                                    })
+                                    setTooltipData({ title: p.title, status: p.status, statusLabel, dateStr, color })
+                                  }}
+                                  onMouseLeave={() => setTooltipData(null)}
+                                  tabIndex={0}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleOpenProjectDetail(p)}
+                                  role="button"
+                                  aria-label={`Projeto ${p.title}, ${statusLabel}, ${dateStr}`}
+                                >
+                                  {/* Label do nome acima do ponto */}
+                                  <text 
+                                    x={x} 
+                                    y={y - 15} 
+                                    fill="#e4e4e7" 
+                                    fontSize="9" 
+                                    fontFamily="inherit" 
+                                    textAnchor="middle"
+                                    className="font-bold"
+                                  >
+                                    {title}
+                                  </text>
+                                  
+                                  {/* Linha tracejada para o ponto */}
+                                  <line 
+                                    x1={x} 
+                                    y1={y - 5} 
+                                    x2={x} 
+                                    y2={y + 5} 
+                                    stroke={color} 
+                                    strokeWidth="1" 
+                                    strokeDasharray="2,2"
+                                    opacity="0.5"
+                                  />
+                                  
+                                  {/* Ponto principal com glow effect */}
+                                  <motion.circle 
+                                    cx={x} 
+                                    cy={y} 
+                                    r="6" 
+                                    fill={color}
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: 0.5 + i * 0.1 }}
+                                    whileHover={{ scale: 1.8 }}
+                                    style={{ filter: 'url(#glow)' }}
+                                    className="drop-shadow-lg"
+                                  />
+                                  
+                                  {/* Label da data abaixo do eixo */}
+                                  <text 
+                                    x={x} 
+                                    y="205" 
+                                    fill="#71717a" 
+                                    fontSize="8" 
+                                    fontFamily="inherit" 
+                                    textAnchor="middle"
+                                  >
+                                    {dateStr}
+                                  </text>
+                                </g>
+                              )
+                            })
+                          })()}
+                          
+                          {/* Labels do eixo */}
+                          <text x="60" y="220" fill="#52525b" fontSize="9" fontFamily="inherit">Mais antigo</text>
+                          <text x="760" y="220" fill="#52525b" fontSize="9" fontFamily="inherit" textAnchor="end">Mais recente</text>
+                        </svg>
                       </div>
-                    </div>
-                  </motion.div>
-                )
-              })}
+                      
+                      {/* Tooltip Flutuante com Glassmorphism */}
+                      <AnimatePresence>
+                        {tooltipData && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: tooltipPos.x,
+                              top: tooltipPos.y,
+                              transform: 'translateX(-50%)'
+                            }}
+                          >
+                            <div className="bg-slate-800/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-3 min-w-[180px]">
+                              {/* Seta do tooltip */}
+                              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-800/90 border-r border-b border-white/10 rotate-45" />
+                              
+                              <p className="text-white font-bold text-sm mb-1 truncate">{tooltipData.title}</p>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span 
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                                  style={{ 
+                                    backgroundColor: `${tooltipData.color}20`, 
+                                    color: tooltipData.color,
+                                    border: `1px solid ${tooltipData.color}30`
+                                  }}
+                                >
+                                  {tooltipData.statusLabel}
+                                </span>
+                              </div>
+                              <p className="text-zinc-400 text-xs">{tooltipData.dateStr}</p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 1 }}
+                        className="text-xs text-zinc-500 text-center mt-2"
+                      >
+                        Passe o cursor ou clique nos pontos para ver os detalhes do projeto
+                      </motion.p>
+                    </>
+                  )
+                })()}
+              </motion.div>
+              
+              {/* Lista de projetos no modo timeline */}
+              <div className="relative border-l-2 border-white/10 ml-6 md:ml-20 py-8 space-y-8">
+                {projects.map((item, index) => {
+                  return (
+                    <motion.div 
+                      key={item.id}
+                      initial={{ opacity: 0, x: -30, scale: 0.95 }}
+                      whileInView={{ opacity: 1, x: 0, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.05, duration: 0.4, type: "spring", stiffness: 100 }}
+                      whileHover={{ x: 5, scale: 1.02 }}
+                      className="relative pl-8 md:pl-0 group"
+                    >
+                      <motion.div 
+                        className={`absolute left-[-5px] md:left-[-11px] top-6 w-4 h-4 md:w-5 md:h-5 rounded-full border-4 border-slate-900 z-10 transition-all group-hover:scale-125 ${item.status === 'publicado' ? 'bg-fuchsia-500' : item.status === 'concluido' ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                      />
+                      
+                      <div className="md:absolute top-5 md:left-[-150px] text-xs font-bold text-zinc-500 mb-2 md:mb-0 w-32 md:text-right mt-1">
+                        {new Date(item.created_at).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric', day: 'numeric'})}
+                      </div>
+
+                      <motion.div 
+                        className="glass-card p-5 border border-white/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 transition-all cursor-pointer w-full md:ml-12 max-w-3xl"
+                        onClick={() => handleOpenProjectDetail(item)}
+                        whileHover={{ y: -2 }}
+                      >
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
+                              <span className={`self-start px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
+                              {STATUS_LABELS[item.status || 'em_andamento']}
+                              </span>
+                          </div>
+                          <h3 className="text-xl font-bold text-white leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
+                          <p className="text-sm text-zinc-400">{item.author}</p>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )
+                })}
+              </div>
             </div>
           ) : (
             // Modo Compacto (Tabela/Lista Simples)
-            <div className="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-xl"
+            >
               <table className="w-full text-left text-sm text-slate-300">
                 <thead className="bg-slate-950/50 text-xs uppercase text-zinc-500 font-black border-b border-white/10">
                   <tr>
@@ -874,11 +1285,15 @@ export default function Archive() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {projects.map(item => (
-                    <tr 
+                  {projects.map((item, index) => (
+                    <motion.tr 
                       key={item.id} 
-                      className="hover:bg-white/5 cursor-pointer transition-colors"
-                      onClick={() => setExpandedCard(expandedCard === item.id ? null : item.id)}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.05)" }}
+                      className="cursor-pointer"
+                      onClick={() => handleOpenProjectDetail(item)}
                     >
                       <td className="px-6 py-4 font-bold text-white">
                         {item.title}
@@ -898,49 +1313,59 @@ export default function Archive() {
                       <td className="px-6 py-4 text-right text-zinc-500">
                         {new Date(item.created_at).toLocaleDateString('pt-BR')}
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
 
       {/* Paginação */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row justify-between items-center mt-8 bg-white/5 border border-white/10 p-4 rounded-2xl gap-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row justify-between items-center mt-8 bg-white/5 border border-white/10 p-4 rounded-2xl gap-4"
+        >
           <div className="text-xs text-zinc-500">
             Mostrando <span className="font-bold text-white">{(page - 1) * limit + 1}</span> a <span className="font-bold text-white">{Math.min(page * limit, totalProjects)}</span> de <span className="font-bold text-white">{totalProjects}</span> projetos
           </div>
           <div className="flex gap-2">
-            <button 
+            <motion.button 
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
+              whileHover={{ scale: page > 1 ? 1.05 : 1 }}
+              whileTap={{ scale: page > 1 ? 0.95 : 1 }}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors"
             >
               Anterior
-            </button>
+            </motion.button>
             <div className="flex items-center gap-1 px-2">
               {Array.from({ length: totalPages }).map((_, i) => (
-                <button
+                <motion.button
                   key={i + 1}
                   onClick={() => setPage(i + 1)}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${page === i + 1 ? 'bg-primary text-secondary' : 'bg-transparent text-zinc-400 hover:bg-white/10 hover:text-white'}`}
                 >
                   {i + 1}
-                </button>
+                </motion.button>
               ))}
             </div>
-            <button 
+            <motion.button 
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
+              whileHover={{ scale: page < totalPages ? 1.05 : 1 }}
+              whileTap={{ scale: page < totalPages ? 0.95 : 1 }}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors"
             >
               Próxima
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Modal Criar Novo Projeto */}
@@ -956,19 +1381,19 @@ export default function Archive() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card relative z-10 w-full max-w-lg overflow-hidden border border-white/10 shadow-2xl"
+              className="glass-card relative z-10 w-full max-w-lg md:max-w-xl lg:max-w-2xl overflow-hidden border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
-              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
+                <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
                   <span className="material-symbols-rounded text-primary">add_box</span>
                   Criar Novo Projeto
                 </h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-1">
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
               
-              <form onSubmit={handleCreateProject} className="p-6 space-y-4">
+              <form onSubmit={handleCreateProject} className="p-4 md:p-6 space-y-4 md:space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Título do Projeto *</label>
                   <input
@@ -981,7 +1406,7 @@ export default function Archive() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Autor / PI</label>
                     <input
@@ -1004,7 +1429,7 @@ export default function Archive() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">DOI (opcional)</label>
                     <input
@@ -1063,9 +1488,17 @@ export default function Archive() {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-primary text-secondary rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-light transition-colors active:scale-95 shadow-lg shadow-primary/20"
+                    disabled={isCreating}
+                    className="px-6 py-2.5 bg-primary text-secondary rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-light transition-colors active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    Salvar Projeto
+                    {isCreating ? (
+                      <>
+                        <span className="animate-spin material-symbols-rounded text-sm">sync</span>
+                        Criando...
+                      </>
+                    ) : (
+                      'Salvar Projeto'
+                    )}
                   </button>
                 </div>
               </form>
@@ -1105,7 +1538,7 @@ export default function Archive() {
                 
                 <div className="flex items-center gap-2">
                   <a 
-                    href={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.sessionToken}`}
+                    href={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.token}`}
                     className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-colors"
                     download
                     target="_blank"
@@ -1125,9 +1558,9 @@ export default function Archive() {
 
               <div className="flex-1 min-h-0 pointer-events-auto shadow-2xl rounded-xl overflow-hidden">
                 {previewFile.file_type === 'pdf' ? (
-                  <PDFViewer url={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.sessionToken}`} />
+                  <PDFViewer url={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.token}`} />
                 ) : previewFile.file_type === 'csv' ? (
-                  <CSVPreview url={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.sessionToken}`} />
+                  <CSVPreview url={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.token}`} />
                 ) : (
                   <div className="flex items-center justify-center h-full bg-slate-900 border border-white/10 rounded-xl">
                     <div className="text-center">
@@ -1194,6 +1627,271 @@ export default function Archive() {
                     <span className="material-symbols-rounded text-4xl text-zinc-700 mb-2">history</span>
                     <p className="text-zinc-500">Nenhuma análise disponível para vincular.</p>
                   </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Detalhes do Projeto (Pop-up para modo compacto) */}
+      <AnimatePresence>
+        {projectDetailModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-secondary/80 backdrop-blur-md"
+              onClick={() => setProjectDetailModal(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="glass-card relative z-10 w-full max-w-2xl lg:max-w-3xl max-h-[85vh] overflow-hidden border border-white/10 shadow-2xl"
+            >
+              {/* Header com Glassmorphism Premium */}
+              <div className="relative p-4 md:p-6 border-b border-white/10 overflow-hidden">
+                {/* Background gradient effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/15 via-fuchsia-500/10 to-transparent opacity-50" />
+                
+                <div className="relative flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="flex items-center gap-3 mb-3 flex-wrap"
+                    >
+                      <motion.span 
+                        whileHover={{ scale: 1.05 }}
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border cursor-default ${STATUS_COLORS[projectDetailModal.status || 'em_andamento']}`}
+                      >
+                        {STATUS_LABELS[projectDetailModal.status || 'em_andamento']}
+                      </motion.span>
+                      <span className="text-[10px] text-zinc-500 font-medium bg-white/5 px-2 py-1 rounded-md">#{projectDetailModal.id}</span>
+                      <span className="text-[10px] text-zinc-500 font-medium flex items-center gap-1 bg-white/5 px-2 py-1 rounded-md">
+                        <span className="material-symbols-rounded text-[12px]">calendar_today</span>
+                        {new Date(projectDetailModal.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    </motion.div>
+                    <motion.h2 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-xl md:text-2xl font-bold text-white leading-tight"
+                    >
+                      {projectDetailModal.title}
+                    </motion.h2>
+                    {projectDetailModal.author && (
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-sm text-zinc-400 mt-2 flex items-center gap-2"
+                      >
+                        <span className="material-symbols-rounded text-[16px] text-primary/70">person</span>
+                        {projectDetailModal.author}
+                        {projectDetailModal.institution && (
+                          <>
+                            <span className="text-zinc-600">•</span>
+                            <span className="text-zinc-500">{projectDetailModal.institution}</span>
+                          </>
+                        )}
+                      </motion.p>
+                    )}
+                    {projectDetailModal.doi && (
+                      <motion.a 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.25 }}
+                        href={`https://doi.org/${projectDetailModal.doi}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary mt-2 flex items-center gap-1 hover:underline cursor-pointer"
+                      >
+                        <span className="material-symbols-rounded text-[12px]">link</span>
+                        DOI: {projectDetailModal.doi}
+                      </motion.a>
+                    )}
+                  </div>
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: 90 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setProjectDetailModal(null)} 
+                    className="text-zinc-500 hover:text-white transition-colors p-2 shrink-0 bg-white/5 hover:bg-white/10 rounded-lg"
+                  >
+                    <span className="material-symbols-rounded text-xl">close</span>
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-4 md:p-6 overflow-y-auto max-h-[calc(85vh-200px)] custom-scrollbar">
+                {projectDetailLoading ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center justify-center py-12"
+                  >
+                    <div className="animate-spin text-primary">
+                      <span className="material-symbols-rounded text-4xl">sync</span>
+                    </div>
+                  </motion.div>
+                ) : projectDetailData ? (
+                  <div className="space-y-6">
+                    {/* Tags com animação stagger */}
+                    {projectDetailData.tags?.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                      >
+                        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <span className="material-symbols-rounded text-sm">sell</span>
+                          Tags
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {projectDetailData.tags.map((t, i) => (
+                            <motion.span 
+                              key={t}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: 0.35 + i * 0.05 }}
+                              whileHover={{ scale: 1.05 }}
+                              className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs text-zinc-300 hover:border-primary/30 hover:text-primary transition-all cursor-default"
+                            >
+                              #{t}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Notes */}
+                    {projectDetailData.notes && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                      >
+                        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <span className="material-symbols-rounded text-sm">notes</span>
+                          Notas
+                        </h4>
+                        <motion.div 
+                          whileHover={{ borderColor: 'rgba(255,255,255,0.2)' }}
+                          className="p-4 bg-white/5 border border-white/10 rounded-xl text-sm text-zinc-300 transition-colors"
+                        >
+                          {projectDetailData.notes}
+                        </motion.div>
+                      </motion.div>
+                    )}
+
+                    {/* Stats com cards aprimorados */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.45 }}
+                    >
+                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <span className="material-symbols-rounded text-sm">analytics</span>
+                        Estatísticas
+                      </h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        <motion.div 
+                          whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
+                          className="glass-card p-4 text-center border border-white/5 hover:border-primary/30 transition-all cursor-default"
+                        >
+                          <div className="flex justify-center mb-2">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                              <span className="material-symbols-rounded text-primary">attach_file</span>
+                            </div>
+                          </div>
+                          <p className="text-2xl font-black text-primary">{projectDetailData.attachment_count || 0}</p>
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">Anexos</p>
+                        </motion.div>
+                        <motion.div 
+                          whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
+                          className="glass-card p-4 text-center border border-white/5 hover:border-emerald-400/30 transition-all cursor-default"
+                        >
+                          <div className="flex justify-center mb-2">
+                            <div className="p-2 bg-emerald-500/10 rounded-lg">
+                              <span className="material-symbols-rounded text-emerald-400">show_chart</span>
+                            </div>
+                          </div>
+                          <p className="text-2xl font-black text-emerald-400">{projectDetailData.chart_count || 0}</p>
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">Gráficos</p>
+                        </motion.div>
+                        <motion.div 
+                          whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
+                          className="glass-card p-4 text-center border border-white/5 hover:border-fuchsia-400/30 transition-all cursor-default"
+                        >
+                          <div className="flex justify-center mb-2">
+                            <div className="p-2 bg-fuchsia-500/10 rounded-lg">
+                              <span className="material-symbols-rounded text-fuchsia-400">science</span>
+                            </div>
+                          </div>
+                          <p className="text-2xl font-black text-fuchsia-400">{projectDetailData.analysis_count || 0}</p>
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">Análises</p>
+                        </motion.div>
+                      </div>
+                    </motion.div>
+
+                    {/* Quick Actions com micro-interactions */}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex flex-wrap gap-3 pt-4 border-t border-white/10"
+                    >
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setExpandedCard(projectDetailModal.id)
+                          setProjectDetailModal(null)
+                          setViewMode('detalhado')
+                        }}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-primary/20 text-primary border border-primary/30 rounded-lg text-xs font-bold hover:bg-primary/30 transition-colors"
+                      >
+                        <span className="material-symbols-rounded text-sm">edit</span>
+                        Editar
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleExportProject(projectDetailModal.id)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 transition-colors"
+                      >
+                        <span className="material-symbols-rounded text-sm">download</span>
+                        Exportar
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          if (window.confirm('Deseja realmente deletar este projeto?')) {
+                            handleDeleteProject(projectDetailModal.id)
+                            setProjectDetailModal(null)
+                          }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-red-400 border border-red-400/20 rounded-lg hover:bg-red-400/10 transition-colors"
+                      >
+                        <span className="material-symbols-rounded text-sm">delete</span>
+                        Deletar
+                      </motion.button>
+                    </motion.div>
+                  </div>
+                ) : (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-12"
+                  >
+                    <span className="material-symbols-rounded text-5xl text-zinc-700 mb-4 block">error</span>
+                    <p className="text-zinc-500">Não foi possível carregar os detalhes.</p>
+                  </motion.div>
                 )}
               </div>
             </motion.div>
