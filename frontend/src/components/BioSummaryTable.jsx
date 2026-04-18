@@ -82,7 +82,7 @@ export default function BioSummaryTable({ data, outcomeName }) {
       </div>
       <div className="p-4 bg-black/20 border-t border-white/5 flex justify-end">
           <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-            SciStat Engine v2.5 • Inferência Linear & Não-Paramétrica
+            Paper Metrics Engine • Inferência Linear & Não-Paramétrica
           </p>
       </div>
     </motion.div>

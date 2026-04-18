@@ -130,7 +130,7 @@ def get_local_response(message: str) -> str:
                 "Descreva seu cenário e posso sugerir o teste ideal.")
 
     if any(w in msg for w in ["ajuda", "help", "o que você faz", "como usar"]):
-        return ("Sou o SciStat AI, especializado em bioestatística. Posso ajudar com:\n\n"
+        return ("Sou o Paper Metrics, especializado em bioestatística. Posso ajudar com:\n\n"
                 "• Escolha do teste estatístico adequado\n"
                 "• Interpretação de resultados (p-valor, IC, efeito)\n"
                 "• Cálculo de tamanho amostral\n"
@@ -292,7 +292,7 @@ async def get_current_user(token: HTTPAuthorizationCredentials = Depends(auth_sc
         # Fallback gracioso em vez de bloquear
         return token.credentials[:64] if token.credentials else "anonymous"
 
-app = FastAPI(title="SciStat API Pro", version="2.12.0")
+app = FastAPI(title="Paper Metrics API", version="2.12.0")
 
 @app.get("/api/health")
 async def health_check():
@@ -587,7 +587,7 @@ async def upload_file_v6(file: UploadFile = File(...), user_id: str = Depends(ge
         df = sanitize_df(df)
         
         if is_summary_table(df):
-            msg = "Esta parece uma Planilha de Resumo/Frequências. Para realizar análises estatísticas, o SciStat precisa da Planilha de Microdados (onde cada linha é um paciente e cada coluna é uma variável)."
+            msg = "Esta parece uma Planilha de Resumo/Frequências. Para realizar análises estatísticas, o Paper Metrics precisa da Planilha de Microdados (onde cada linha é um paciente e cada coluna é uma variável)."
             raise HTTPException(status_code=400, detail=msg)
 
         summary = json_safe_df(df.describe()).to_dict()
@@ -711,7 +711,7 @@ async def analyze_protocol_v7(file: UploadFile = File(...), outcome_col: str = F
         print(f"DEBUG: analyze_protocol_v7 -> File: {file.filename}, Shape: {df.shape}")
         
         if is_summary_table(df):
-            msg = "Esta Planilha parece conter APENAS O RESUMO (Tabela de Frequência). O SciStat AI precisa dos MICRODADOS BRUTOS (onde cada linha é um paciente) para realizar correlações e testes estatísticos."
+            msg = "Esta Planilha parece conter APENAS O RESUMO (Tabela de Frequência). O Paper Metrics precisa dos MICRODADOS BRUTOS (onde cada linha é um paciente) para realizar correlações e testes estatísticos."
             print(f"REJECTED: Summary table detected -> {file.filename}")
             raise HTTPException(status_code=400, detail=msg)
         
@@ -3366,7 +3366,7 @@ async def compute_roc(
         print(f"ERR: ROC -> {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-SYSTEM_PROMPT = """Você é o SciStat AI, um assistente amigável e especializado em bioestatística e análise de dados clínicos, integrado à plataforma SciStat.
+SYSTEM_PROMPT = """Você é o Paper Metrics, um assistente amigável e especializado em bioestatística e análise de dados clínicos, integrado à plataforma Paper Metrics.
 
 TOM E ESTILO DE RESPOSTA:
 - Seja **conversacional, acolhedor e didático** — como um colega sênior que adora ensinar
@@ -3379,9 +3379,9 @@ TOM E ESTILO DE RESPOSTA:
 - Use emojis com moderação para tornar a leitura mais agradável (📊, 🧬, 📈, ✅, ⚠️)
 - **NUNCA** use os marcadores de markdown como asteriscos soltos — o sistema renderiza markdown corretamente, então use **negrito** e *itálico* normalmente
 
-CONHECIMENTO COMPLETO DA PLATAFORMA SCISTAT:
+CONHECIMENTO COMPLETO DA PLATAFORMA PAPER METRICS:
 
-O SciStat é uma plataforma completa de análise estatística para pesquisadores. Você conhece cada ferramenta e sabe orientar o usuário sobre a melhor opção para cada cenário:
+O Paper Metrics é uma plataforma completa de análise estatística para pesquisadores. Você conhece cada ferramenta e sabe orientar o usuário sobre a melhor opção para cada cenário:
 
 📊 **Dashboard** (/) — O ponto de partida. O usuário faz upload de um dataset (CSV ou Excel), o sistema detecta automaticamente os tipos de variáveis, sugere o protocolo de análise ideal e executa os testes. É a ferramenta principal para quem tem dados e quer respostas rápidas.
 
@@ -3429,7 +3429,7 @@ REGRAS:
 4. Responda em português brasileiro.
 5. Quando sugerir um teste, explique brevemente POR QUÊ.
 6. Se tiver acesso ao contexto de ensaios clínicos ou histórico do usuário, personalize a resposta.
-7. Oriente o usuário sobre qual ferramenta do SciStat usar para cada necessidade."""
+7. Oriente o usuário sobre qual ferramenta do Paper Metrics usar para cada necessidade."""
 
 
 @app.post("/api/stats/premium-analysis")

@@ -152,7 +152,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Olá! 👋 Sou o **SciStat AI**, seu assistente pessoal de bioestatística.\n\nPosso te ajudar a:\n- Escolher o **teste estatístico** ideal para seus dados\n- **Interpretar resultados** de análises\n- Sugerir o melhor caminho na plataforma\n- Explicar conceitos de forma simples\n\nComo posso ajudar hoje?',
+      content: 'Olá! 👋 Sou o **Paper Metrics**, seu assistente pessoal de bioestatística.\n\nPosso te ajudar a:\n- Escolher o **teste estatístico** ideal para seus dados\n- **Interpretar resultados** de análises\n- Sugerir o melhor caminho na plataforma\n- Explicar conceitos de forma simples\n\nComo posso ajudar hoje?',
       needsUpload: false
     }
   ])
@@ -289,7 +289,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
               <div className="flex items-center gap-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#00FFA3]"></div>
                 <div>
-                  <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">SciStat AI</span>
+                  <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Paper Metrics</span>
                   <span className="text-[9px] text-slate-500 ml-2">{currentPage}</span>
                 </div>
               </div>

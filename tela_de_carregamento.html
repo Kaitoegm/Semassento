@@ -1,0 +1,146 @@
+
+<style>
+  .stage {
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 70px 20px;
+    min-height: 220px;
+  }
+  .logo-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .word {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 900;
+    font-size: clamp(36px, 7vw, 72px);
+    color: #2EFFD3;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    opacity: 0;
+    white-space: nowrap;
+  }
+  .word-paper  { animation: fadeSlideL 0.45s cubic-bezier(0.22,1,0.36,1) 2.8s forwards; transform: translateX(-16px); }
+  .word-metrics{ animation: fadeSlideR 0.45s cubic-bezier(0.22,1,0.36,1) 3.0s forwards; transform: translateX(16px); }
+  @keyframes fadeSlideL { to { opacity:1; transform:translateX(0); } }
+  @keyframes fadeSlideR { to { opacity:1; transform:translateX(0); } }
+
+  .icon-wrap {
+    padding: 0 clamp(10px,2vw,20px);
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .icon-svg {
+    overflow: visible;
+    width: clamp(60px,10vw,100px);
+    height: clamp(24px,4vw,40px);
+  }
+
+  /* linha: aparece de uma vez, opacity 0→1 */
+  .track {
+    stroke: #2EFFD3;
+    stroke-width: 3;
+    stroke-linecap: round;
+    opacity: 0;
+    animation: fadeIn 0.3s ease 0.1s forwards;
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+
+  /* diamante desliza na linha */
+  .diamond {
+    fill: #2EFFD3;
+    animation: slide 2.3s cubic-bezier(0.45,0,0.55,1) 0.4s forwards;
+    transform: translateX(-48px);
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-48px); animation-timing-function: cubic-bezier(0.4,0,0.6,1); }
+    35%  { transform: translateX(48px);  animation-timing-function: cubic-bezier(0.4,0,0.6,1); }
+    65%  { transform: translateX(-20px); animation-timing-function: cubic-bezier(0.4,0,0.6,1); }
+    82%  { transform: translateX(14px);  animation-timing-function: cubic-bezier(0.4,0,0.6,1); }
+    92%  { transform: translateX(-4px);  animation-timing-function: cubic-bezier(0.4,0,0.6,1); }
+    100% { transform: translateX(0px); }
+  }
+
+  /* pulse idle depois que para */
+  .diamond-glow {
+    fill: #2EFFD3;
+    opacity: 0;
+    transform-origin: 50px 20px;
+    animation: glowPulse 2.2s ease-in-out 3.2s infinite;
+  }
+  @keyframes glowPulse {
+    0%,100% { opacity:0; transform:scale(1); }
+    50%     { opacity:0.15; transform:scale(1.6); }
+  }
+
+  .replay-btn {
+    display: block;
+    margin: 0 auto 20px;
+    background: transparent;
+    border: 1px solid #2EFFD333;
+    color: #2EFFD3;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    padding: 7px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .replay-btn:hover { border-color: #2EFFD399; background: #2EFFD310; }
+</style>
+
+<div style="background:#000;padding-bottom:10px;">
+  <div class="stage">
+    <div class="logo-wrap">
+      <span class="word word-paper">Paper</span>
+      <div class="icon-wrap">
+        <svg class="icon-svg" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+          <line class="track" x1="2" y1="20" x2="98" y2="20"/>
+          <polygon class="diamond-glow" points="50,4 66,20 50,36 34,20"/>
+          <polygon class="diamond" points="50,4 66,20 50,36 34,20"/>
+        </svg>
+      </div>
+      <span class="word word-metrics">Metrics</span>
+    </div>
+  </div>
+  <button class="replay-btn" onclick="replay()">↺ replay</button>
+</div>
+
+<script>
+function replay() {
+  const anims = {
+    '.track':         'fadeIn 0.3s ease 0.1s forwards',
+    '.diamond':       'slide 2.3s cubic-bezier(0.45,0,0.55,1) 0.4s forwards',
+    '.diamond-glow':  'glowPulse 2.2s ease-in-out 3.2s infinite',
+    '.word-paper':    'fadeSlideL 0.45s cubic-bezier(0.22,1,0.36,1) 2.8s forwards',
+    '.word-metrics':  'fadeSlideR 0.45s cubic-bezier(0.22,1,0.36,1) 3.0s forwards',
+  };
+  const resets = {
+    '.track':         'opacity:0',
+    '.diamond':       'transform:translateX(-48px)',
+    '.diamond-glow':  'opacity:0',
+    '.word-paper':    'opacity:0;transform:translateX(-16px)',
+    '.word-metrics':  'opacity:0;transform:translateX(16px)',
+  };
+
+  Object.keys(resets).forEach(sel => {
+    const el = document.querySelector(sel);
+    el.style.cssText = resets[sel] + ';animation:none';
+  });
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    Object.keys(anims).forEach(sel => {
+      document.querySelector(sel).style.animation = anims[sel];
+    });
+  }));
+}
+</script>

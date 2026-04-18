@@ -98,7 +98,7 @@ const faqs = [
   },
   {
     q: 'Posso usar para TCC e doutorado?',
-    a: 'Absolutamente. Muitos estudantes de mestrado e doutorado usam o SciStat para análises de dissertações e teses.'
+    a: 'Absolutamente. Muitos estudantes de mestrado e doutorado usam o Paper Metrics para análises de dissertações e teses.'
   },
   {
     q: 'Tem análise de sobrevivência?',
@@ -110,7 +110,7 @@ const testimonials = [
   {
     name: 'Dra. Camila Santos',
     role: 'Residente de Clínica Médica - USP',
-    quote: 'O SciStat salvou minha residência. Consegui fazer todas as análises do meu TCC em minutos, não semanas.',
+    quote: 'O Paper Metrics salvou minha residência. Consegui fazer todas as análises do meu TCC em minutos, não semanas.',
     avatar: 'CS'
   },
   {
@@ -146,10 +146,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                <span className="material-symbols-rounded text-sm font-bold text-gray-950">science</span>
-              </div>
-              <span className="text-xl font-black tracking-tight">SciStat<span className="text-emerald-400">AI</span></span>
+              <img src="/papermetrics_icon_dark_128px.png" alt="PM" className="w-8 h-8 rounded-lg" />
+              <span className="text-xl font-black tracking-tight">Paper<span className="text-emerald-400"> Metrics</span></span>
             </div>
             <div className="hidden md:flex items-center gap-8">
               <a href="#recursos" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">Recursos</a>
@@ -248,7 +246,7 @@ export default function Landing() {
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
                 <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                <span className="ml-4 text-xs text-gray-500 font-mono">SciStat Dashboard</span>
+                <span className="ml-4 text-xs text-gray-500 font-mono">Paper Metrics Dashboard</span>
               </div>
               <div className="p-6 bg-gradient-to-br from-gray-900 to-gray-950 min-h-[300px] flex items-center justify-center">
                 <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
@@ -500,7 +498,7 @@ export default function Landing() {
             Pronto para elevar suas análises?
           </h2>
           <p className="text-gray-400 mb-10 max-w-xl mx-auto">
-            Junte-se a milhares de pesquisadores que já estão usando o SciStat para produzir análises de alta qualidade.
+            Junte-se a milhares de pesquisadores que já estão usando o Paper Metrics para produzir análises de alta qualidade.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a 
@@ -518,12 +516,10 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                <span className="material-symbols-rounded text-sm font-bold text-gray-950">science</span>
-              </div>
-              <span className="text-xl font-black tracking-tight">SciStat<span className="text-emerald-400">AI</span></span>
+              <img src="/papermetrics_icon_dark_128px.png" alt="PM" className="w-8 h-8 rounded-lg" />
+              <span className="text-xl font-black tracking-tight">Paper<span className="text-emerald-400"> Metrics</span></span>
             </div>
-            
+
             <div className="flex items-center gap-6 text-sm text-gray-500">
               <a href="#" className="hover:text-white transition-colors">Termos</a>
               <a href="#" className="hover:text-white transition-colors">Privacidade</a>
@@ -531,7 +527,7 @@ export default function Landing() {
             </div>
             
             <div className="text-sm text-gray-500">
-              © 2026 SciStat AI. Todos os direitos reservados.
+              © 2026 Paper Metrics. Todos os direitos reservados.
             </div>
           </div>
         </div>

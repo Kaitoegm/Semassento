@@ -50,7 +50,7 @@ export default function Login() {
       }
       const data = await res.json()
       if (data.token) {
-        localStorage.setItem('scistat-token', data.token)
+        localStorage.setItem('pm-token', data.token)
         window.location.href = '/dashboard'
       }
     } catch (err) {
@@ -72,11 +72,9 @@ export default function Login() {
         className="glass-card w-full max-w-[440px] p-12 rounded-[3rem] border-white/5 relative z-10"
       >
         <header className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 mb-6 group hover:scale-110 transition-transform cursor-pointer">
-             <span className="material-symbols-rounded text-primary text-3xl group-hover:rotate-12 transition-transform">science</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-white mb-2">SciStat <span className="text-primary italic">v4</span></h1>
-          <p className="text-slate-500 font-medium px-4">Plataforma de Inteligência Estatística e Bioestatística de Alta Fidelidade.</p>
+          <img src="/papermetrics_icon_dark_128px.png" alt="Paper Metrics" className="w-16 h-16 rounded-3xl mb-6 hover:scale-110 transition-transform cursor-pointer" />
+          <h1 className="text-4xl font-black tracking-tight text-white mb-2">Paper <span className="text-primary">Metrics</span></h1>
+          <p className="text-slate-500 font-medium px-4">Plataforma de Análise Estatística e Bioestatística para Pesquisa Científica.</p>
         </header>
 
         {error && (

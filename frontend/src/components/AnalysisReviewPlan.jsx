@@ -314,7 +314,7 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
           <div>
             <h4 className="text-[11px] font-black uppercase tracking-[0.4em] text-white mb-3">Diretriz de Rigor Científico</h4>
             <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-4xl">
-              O SciStat prioriza automaticamente análises ligadas ao <strong className="text-amber-400">⭐ Desfecho principal</strong> e variáveis com maior <strong className="text-slate-300">completitude de dados</strong>.
+              O Paper Metrics prioriza automaticamente análises ligadas ao <strong className="text-amber-400">⭐ Desfecho principal</strong> e variáveis com maior <strong className="text-slate-300">completitude de dados</strong>.
               As análises recomendadas estão <strong className="text-primary">já selecionadas</strong> — as opcionais ficam disponíveis para inclusão manual conforme seu julgamento clínico.
             </p>
           </div>

@@ -692,7 +692,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `relatorio_papermetrics_${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -701,7 +701,7 @@ export default function Dashboard() {
     if (!sortedResults.length) return
     const payload = {
       exported_at: new Date().toISOString(),
-      engine: 'SciStat AI v3.0 — Pingouin',
+      engine: 'Paper Metrics — Pingouin',
       n_tests: sortedResults.length,
       results: sortedResults
     }
@@ -709,7 +709,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `relatorio_papermetrics_${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -748,7 +748,7 @@ export default function Dashboard() {
       ``,
       `--- Metadados${metaSeparator}`,
       `Exportado em\t${new Date().toLocaleString('pt-BR')}${metaSeparator}`,
-      `Engine\tSciStat AI v3.0 — Pingouin${metaSeparator}`,
+      `Engine\tPaper Metrics — Pingouin${metaSeparator}`,
       `Total de testes\t${sortedResults.length}${metaSeparator}`,
       `Arquivo analisado\t${fileData?.filename || '—'}${metaSeparator}`,
     ]
@@ -763,7 +763,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `relatorio_scistat_${new Date().toISOString().slice(0, 10)}.xls`
+    a.download = `relatorio_papermetrics_${new Date().toISOString().slice(0, 10)}.xls`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -771,7 +771,7 @@ export default function Dashboard() {
   const exportResultsPDF = () => {
     if (!sortedResults.length) return
     // Criar stylesheet temporária para impressão
-    const styleId = 'scistat-print-style'
+    const styleId = 'pm-print-style'
     let style = document.getElementById(styleId)
     if (!style) {
       style = document.createElement('style')
@@ -781,15 +781,15 @@ export default function Dashboard() {
     style.textContent = `
       @media print {
         body > * { display: none !important; }
-        #scistat-print-report { display: block !important; }
+        #pm-print-report { display: block !important; }
       }
-      #scistat-print-report { display: none; }
+      #pm-print-report { display: none; }
     `
     // Criar conteúdo do relatório
-    let existing = document.getElementById('scistat-print-report')
+    let existing = document.getElementById('pm-print-report')
     if (existing) existing.remove()
     const printDiv = document.createElement('div')
-    printDiv.id = 'scistat-print-report'
+    printDiv.id = 'pm-print-report'
     const date = new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' })
     printDiv.innerHTML = `
       <style>
@@ -809,7 +809,7 @@ export default function Dashboard() {
         .print-footer { padding: 16px 40px; border-top: 1px solid #eee; font-size: 9px; color: #aaa; text-align: center; }
       </style>
       <div class="print-header">
-        <h1>SciStat AI — Relatório Estatístico</h1>
+        <h1>Paper Metrics — Relatório Estatístico</h1>
         <p>Gerado em ${date} | Arquivo: ${fileData?.filename || 'N/A'} | Engine: Pingouin (Python)</p>
       </div>
       <div class="print-meta">
@@ -843,7 +843,7 @@ export default function Dashboard() {
           }).join('')}
         </tbody>
       </table>
-      <div class="print-footer">SciStat AI — Plataforma de Análise Estatística para Pesquisa Clínica | Relatório gerado automaticamente</div>
+      <div class="print-footer">Paper Metrics — Plataforma de Análise Estatística para Pesquisa Clínica | Relatório gerado automaticamente</div>
     `
     document.body.appendChild(printDiv)
     window.print()
@@ -886,8 +886,8 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
           <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-black tracking-tight text-white italic">SciStat <span className="text-primary">AI</span></h1>
-            <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/30 mt-2 uppercase">v3.0 - Neon Cloud Sync</span>
+            <h1 className="text-4xl font-black tracking-tight text-white">Paper <span className="text-primary">Metrics</span></h1>
+            <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/30 mt-2 uppercase">Cloud Sync</span>
           </div>
           <p className="text-slate-500 font-medium mt-2 max-w-md">Consultoria Estatística Inteligente e Inferência Clínica.</p>
         </motion.div>

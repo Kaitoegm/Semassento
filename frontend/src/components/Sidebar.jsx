@@ -127,15 +127,22 @@ export default function Sidebar() {
         transition={{ delay: 0.2 }}
       >
         <div className="flex items-center gap-3 justify-center xl:justify-start">
-          <motion.div 
-            className="w-8 h-8 rounded-xl bg-primary shadow-[0_0_15px_rgba(0,255,163,0.4)] flex items-center justify-center shrink-0"
+          <motion.img
+            src="/papermetrics_icon_dark_128px.png"
+            alt="PM"
+            className="w-8 h-8 rounded-xl shrink-0 dark:block hidden"
             whileHover={{ scale: 1.1, rotate: 5 }}
             transition={{ type: "spring", stiffness: 400 }}
-          >
-            <span className="material-symbols-rounded text-background text-lg font-black italic">sc</span>
-          </motion.div>
+          />
+          <motion.img
+            src="/papermetrics_icon_light_128px.png"
+            alt="PM"
+            className="w-8 h-8 rounded-xl shrink-0 dark:hidden block"
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: "spring", stiffness: 400 }}
+          />
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hidden xl:block">
-            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">SciStat</h2>
+            <h2 className="text-sm font-black uppercase tracking-[0.15em] text-white">Paper Metrics</h2>
             <p className="text-[9px] font-bold tracking-widest text-slate-500 uppercase leading-none">Analysis Engine</p>
           </motion.div>
         </div>

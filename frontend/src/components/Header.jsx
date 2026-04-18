@@ -34,10 +34,11 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
       <div className="flex justify-between items-center px-6 lg:px-10 py-4 w-full mx-auto max-w-[1600px]">
         <div className="flex items-center gap-12">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <span className="material-symbols-rounded text-primary text-[20px]">science</span>
-            </div>
-            <span className="text-sm font-black tracking-tighter text-white">SciStat <span className="text-primary italic">v4</span></span>
+            <img
+              src={dark ? "/papermetrics_lockup_dark_200px.png" : "/papermetrics_lockup_light_200px.png"}
+              alt="Paper Metrics"
+              className="h-7 group-hover:scale-105 transition-transform"
+            />
           </Link>
           
           <div className="relative group hidden md:block">

@@ -59,7 +59,7 @@ export default function Profile() {
           </p>
           <div className="flex flex-wrap justify-center md:justify-start gap-4">
             <span className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-slate-400">
-              SciStat Lab
+              Paper Metrics Lab
             </span>
             <span className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-slate-400">ID: SCR-RealTime</span>
           </div>
@@ -185,7 +185,7 @@ export default function Profile() {
               <h2 className="text-xl font-black text-white mb-2">{pdfModal.name}</h2>
               <p className="text-xs text-slate-500 mb-6">Certificado válido até {pdfModal.expiry}</p>
               <div className="p-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Este é um certificado de qualificação profissional emitido pela plataforma SciStat. Em ambiente de produção, o PDF completo seria gerado e baixado aqui.</p>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Este é um certificado de qualificação profissional emitido pela plataforma Paper Metrics. Em ambiente de produção, o PDF completo seria gerado e baixado aqui.</p>
               </div>
               <button onClick={() => setPdfModal(null)} className="w-full py-3 rounded-2xl bg-primary text-black text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all">Fechar</button>
             </motion.div>

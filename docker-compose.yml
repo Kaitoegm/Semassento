@@ -12,7 +12,7 @@ services:
     env_file:
       - ./backend/.env
     networks:
-      - scistat-network
+      - papermetrics-network
 
   frontend:
     build:
@@ -28,8 +28,8 @@ services:
     depends_on:
       - backend
     networks:
-      - scistat-network
+      - papermetrics-network
 
 networks:
-  scistat-network:
+  papermetrics-network:
     driver: bridge

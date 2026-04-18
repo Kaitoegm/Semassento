@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import LoadingScreen from './components/LoadingScreen'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import PowerCalculator from './pages/PowerCalculator'
@@ -18,24 +19,35 @@ import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('scistat-theme-mode')
+    const saved = localStorage.getItem('pm-theme-mode')
     if (saved) return saved === 'dark'
     return true // Default dark
   })
+
+  const [showLoading, setShowLoading] = useState(() => {
+    const shown = sessionStorage.getItem('pm-loading-shown')
+    return !shown
+  })
+
+  const handleLoadingFinish = useCallback(() => {
+    setShowLoading(false)
+    sessionStorage.setItem('pm-loading-shown', '1')
+  }, [])
 
   useEffect(() => {
     const root = window.document.documentElement
     if (dark) {
       root.classList.add('dark')
-      localStorage.setItem('scistat-theme-mode', 'dark')
+      localStorage.setItem('pm-theme-mode', 'dark')
     } else {
       root.classList.remove('dark')
-      localStorage.setItem('scistat-theme-mode', 'light')
+      localStorage.setItem('pm-theme-mode', 'light')
     }
   }, [dark])
 
   return (
     <AuthProvider>
+      {showLoading && <LoadingScreen onFinish={handleLoadingFinish} />}
       <SciStatProvider>
         <Routes>
           <Route path="/login" element={<Login />} />

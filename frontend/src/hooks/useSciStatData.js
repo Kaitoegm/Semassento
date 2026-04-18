@@ -10,16 +10,16 @@ export function useSciStatData() {
   const [trials, setTrials] = useState([])
   const [projects, setProjects] = useState([])
   const [activeProjectId, setActiveProjectId] = useState(() => {
-    return localStorage.getItem('scistat_active_project') || null
+    return localStorage.getItem('pm_active_project') || null
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (activeProjectId) {
-      localStorage.setItem('scistat_active_project', activeProjectId)
+      localStorage.setItem('pm_active_project', activeProjectId)
     } else {
-      localStorage.removeItem('scistat_active_project')
+      localStorage.removeItem('pm_active_project')
     }
   }, [activeProjectId])
 

@@ -1,13 +1,13 @@
-# SciStat AI — Plataforma de Análise Estatística para Pesquisa Clínica
+# Paper Metrics — Plataforma de Análise Estatística para Pesquisa Clínica
 
-> Motor estatístico de alta precisão para artigos científicos, TCCs e projetos acadêmicos em saúde.  
+> Motor estatístico de alta precisão para artigos científicos, TCCs e projetos acadêmicos em saúde.
 > Desenvolvido com FastAPI + React (Vite) + **Pingouin** (estatística clínica especializada).
 
 ---
 
 ## ✨ Visão Geral
 
-O **SciStat AI** automatiza a análise estatística para pesquisadores que não têm formação em estatística. Faça upload de um dataset (CSV ou Excel), e o sistema:
+O **Paper Metrics** automatiza a análise estatística para pesquisadores que não têm formação em estatística. Faça upload de um dataset (CSV ou Excel), e o sistema:
 
 1. Detecta os tipos de variáveis automaticamente
 2. Sugere o(s) teste(s) estatístico(s) mais adequados
@@ -297,4 +297,4 @@ O SheetJS (xlsx) requer pelo menos 1 resultado para gerar o arquivo. Certifique-
 
 ---
 
-*SciStat AI — Motor Estatístico Consolidado | v3.0 — Pingouin Edition*
+*Paper Metrics — Motor Estatístico Consolidado | Pingouin Edition*

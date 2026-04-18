@@ -27,7 +27,7 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     if (chartRef.current) {
       const url = chartRef.current.toBase64Image()
       const link = document.createElement('a')
-      link.download = `grafico_scistat_${new Date().getTime()}.png`
+      link.download = `grafico_papermetrics_${new Date().getTime()}.png`
       link.href = url
       link.click()
     }

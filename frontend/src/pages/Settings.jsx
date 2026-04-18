@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
-const STORAGE_KEY = 'scistat-settings'
+const STORAGE_KEY = 'pm-settings'
 
 const defaultSettings = {
   notifications: [
