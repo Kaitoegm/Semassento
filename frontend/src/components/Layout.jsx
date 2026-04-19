@@ -10,16 +10,14 @@ export default function Layout({ children, dark, setDark }) {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
   const location = useLocation()
   return (
-    <div className="min-h-screen text-slate-100 selection:bg-primary/30 selection:text-primary">
+    <div className="min-h-screen text-text-main selection:bg-primary/20 selection:text-primary">
       {/* Background Layer */}
       <div className="mesh-gradient">
-        <div className="mesh-blob blob-1"></div>
-        <div className="mesh-blob blob-2"></div>
         <div className="mesh-gradient scientific-dot-bg"></div>
       </div>
 
       <Header dark={dark} setDark={setDark} setIsAssistantOpen={setIsAssistantOpen} />
-      
+
       <div className="flex">
         <Sidebar />
         <main className="lg:ml-24 xl:ml-64 w-full p-6 lg:p-10 space-y-10 max-w-[1600px] mx-auto z-10 relative">
@@ -29,7 +27,7 @@ export default function Layout({ children, dark, setDark }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             >
               {children}
             </motion.div>

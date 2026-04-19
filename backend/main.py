@@ -298,7 +298,7 @@ app = FastAPI(title="Paper Metrics API", version="2.12.0")
 async def health_check():
     return {"status": "ok", "version": "2.12.0"}
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174").split(",")
 
 app.add_middleware(
     CORSMiddleware,

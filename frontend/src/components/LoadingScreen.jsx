@@ -30,13 +30,14 @@ export default function LoadingScreen({ onFinish }) {
           gap: 0;
         }
         .pm-word {
-          font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-          font-weight: 900;
-          font-size: clamp(36px, 7vw, 72px);
-          letter-spacing: -0.02em;
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          font-weight: 600;
+          font-size: clamp(36px, 7vw, 64px);
+          letter-spacing: -1.5px;
           line-height: 1;
           opacity: 0;
           white-space: nowrap;
+          color: var(--color-primary);
         }
         .pm-word-paper {
           animation: pmFadeSlideL 0.45s cubic-bezier(0.22,1,0.36,1) 2.8s forwards;
@@ -50,7 +51,7 @@ export default function LoadingScreen({ onFinish }) {
         @keyframes pmFadeSlideR { to { opacity: 1; transform: translateX(0); } }
 
         .pm-icon-wrap {
-          padding: 0 clamp(10px, 2vw, 20px);
+          padding: 0 clamp(10px, 2vw, 28px);
           flex-shrink: 0;
           position: relative;
           display: flex;
@@ -58,12 +59,11 @@ export default function LoadingScreen({ onFinish }) {
         }
         .pm-icon-svg {
           overflow: visible;
-          width: clamp(60px, 10vw, 100px);
+          width: clamp(50px, 8vw, 80px);
           height: clamp(24px, 4vw, 40px);
+          color: var(--color-primary);
         }
         .pm-track {
-          stroke-width: 3;
-          stroke-linecap: round;
           opacity: 0;
           animation: pmFadeIn 0.3s ease 0.1s forwards;
         }
@@ -89,20 +89,20 @@ export default function LoadingScreen({ onFinish }) {
         }
         @keyframes pmGlowPulse {
           0%, 100% { opacity: 0; transform: scale(1); }
-          50%      { opacity: 0.15; transform: scale(1.6); }
+          50%      { opacity: 0.12; transform: scale(1.4); }
         }
       `}</style>
 
       <div className="pm-logo-wrap">
-        <span className="pm-word pm-word-paper" style={{ color: 'var(--color-primary)' }}>Paper</span>
+        <span className="pm-word pm-word-paper">Paper</span>
         <div className="pm-icon-wrap">
           <svg className="pm-icon-svg" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
-            <line className="pm-track" x1="2" y1="20" x2="98" y2="20" style={{ stroke: 'var(--color-primary)' }} />
-            <polygon className="pm-diamond-glow" points="50,4 66,20 50,36 34,20" style={{ fill: 'var(--color-primary)' }} />
-            <polygon className="pm-diamond" points="50,4 66,20 50,36 34,20" style={{ fill: 'var(--color-primary)' }} />
+            <rect className="pm-track" x="2" y="18" width="96" height="4" fill="currentColor" />
+            <polygon className="pm-diamond-glow" points="50,2 68,20 50,38 32,20" fill="currentColor" />
+            <polygon className="pm-diamond" points="50,2 68,20 50,38 32,20" fill="currentColor" />
           </svg>
         </div>
-        <span className="pm-word pm-word-metrics" style={{ color: 'var(--color-primary)' }}>Metrics</span>
+        <span className="pm-word pm-word-metrics">Metrics</span>
       </div>
     </div>
   )

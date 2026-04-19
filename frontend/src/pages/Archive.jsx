@@ -11,7 +11,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL
 
 const STATUS_COLORS = {
   'em_andamento': 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  'concluido': 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  'concluido': 'text-teal-300 bg-teal-300/10 border-teal-300/20',
   'publicado': 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/20',
 }
 
@@ -459,9 +459,9 @@ export default function Archive() {
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: -50, x: '-50%' }}
             className={`fixed top-6 left-1/2 z-[200] px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md border-2 ${
-              notification.type === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' :
+              notification.type === 'success' ? 'bg-teal-600 border-teal-300 text-white' :
               notification.type === 'error' ? 'bg-red-600 border-red-400 text-white' :
-              'bg-slate-800 border-slate-600 text-white'
+              'bg-stone-800 border-stone-600 text-white'
             }`}
           >
             <div className="flex items-center gap-2 font-bold">
@@ -477,9 +477,9 @@ export default function Archive() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 relative z-10">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white mb-1 md:mb-2">
-            <span className="text-primary glow-text-sm">Projetos de Pesquisa</span>
+            <span className="text-primary">Projetos de Pesquisa</span>
           </h1>
-          <p className="text-slate-400 text-sm md:text-base max-w-2xl">Gerencie seus estudos, visualize gráficos salvos, e gerencie anexos (PDFs, CSVs) em um só lugar.</p>
+          <p className="text-stone-400 text-sm md:text-base max-w-2xl">Gerencie seus estudos, visualize gráficos salvos, e gerencie anexos (PDFs, CSVs) em um só lugar.</p>
         </motion.div>
         
         <motion.button 
@@ -487,7 +487,7 @@ export default function Archive() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-5 md:px-6 py-3 bg-primary text-secondary font-black uppercase tracking-widest text-xs rounded-xl hover:bg-primary-light transition-all active:scale-95 shadow-lg shadow-primary/20 hover:shadow-primary/40"
+          className="flex items-center gap-2 px-5 md:px-6 py-3 bg-primary text-secondary font-semibold tracking-wide text-xs rounded-xl hover:bg-primary-light transition-all active:scale-95 shadow-lg shadow-primary/20 hover:shadow-primary/40"
         >
           <span className="material-symbols-rounded text-lg">add_box</span>
           <span className="hidden sm:inline">Novo Projeto</span>
@@ -515,8 +515,8 @@ export default function Archive() {
          {[
            { label: 'Projetos', value: totalProjects, icon: 'folder', color: 'text-primary' },
            { label: 'Publicados', value: projects.filter(p => p.status === 'publicado').length, icon: 'public', color: 'text-fuchsia-400' },
-           { label: 'Anexos', value: projects.reduce((total, p) => total + (p.attachment_count || 0), 0), icon: 'attachment', color: 'text-slate-400' },
-           { label: 'Gráficos', value: projects.reduce((total, p) => total + (p.chart_count || 0), 0), icon: 'insert_chart', color: 'text-emerald-400' },
+           { label: 'Anexos', value: projects.reduce((total, p) => total + (p.attachment_count || 0), 0), icon: 'attachment', color: 'text-stone-400' },
+           { label: 'Gráficos', value: projects.reduce((total, p) => total + (p.chart_count || 0), 0), icon: 'insert_chart', color: 'text-teal-300' },
          ].map((s, i) => (
           <motion.div 
             key={i}
@@ -536,14 +536,14 @@ export default function Archive() {
            </motion.div>
            <div>
              <motion.p 
-               className="text-xl font-black text-white"
+               className="text-xl font-semibold text-white"
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                transition={{ delay: i * 0.1 + 0.2 }}
              >
                {s.value}
              </motion.p>
-             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{s.label}</p>
+             <p className="text-[9px] font-semibold tracking-wide text-stone-500">{s.label}</p>
            </div>
           </motion.div>
         ))}
@@ -565,7 +565,7 @@ export default function Archive() {
               onClick={() => setStatusFilter(status)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${statusFilter === status ? 'bg-primary/20 text-primary shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${statusFilter === status ? 'bg-primary/20 text-primary shadow-sm' : 'text-stone-400 hover:text-white hover:bg-white/5'}`}
             >
               {status === 'todos' ? 'Todos' : STATUS_LABELS[status]}
             </motion.button>
@@ -574,14 +574,14 @@ export default function Archive() {
         
         {/* Search */}
         <div className="relative flex-1 max-w-xs lg:max-w-sm">
-          <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+          <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm">search</span>
           <input
             ref={searchInputRef}
             type="text"
             placeholder="Buscar... (Ctrl+K)"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary/50"
+            className="w-full bg-stone-900/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-primary/50"
           />
         </div>
         
@@ -619,7 +619,7 @@ export default function Archive() {
           <select 
             value={tagFilter}
             onChange={e => setTagFilter(e.target.value)}
-            className="text-xs border border-white/20 bg-slate-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
+            className="text-xs border border-white/20 bg-stone-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
           >
             <option value="">Tag</option>
             {availableTags.map(tag => (
@@ -631,7 +631,7 @@ export default function Archive() {
           <select 
             value={sortBy}
             onChange={e => setSortBy(e.target.value)}
-            className="text-xs border border-white/20 bg-slate-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
+            className="text-xs border border-white/20 bg-stone-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
           >
             <option value="created_at_desc">Recente</option>
             <option value="created_at_asc">Antigo</option>
@@ -674,7 +674,7 @@ export default function Archive() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-semibold tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
                           {STATUS_LABELS[item.status || 'em_andamento']}
                         </span>
                         <span className="text-[10px] text-zinc-500 font-medium">#{item.id}</span>
@@ -696,16 +696,16 @@ export default function Archive() {
                     
                     <div className="flex gap-4 items-center">
                       <div className="text-center px-4 border-r border-white/10">
-                        <span className="block text-xl font-black text-white">{item.attachment_count || 0}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-500">Arquivos</span>
+                        <span className="block text-xl font-semibold text-white">{item.attachment_count || 0}</span>
+                        <span className="text-[9px] tracking-wider text-zinc-500">Arquivos</span>
                       </div>
                       <div className="text-center px-4 border-r border-white/10">
-                        <span className="block text-xl font-black text-white">{item.chart_count || 0}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-500">Gráficos</span>
+                        <span className="block text-xl font-semibold text-white">{item.chart_count || 0}</span>
+                        <span className="text-[9px] tracking-wider text-zinc-500">Gráficos</span>
                       </div>
                       <div className="text-center px-4 border-r border-white/10">
-                        <span className="block text-xl font-black text-white">{item.analysis_count || 0}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-500">Análises</span>
+                        <span className="block text-xl font-semibold text-white">{item.analysis_count || 0}</span>
+                        <span className="text-[9px] tracking-wider text-zinc-500">Análises</span>
                       </div>
                       
                       <button className="p-2 ml-2 rounded-full hover:bg-white/10 text-zinc-400 transition-colors">
@@ -723,7 +723,7 @@ export default function Archive() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-white/5 bg-slate-900/50"
+                        className="border-t border-white/5 bg-stone-900/50"
                       >
                         {/* Abas */}
                         <div className="flex border-b border-white/5 overflow-x-auto custom-scrollbar">
@@ -736,7 +736,7 @@ export default function Archive() {
                             <button
                               key={tab.id}
                               onClick={() => setActiveTabUrl(tab.id)}
-                              className={`flex items-center gap-2 px-6 py-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${
+                              className={`flex items-center gap-2 px-6 py-4 text-xs font-bold tracking-wider transition-colors border-b-2 whitespace-nowrap ${
                                 activeTabUrl === tab.id 
                                   ? 'border-primary text-primary bg-primary/5' 
                                   : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
@@ -754,57 +754,57 @@ export default function Archive() {
                               <div className="space-y-4 max-w-3xl">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Título</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Título</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.title || ''} 
                                       onChange={e => setEditFormData({...editFormData, title: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">DOI / Referência</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">DOI / Referência</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.doi || ''} 
                                       onChange={e => setEditFormData({...editFormData, doi: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Autor / PI</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Autor / PI</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.author || ''} 
                                       onChange={e => setEditFormData({...editFormData, author: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Instituição</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Instituição</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.institution || ''} 
                                       onChange={e => setEditFormData({...editFormData, institution: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Tags (separadas por vírgula)</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Tags (separadas por vírgula)</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.tags || ''} 
                                       onChange={e => setEditFormData({...editFormData, tags: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Status</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Status</label>
                                     <div className="relative">
                                       <select 
                                         value={editFormData.status || 'em_andamento'} 
                                         onChange={e => setEditFormData({...editFormData, status: e.target.value})}
-                                        className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50 appearance-none" 
+                                        className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50 appearance-none" 
                                       >
                                         <option value="em_andamento">Em Andamento</option>
                                         <option value="concluido">Concluído</option>
@@ -815,11 +815,11 @@ export default function Archive() {
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Anotações do Projeto</label>
+                                  <label className="block text-xs font-bold text-zinc-500 mb-1">Anotações do Projeto</label>
                                   <textarea 
                                     value={editFormData.notes || ''} 
                                     onChange={e => setEditFormData({...editFormData, notes: e.target.value})}
-                                    className="w-full text-sm border border-white/20 bg-slate-900/50 rounded-lg p-4 text-zinc-300 min-h-[100px] outline-none focus:border-primary/50 resize-y"
+                                    className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-4 text-zinc-300 min-h-[100px] outline-none focus:border-primary/50 resize-y"
                                   />
                                 </div>
                                 <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
@@ -841,16 +841,16 @@ export default function Archive() {
                               <div className="space-y-4 max-w-3xl">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Título</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Título</label>
                                     <p className="text-sm border border-white/10 bg-white/5 rounded-lg p-3 text-white">{item.title}</p>
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">DOI / Referência</label>
+                                    <label className="block text-xs font-bold text-zinc-500 mb-1">DOI / Referência</label>
                                     <p className="text-sm border border-white/10 bg-white/5 rounded-lg p-3 text-white">{item.doi || 'Não especificado'}</p>
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Anotações do Projeto</label>
+                                  <label className="block text-xs font-bold text-zinc-500 mb-1">Anotações do Projeto</label>
                                   <div className="text-sm border border-white/10 bg-white/5 rounded-lg p-4 text-zinc-300 min-h-[100px] whitespace-pre-wrap">
                                     {item.notes || 'Nenhuma anotação inserida para este projeto.'}
                                   </div>
@@ -879,7 +879,7 @@ export default function Archive() {
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => handleExportProject(item.id)}
-                                      className="px-4 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors flex items-center gap-2 border border-emerald-400/20"
+                                      className="px-4 py-2 text-xs font-bold text-teal-300 hover:bg-teal-300/10 rounded-lg transition-colors flex items-center gap-2 border border-teal-300/20"
                                     >
                                       <span className="material-symbols-rounded text-sm">download</span>
                                       Exportar (.zip)
@@ -934,7 +934,7 @@ export default function Archive() {
                                {analyses.length > 0 ? (
                                  <div className="space-y-3">
                                    {analyses.map(analysis => (
-                                     <div key={analysis.id} className="border border-white/10 rounded-lg p-4 bg-slate-900/50">
+                                     <div key={analysis.id} className="border border-white/10 rounded-lg p-4 bg-stone-900/50">
                                        <div className="flex justify-between items-start">
                                          <div>
                                            <h4 className="font-bold text-white">{analysis.filename}</h4>
@@ -981,7 +981,7 @@ export default function Archive() {
                 className="glass-card p-6 border border-white/10"
               >
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">Linha do Tempo de Projetos</h3>
+                  <h3 className="text-xs font-semibold tracking-wide text-zinc-500">Linha do Tempo de Projetos</h3>
                   <span className="material-symbols-rounded text-primary/50">timeline</span>
                 </div>
                 
@@ -1191,14 +1191,14 @@ export default function Archive() {
                               transform: 'translateX(-50%)'
                             }}
                           >
-                            <div className="bg-slate-800/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-3 min-w-[180px]">
+                            <div className="bg-stone-800/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-3 min-w-[180px]">
                               {/* Seta do tooltip */}
-                              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-800/90 border-r border-b border-white/10 rotate-45" />
+                              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-stone-800/90 border-r border-b border-white/10 rotate-45" />
                               
                               <p className="text-white font-bold text-sm mb-1 truncate">{tooltipData.title}</p>
                               <div className="flex items-center gap-2 mb-1">
                                 <span 
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold"
                                   style={{ 
                                     backgroundColor: `${tooltipData.color}20`, 
                                     color: tooltipData.color,
@@ -1241,7 +1241,7 @@ export default function Archive() {
                       className="relative pl-8 md:pl-0 group"
                     >
                       <motion.div 
-                        className={`absolute left-[-5px] md:left-[-11px] top-6 w-4 h-4 md:w-5 md:h-5 rounded-full border-4 border-slate-900 z-10 transition-all group-hover:scale-125 ${item.status === 'publicado' ? 'bg-fuchsia-500' : item.status === 'concluido' ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                        className={`absolute left-[-5px] md:left-[-11px] top-6 w-4 h-4 md:w-5 md:h-5 rounded-full border-4 border-stone-900 z-10 transition-all group-hover:scale-125 ${item.status === 'publicado' ? 'bg-fuchsia-500' : item.status === 'concluido' ? 'bg-teal-400' : 'bg-amber-500'}`}
                       />
                       
                       <div className="md:absolute top-5 md:left-[-150px] text-xs font-bold text-zinc-500 mb-2 md:mb-0 w-32 md:text-right mt-1">
@@ -1255,7 +1255,7 @@ export default function Archive() {
                       >
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-3">
-                              <span className={`self-start px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
+                              <span className={`self-start px-2 py-0.5 rounded-md text-[9px] font-semibold tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
                               {STATUS_LABELS[item.status || 'em_andamento']}
                               </span>
                           </div>
@@ -1273,10 +1273,10 @@ export default function Archive() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-xl"
+              className="bg-stone-900 border border-white/10 rounded-2xl overflow-hidden shadow-xl"
             >
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-950/50 text-xs uppercase text-zinc-500 font-black border-b border-white/10">
+              <table className="w-full text-left text-sm text-stone-300">
+                <thead className="bg-stone-950/50 text-xs text-zinc-500 font-semibold border-b border-white/10">
                   <tr>
                     <th className="px-6 py-4">Projeto</th>
                     <th className="px-6 py-4 hidden sm:table-cell">Status</th>
@@ -1300,7 +1300,7 @@ export default function Archive() {
                         <div className="text-xs text-zinc-500 font-normal mt-0.5">{item.author || 'Sem autor'} • {getTags(item.tags).length} tags</div>
                       </td>
                       <td className="px-6 py-4 hidden sm:table-cell">
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${STATUS_COLORS[item.status]}`}>
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-semibold tracking-wider border ${STATUS_COLORS[item.status]}`}>
                           {STATUS_LABELS[item.status]}
                         </span>
                       </td>
@@ -1395,35 +1395,35 @@ export default function Archive() {
               
               <form onSubmit={handleCreateProject} className="p-4 md:p-6 space-y-4 md:space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Título do Projeto *</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Título do Projeto *</label>
                   <input
                     required
                     type="text"
                     value={newProject.title}
                     onChange={e => setNewProject({...newProject, title: e.target.value})}
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                    className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
                     placeholder="Ex: Ensaio Clínico Randomizado FASE III..."
                   />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Autor / PI</label>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1">Autor / PI</label>
                     <input
                       type="text"
                       value={newProject.author}
                       onChange={e => setNewProject({...newProject, author: e.target.value})}
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                      className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
                       placeholder="Dr. João Silva"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Instituição</label>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1">Instituição</label>
                     <input
                       type="text"
                       value={newProject.institution}
                       onChange={e => setNewProject({...newProject, institution: e.target.value})}
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                      className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
                       placeholder="HCFMUSP"
                     />
                   </div>
@@ -1431,22 +1431,22 @@ export default function Archive() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">DOI (opcional)</label>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1">DOI (opcional)</label>
                     <input
                       type="text"
                       value={newProject.doi}
                       onChange={e => setNewProject({...newProject, doi: e.target.value})}
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                      className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
                       placeholder="10.1038/s41591..."
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Status</label>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1">Status</label>
                     <div className="relative">
                       <select 
                         value={newProject.status}
                         onChange={e => setNewProject({...newProject, status: e.target.value})}
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 appearance-none"
+                        className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 appearance-none"
                       >
                         <option value="em_andamento">Em Andamento</option>
                         <option value="concluido">Concluído</option>
@@ -1458,22 +1458,22 @@ export default function Archive() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Tags (separadas por vírgula)</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Tags (separadas por vírgula)</label>
                   <input
                     type="text"
                     value={newProject.tags}
                     onChange={e => setNewProject({...newProject, tags: e.target.value})}
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                    className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
                     placeholder="Pediatria, RCT, Placebo..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Anotações</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Anotações</label>
                   <textarea
                     value={newProject.notes}
                     onChange={e => setNewProject({...newProject, notes: e.target.value})}
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 min-h-[100px] resize-y"
+                    className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 min-h-[100px] resize-y"
                     placeholder="Detalhes adicionais, hipóteses, resumos..."
                   />
                 </div>
@@ -1489,7 +1489,7 @@ export default function Archive() {
                   <button
                     type="submit"
                     disabled={isCreating}
-                    className="px-6 py-2.5 bg-primary text-secondary rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-light transition-colors active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-6 py-2.5 bg-primary text-secondary rounded-xl text-xs font-semibold tracking-wide hover:bg-primary-light transition-colors active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isCreating ? (
                       <>
@@ -1523,7 +1523,7 @@ export default function Archive() {
               exit={{ opacity: 0, y: 20 }}
               className="relative z-10 w-full h-full flex flex-col pointer-events-none"
             >
-              <div className="flex justify-between items-center bg-slate-900 border border-white/10 p-4 rounded-xl shadow-2xl mb-4 pointer-events-auto">
+              <div className="flex justify-between items-center bg-stone-900 border border-white/10 p-4 rounded-xl shadow-2xl mb-4 pointer-events-auto">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-primary/10 text-primary rounded-lg">
                     <span className="material-symbols-rounded text-xl">
@@ -1532,7 +1532,7 @@ export default function Archive() {
                   </div>
                   <div>
                     <h3 className="text-white font-bold">{previewFile.original_name}</h3>
-                    <p className="text-xs text-zinc-500 uppercase tracking-widest">{previewFile.file_type} • Upload em {new Date(previewFile.created_at).toLocaleDateString('pt-BR')}</p>
+                    <p className="text-xs text-zinc-500 tracking-wide">{previewFile.file_type} • Upload em {new Date(previewFile.created_at).toLocaleDateString('pt-BR')}</p>
                   </div>
                 </div>
                 
@@ -1562,7 +1562,7 @@ export default function Archive() {
                 ) : previewFile.file_type === 'csv' ? (
                   <CSVPreview url={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.token}`} />
                 ) : (
-                  <div className="flex items-center justify-center h-full bg-slate-900 border border-white/10 rounded-xl">
+                  <div className="flex items-center justify-center h-full bg-stone-900 border border-white/10 rounded-xl">
                     <div className="text-center">
                       <span className="material-symbols-rounded text-6xl text-zinc-600 mb-4 block">insert_drive_file</span>
                       <p className="text-zinc-500 text-sm">Pré-visualização indisponível para este tipo de arquivo.<br/>Use o botão Baixar para abrir o arquivo localmente.</p>
@@ -1653,7 +1653,7 @@ export default function Archive() {
               {/* Header com Glassmorphism Premium */}
               <div className="relative p-4 md:p-6 border-b border-white/10 overflow-hidden">
                 {/* Background gradient effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/15 via-fuchsia-500/10 to-transparent opacity-50" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50" />
                 
                 <div className="relative flex justify-between items-start gap-4">
                   <div className="flex-1">
@@ -1665,7 +1665,7 @@ export default function Archive() {
                     >
                       <motion.span 
                         whileHover={{ scale: 1.05 }}
-                        className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border cursor-default ${STATUS_COLORS[projectDetailModal.status || 'em_andamento']}`}
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-semibold tracking-wider border cursor-default ${STATUS_COLORS[projectDetailModal.status || 'em_andamento']}`}
                       >
                         {STATUS_LABELS[projectDetailModal.status || 'em_andamento']}
                       </motion.span>
@@ -1747,7 +1747,7 @@ export default function Archive() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
                       >
-                        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-zinc-500 tracking-wider mb-3 flex items-center gap-2">
                           <span className="material-symbols-rounded text-sm">sell</span>
                           Tags
                         </h4>
@@ -1775,7 +1775,7 @@ export default function Archive() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
                       >
-                        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-zinc-500 tracking-wider mb-3 flex items-center gap-2">
                           <span className="material-symbols-rounded text-sm">notes</span>
                           Notas
                         </h4>
@@ -1794,7 +1794,7 @@ export default function Archive() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.45 }}
                     >
-                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-zinc-500 tracking-wider mb-3 flex items-center gap-2">
                         <span className="material-symbols-rounded text-sm">analytics</span>
                         Estatísticas
                       </h4>
@@ -1808,20 +1808,20 @@ export default function Archive() {
                               <span className="material-symbols-rounded text-primary">attach_file</span>
                             </div>
                           </div>
-                          <p className="text-2xl font-black text-primary">{projectDetailData.attachment_count || 0}</p>
-                          <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">Anexos</p>
+                          <p className="text-2xl font-semibold text-primary">{projectDetailData.attachment_count || 0}</p>
+                          <p className="text-[10px] font-bold text-zinc-500 mt-1">Anexos</p>
                         </motion.div>
                         <motion.div 
                           whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
-                          className="glass-card p-4 text-center border border-white/5 hover:border-emerald-400/30 transition-all cursor-default"
+                          className="glass-card p-4 text-center border border-white/5 hover:border-teal-300/30 transition-all cursor-default"
                         >
                           <div className="flex justify-center mb-2">
-                            <div className="p-2 bg-emerald-500/10 rounded-lg">
-                              <span className="material-symbols-rounded text-emerald-400">show_chart</span>
+                            <div className="p-2 bg-teal-400/10 rounded-lg">
+                              <span className="material-symbols-rounded text-teal-300">show_chart</span>
                             </div>
                           </div>
-                          <p className="text-2xl font-black text-emerald-400">{projectDetailData.chart_count || 0}</p>
-                          <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">Gráficos</p>
+                          <p className="text-2xl font-semibold text-teal-300">{projectDetailData.chart_count || 0}</p>
+                          <p className="text-[10px] font-bold text-zinc-500 mt-1">Gráficos</p>
                         </motion.div>
                         <motion.div 
                           whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
@@ -1832,8 +1832,8 @@ export default function Archive() {
                               <span className="material-symbols-rounded text-fuchsia-400">science</span>
                             </div>
                           </div>
-                          <p className="text-2xl font-black text-fuchsia-400">{projectDetailData.analysis_count || 0}</p>
-                          <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">Análises</p>
+                          <p className="text-2xl font-semibold text-fuchsia-400">{projectDetailData.analysis_count || 0}</p>
+                          <p className="text-[10px] font-bold text-zinc-500 mt-1">Análises</p>
                         </motion.div>
                       </div>
                     </motion.div>
@@ -1862,7 +1862,7 @@ export default function Archive() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleExportProject(projectDetailModal.id)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-teal-300 border border-teal-300/20 rounded-lg hover:bg-teal-300/10 transition-colors"
                       >
                         <span className="material-symbols-rounded text-sm">download</span>
                         Exportar

@@ -15,7 +15,7 @@ export default function MobileNav() {
           to={to}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center gap-1 transition-all duration-300 ${
-              isActive ? 'text-primary scale-110 drop-shadow-[0_0_10px_rgba(0,255,163,0.3)]' : 'text-slate-500'
+              isActive ? 'text-primary scale-110' : 'text-stone-500'
             }`
           }
         >

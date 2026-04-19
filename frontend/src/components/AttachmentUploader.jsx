@@ -206,7 +206,7 @@ export default function AttachmentUploader({ projectId, onPreview }) {
       </div>
 
       <div className="space-y-2">
-        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 mb-3">Arquivos no Projeto ({attachments.length})</h4>
+        <h4 className="text-xs font-bold text-zinc-500 tracking-wide pl-1 mb-3">Arquivos no Projeto ({attachments.length})</h4>
         
         {loading ? (
           <div className="text-center py-4 text-xs text-zinc-400 animate-pulse">Carregando anexos...</div>
@@ -231,7 +231,7 @@ export default function AttachmentUploader({ projectId, onPreview }) {
                     <span className="material-symbols-rounded text-lg">{getIconForType(att.file_type)}</span>
                   </div>
                   <div className="truncate pr-4">
-                    <p className="text-sm font-bold text-slate-200 truncate group-hover:text-white transition-colors">{att.original_name}</p>
+                    <p className="text-sm font-bold text-stone-200 truncate group-hover:text-white transition-colors">{att.original_name}</p>
                     <p className="text-[10px] text-zinc-500 flex gap-2">
                       <span className="uppercase">{att.file_type}</span>
                       <span>•</span>

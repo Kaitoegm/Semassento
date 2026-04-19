@@ -57,7 +57,7 @@ export default function CSVPreview({ url }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-stone-400">
         <span className="material-symbols-rounded animate-spin text-3xl text-primary">autorenew</span>
         <p className="text-sm">Processando dataset...</p>
       </div>
@@ -66,7 +66,7 @@ export default function CSVPreview({ url }) {
 
   if (error || data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-400">
+      <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400">
         <span className="material-symbols-rounded text-3xl text-red-400">error</span>
         <p className="text-sm">{error || "Arquivo vazio ou inválido."}</p>
       </div>
@@ -77,10 +77,10 @@ export default function CSVPreview({ url }) {
   const currentData = data.slice((page - 1) * rowsPerPage, page * rowsPerPage)
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-stone-900 border border-white/10 rounded-xl overflow-hidden">
       
       {/* Header Info */}
-      <div className="p-4 bg-slate-800 border-b border-white/10 flex justify-between items-center">
+      <div className="p-4 bg-stone-800 border-b border-white/10 flex justify-between items-center">
         <div className="flex gap-4">
           <div className="flex items-center gap-2">
             <span className="p-1.5 bg-primary/20 text-primary rounded-lg material-symbols-rounded text-sm">dataset</span>
@@ -100,7 +100,7 @@ export default function CSVPreview({ url }) {
           >
             <span className="material-symbols-rounded text-sm">arrow_back_ios_new</span>
           </button>
-          <span className="text-xs text-slate-400 font-medium px-2">
+          <span className="text-xs text-stone-400 font-medium px-2">
             Página {page} de {totalPages}
           </span>
           <button 
@@ -114,29 +114,29 @@ export default function CSVPreview({ url }) {
       </div>
 
       {/* Tabela de Dados */}
-      <div className="flex-1 overflow-auto custom-scrollbar bg-slate-950">
+      <div className="flex-1 overflow-auto custom-scrollbar bg-stone-950">
         <table className="w-full text-left border-collapse border-spacing-0">
-          <thead className="sticky top-0 bg-slate-900 border-b border-white/10 shadow-sm z-10">
+          <thead className="sticky top-0 bg-stone-900 border-b border-white/10 shadow-sm z-10">
             <tr>
-              <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-500 whitespace-nowrap bg-slate-900 w-12 text-center border-r border-white/5">
+              <th className="px-4 py-3 text-[10px] font-semibold text-stone-500 whitespace-nowrap bg-stone-900 w-12 text-center border-r border-white/5">
                 #
               </th>
               {columns.map(col => (
-                <th key={col} className="px-4 py-3 text-[10px] font-black uppercase text-slate-300 whitespace-nowrap bg-slate-900 border-r border-white/5 group relative hover:bg-slate-800 transition-colors">
+                <th key={col} className="px-4 py-3 text-[10px] font-semibold text-stone-300 whitespace-nowrap bg-stone-900 border-r border-white/5 group relative hover:bg-stone-800 transition-colors">
                   {col}
                   {stats[col] && (
-                    <div className="absolute opacity-0 invisible group-hover:opacity-100 group-hover:visible z-20 bg-slate-800 border border-white/10 p-3 rounded-xl shadow-xl top-full left-0 mt-2 whitespace-nowrap">
-                      <p className="text-[10px] uppercase text-primary mb-2 font-black border-b border-white/10 pb-1">Estatísticas Numéricas</p>
+                    <div className="absolute opacity-0 invisible group-hover:opacity-100 group-hover:visible z-20 bg-stone-800 border border-white/10 p-3 rounded-xl shadow-xl top-full left-0 mt-2 whitespace-nowrap">
+                      <p className="text-[10px] text-primary mb-2 font-semibold border-b border-white/10 pb-1">Estatísticas Numéricas</p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        <span className="text-slate-500">Mínimo:</span> <span className="text-white font-mono">{stats[col].min}</span>
-                        <span className="text-slate-500">Médio:</span> <span className="text-white font-mono">{stats[col].avg}</span>
-                        <span className="text-slate-500">Máximo:</span> <span className="text-white font-mono">{stats[col].max}</span>
-                        <span className="text-slate-500">Valores N°s:</span> <span className="text-white font-mono">{stats[col].count}</span>
+                        <span className="text-stone-500">Mínimo:</span> <span className="text-white font-mono">{stats[col].min}</span>
+                        <span className="text-stone-500">Médio:</span> <span className="text-white font-mono">{stats[col].avg}</span>
+                        <span className="text-stone-500">Máximo:</span> <span className="text-white font-mono">{stats[col].max}</span>
+                        <span className="text-stone-500">Valores N°s:</span> <span className="text-white font-mono">{stats[col].count}</span>
                       </div>
                     </div>
                   )}
                   {stats[col] && (
-                    <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" title="Variável Numérica (Passe o mouse)"></span>
+                    <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-teal-300" title="Variável Numérica (Passe o mouse)"></span>
                   )}
                 </th>
               ))}
@@ -145,12 +145,12 @@ export default function CSVPreview({ url }) {
           <tbody className="divide-y divide-white/5 text-xs">
             {currentData.map((row, idx) => (
               <tr key={idx} className="hover:bg-white/[0.02]">
-                <td className="px-4 py-2 text-slate-600 font-mono text-center border-r border-white/5">
+                <td className="px-4 py-2 text-stone-600 font-mono text-center border-r border-white/5">
                   {(page - 1) * rowsPerPage + idx + 1}
                 </td>
                 {columns.map(col => (
-                  <td key={col} className="px-4 py-2 text-slate-300 truncate max-w-[200px] border-r border-white/5" title={String(row[col])}>
-                    {row[col] !== null && row[col] !== undefined ? String(row[col]) : <span className="text-slate-600 italic">null</span>}
+                  <td key={col} className="px-4 py-2 text-stone-300 truncate max-w-[200px] border-r border-white/5" title={String(row[col])}>
+                    {row[col] !== null && row[col] !== undefined ? String(row[col]) : <span className="text-stone-600 italic">null</span>}
                   </td>
                 ))}
               </tr>

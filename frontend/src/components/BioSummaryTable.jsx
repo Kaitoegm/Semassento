@@ -16,13 +16,13 @@ export default function BioSummaryTable({ data, outcomeName }) {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full glass-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5"
+      className="w-full glass-card rounded-xl overflow-hidden shadow-2xl border border-white/5"
     >
-      <div className="bg-[#2D4F3F] p-6 flex justify-between items-center border-b border-emerald-900/30">
-        <h3 className="text-white font-black text-xs uppercase tracking-[0.3em]">
+      <div className="bg-[#2D4F3F] p-6 flex justify-between items-center border-b border-teal-900/30">
+        <h3 className="text-white font-semibold text-xs tracking-wide">
           Sumário Bioestatístico: {outcomeName || 'Outcome'}
         </h3>
-        <div className="flex gap-4 text-[9px] font-bold text-emerald-400/70 uppercase tracking-widest">
+        <div className="flex gap-4 text-[9px] font-bold text-teal-300/70 tracking-wide">
             <span>* Mann-Whitney</span>
             <span>† Kruskal-Wallis</span>
         </div>
@@ -31,11 +31,11 @@ export default function BioSummaryTable({ data, outcomeName }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-[#365A49]/50 border-b border-emerald-900/20">
-              <th className="px-8 py-4 text-[10px] font-black text-emerald-100/60 uppercase tracking-widest w-1/3">Variável</th>
-              <th className="px-8 py-4 text-[10px] font-black text-emerald-100/60 uppercase tracking-widest text-center">N</th>
-              <th className="px-8 py-4 text-[10px] font-black text-emerald-100/60 uppercase tracking-widest text-center">Mediana (IQR)</th>
-              <th className="px-8 py-4 text-[10px] font-black text-emerald-100/60 uppercase tracking-widest text-right">Valor de p</th>
+            <tr className="bg-[#365A49]/50 border-b border-teal-900/20">
+              <th className="px-8 py-4 text-[10px] font-semibold text-teal-100/60 tracking-wide w-1/3">Variável</th>
+              <th className="px-8 py-4 text-[10px] font-semibold text-teal-100/60 tracking-wide text-center">N</th>
+              <th className="px-8 py-4 text-[10px] font-semibold text-teal-100/60 tracking-wide text-center">Mediana (IQR)</th>
+              <th className="px-8 py-4 text-[10px] font-semibold text-teal-100/60 tracking-wide text-right">Valor de p</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -44,17 +44,17 @@ export default function BioSummaryTable({ data, outcomeName }) {
                 {/* Cabeçalho da Variável */}
                 <tr className="bg-white/2 hover:bg-white/5 transition-colors">
                   <td className="px-8 py-5">
-                    <span className="text-sm font-black text-white tracking-tight">
+                    <span className="text-sm font-semibold text-white tracking-tight">
                       {variable.variable}
                     </span>
-                    <span className="ml-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest opacity-50">
+                    <span className="ml-2 text-[9px] font-bold text-stone-500 tracking-wide opacity-50">
                       ({variable.test})
                     </span>
                   </td>
                   <td className="px-8 py-5 text-center"></td>
                   <td className="px-8 py-5 text-center"></td>
                   <td className="px-8 py-5 text-right font-mono">
-                    <span className={`text-sm font-black ${(variable.p_value != null && variable.p_value < 0.05) ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    <span className={`text-sm font-semibold ${(variable.p_value != null && variable.p_value < 0.05) ? 'text-teal-300' : 'text-stone-500'}`}>
                       {variable.p_value != null ? (variable.p_value < 0.001 ? '< 0.001' : variable.p_value.toFixed(3)) : '—'}
                       {variable.symbol || ''}
                     </span>
@@ -63,10 +63,10 @@ export default function BioSummaryTable({ data, outcomeName }) {
                 {/* Linhas de Categorias */}
                 {(variable.categories || []).map((cat, cIdx) => (
                   <tr key={`${idx}-${cIdx}`} className="bg-transparent hover:bg-white/2 transition-colors">
-                    <td className="px-12 py-3 text-sm font-medium text-slate-300">
+                    <td className="px-12 py-3 text-sm font-medium text-stone-300">
                       {cat.name}
                     </td>
-                    <td className="px-8 py-3 text-center text-xs font-mono text-slate-400">
+                    <td className="px-8 py-3 text-center text-xs font-mono text-stone-400">
                       {cat.n}
                     </td>
                     <td className="px-8 py-3 text-center text-xs font-mono text-white font-bold">
@@ -81,7 +81,7 @@ export default function BioSummaryTable({ data, outcomeName }) {
         </table>
       </div>
       <div className="p-4 bg-black/20 border-t border-white/5 flex justify-end">
-          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+          <p className="text-[9px] font-bold text-stone-600 tracking-wide">
             Paper Metrics Engine • Inferência Linear & Não-Paramétrica
           </p>
       </div>

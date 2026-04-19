@@ -3,6 +3,15 @@ import { useAuth } from '../AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
+function ForestPlot({ className }) {
+  return (
+    <svg viewBox="0 0 40 20" preserveAspectRatio="xMidYMid meet" className={className} fill="currentColor">
+      <rect x="0" y="8" width="40" height="4" />
+      <polygon points="20,0 30,10 20,20 10,10" />
+    </svg>
+  )
+}
+
 export default function Login() {
   const { signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth()
   const [error, setError] = useState(null)
@@ -60,82 +69,80 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#0a0a1a] selection:bg-primary/30">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full"></div>
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center p-6 bg-background selection:bg-primary/20">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card w-full max-w-[440px] p-12 rounded-[3rem] border-white/5 relative z-10"
+        className="bg-surface w-full max-w-[420px] p-10 rounded-xl border border-border-subtle relative z-10"
       >
         <header className="text-center mb-10">
-          <img src="/papermetrics_icon_dark_128px.png" alt="Paper Metrics" className="w-16 h-16 rounded-3xl mb-6 hover:scale-110 transition-transform cursor-pointer" />
-          <h1 className="text-4xl font-black tracking-tight text-white mb-2">Paper <span className="text-primary">Metrics</span></h1>
-          <p className="text-slate-500 font-medium px-4">Plataforma de Análise Estatística e Bioestatística para Pesquisa Científica.</p>
+          <div className="inline-flex items-center gap-2 text-primary mb-6">
+            <span className="text-2xl font-semibold tracking-[-1px]">Paper</span>
+            <ForestPlot className="w-6 h-3" />
+            <span className="text-2xl font-semibold tracking-[-1px]">Metrics</span>
+          </div>
+          <p className="text-text-muted text-sm leading-relaxed px-4">Plataforma de análise estatística e bioestatística para pesquisa científica.</p>
         </header>
 
         {error && (
-          <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-500 text-[10px] font-black uppercase text-center tracking-widest">
+          <div className="mb-6 p-3 bg-stone-100 dark:bg-stone-900 border border-border-subtle rounded-lg text-text-main text-xs font-medium text-center">
             {error}
           </div>
         )}
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-4 py-5 bg-white text-black font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-text-main text-background font-medium text-sm rounded-lg hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin"></div>
                 Conectando...
               </span>
             ) : (
               <>
-                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
                 Continuar com Google
               </>
             )}
           </button>
 
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-            <div className="relative flex justify-center text-[9px] font-black uppercase tracking-[0.3em] text-slate-600 bg-transparent px-4">ou entre com e-mail</div>
+          <div className="relative py-3">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border-subtle"></div></div>
+            <div className="relative flex justify-center text-[11px] font-medium text-text-muted bg-surface px-3">ou entre com e-mail</div>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleEmailLogin} className="space-y-3">
              <input
                type="email"
                value={email}
                onChange={e => setEmail(e.target.value)}
                placeholder="E-mail"
-               className="w-full py-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-sm outline-none text-white placeholder-slate-600 focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
+               className="w-full py-3 px-4 bg-background border border-border-subtle rounded-lg text-sm outline-none text-text-main placeholder-text-muted focus:ring-1 focus:ring-primary/40 transition-all"
              />
              <input
                type="password"
                value={password}
                onChange={e => setPassword(e.target.value)}
                placeholder="Senha"
-               className="w-full py-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-sm outline-none text-white placeholder-slate-600 focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
+               className="w-full py-3 px-4 bg-background border border-border-subtle rounded-lg text-sm outline-none text-text-main placeholder-text-muted focus:ring-1 focus:ring-primary/40 transition-all"
              />
              <button
                type="submit"
                disabled={emailLoading}
-               className="w-full py-4 bg-primary/10 border border-primary/20 text-primary font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-primary/20 transition-all disabled:opacity-50"
+               className="w-full py-3 bg-primary/10 border border-primary/20 text-primary font-medium text-sm rounded-lg hover:bg-primary/15 transition-all disabled:opacity-50"
              >
-               {emailLoading ? 'Autenticando...' : 'Entrar com Senha'}
+               {emailLoading ? 'Autenticando...' : 'Entrar com senha'}
              </button>
           </form>
         </div>
 
-        <footer className="mt-12 pt-8 border-t border-white/5 text-center">
-           <p className="text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] leading-relaxed">
+        <footer className="mt-10 pt-6 border-t border-border-subtle text-center">
+           <p className="text-text-muted text-[11px] leading-relaxed">
              Ao entrar você concorda com nossos <br />
-             <span className="text-slate-400 hover:text-primary transition-colors cursor-pointer">Termos de Uso</span> e <span className="text-slate-400 hover:text-primary transition-colors cursor-pointer">Políticas de Privacidade</span>
+             <span className="text-text-main hover:text-primary transition-colors cursor-pointer">Termos de Uso</span> e <span className="text-text-main hover:text-primary transition-colors cursor-pointer">Políticas de Privacidade</span>
            </p>
         </footer>
       </motion.div>

@@ -94,7 +94,7 @@ export default function StatTooltip({ term, children }) {
     <>
       <span
         ref={triggerRef}
-        className="inline-flex items-center gap-1 cursor-help border-b border-dashed border-slate-600 hover:border-primary transition-colors"
+        className="inline-flex items-center gap-1 cursor-help border-b border-dashed border-stone-600 hover:border-primary transition-colors"
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
         onFocus={handleEnter}
@@ -102,18 +102,18 @@ export default function StatTooltip({ term, children }) {
         tabIndex={0}
       >
         {children}
-        <span className="material-symbols-rounded text-[10px] text-slate-600 hover:text-primary transition-colors">help_outline</span>
+        <span className="material-symbols-rounded text-[10px] text-stone-600 hover:text-primary transition-colors">help_outline</span>
       </span>
 
       {show && pos && createPortal(
         <div
-          className="fixed z-[99999] w-[300px] p-4 bg-slate-900/98 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.7)] text-[11px] leading-relaxed text-slate-200 pointer-events-none"
+          className="fixed z-[99999] w-[300px] p-4 bg-stone-900/98 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.7)] text-[11px] leading-relaxed text-stone-200 pointer-events-none"
           style={{
             top: `${pos.top}px`,
             left: `${pos.left}px`,
           }}
         >
-          <p className="font-bold text-primary text-[10px] uppercase tracking-wider mb-1">{term}</p>
+          <p className="font-bold text-primary text-[10px] tracking-wider mb-1">{term}</p>
           <p>{definition}</p>
         </div>,
         document.body

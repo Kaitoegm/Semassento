@@ -60,7 +60,7 @@ export default function Visualizations() {
     load()
   }, [])
 
-  const themeColor = '#00FFA3'
+  const themeColor = '#5eead4'
 
   const chartOpts = (title) => ({
     responsive: true,
@@ -73,10 +73,10 @@ export default function Visualizations() {
         font: { size: 11, weight: '900' }, 
         color: 'rgba(255,255,255,0.5)',
         padding: { bottom: 20 },
-        textTransform: 'uppercase'
+        textTransform: 'none'
       },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        backgroundColor: 'rgba(28, 28, 26, 0.9)',
         titleFont: { size: 11 },
         bodyFont: { size: 10 },
         padding: 12,
@@ -125,7 +125,7 @@ export default function Visualizations() {
 
   if (error) return (
     <div className="flex items-center justify-center h-[60vh]">
-      <p className="text-rose-400 font-bold">{error}</p>
+      <p className="text-stone-400 font-bold">{error}</p>
     </div>
   )
 
@@ -135,7 +135,7 @@ export default function Visualizations() {
     datasets: [{
       label: 'Normal A vs Normal B',
       data: data ? data.normal1.map((v, i) => ({ x: v, y: data.normal2[i] })) : [],
-      backgroundColor: 'rgba(0, 255, 163, 0.5)',
+      backgroundColor: 'rgba(94, 234, 212, 0.5)',
       pointRadius: 4,
       pointHoverRadius: 6
     }]
@@ -159,7 +159,7 @@ export default function Visualizations() {
       label: 'CDF Empírica',
       data: cdfValues,
       borderColor: themeColor,
-      backgroundColor: 'rgba(0, 255, 163, 0.05)',
+      backgroundColor: 'rgba(94, 234, 212, 0.05)',
       fill: true,
       tension: 0.3,
       pointRadius: 2,
@@ -172,16 +172,16 @@ export default function Visualizations() {
       <header>
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
           <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
-            Visualizações <span className="text-primary glow-text-sm">Interativas</span>
+            Visualizações <span className="text-primary">Interativas</span>
           </h1>
-          <p className="text-slate-400 max-w-2xl">Explore padrões e tendências nos seus dados científicos com gráficos de alta fidelidade.</p>
+          <p className="text-stone-400 max-w-2xl">Explore padrões e tendências nos seus dados científicos com gráficos de alta fidelidade.</p>
         </motion.div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Distribuição Normal</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Distribuição Normal</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">
@@ -197,7 +197,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Função de Distribuição Acumulada</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Função de Distribuição Acumulada</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">
@@ -207,7 +207,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Análise Comparativa</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Análise Comparativa</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">
@@ -217,7 +217,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6 min-h-[350px] relative overflow-hidden">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Resumo de Estatísticas</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Resumo de Estatísticas</h3>
             <span className="text-primary/50">{VIS_ICONS.dots}</span>
           </div>
           <div className="space-y-4">
@@ -228,12 +228,12 @@ export default function Visualizations() {
             ].map((stat, i) => (
               <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group hover:border-primary/20 transition-all">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase">{stat.label}</p>
-                  <p className="text-2xl font-black text-white">{stat.val}</p>
+                  <p className="text-[10px] font-bold text-stone-500">{stat.label}</p>
+                  <p className="text-2xl font-semibold text-white">{stat.val}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold text-primary uppercase">Desvio Padrão</p>
-                  <p className="text-sm font-mono text-slate-400">{stat.sub}</p>
+                  <p className="text-[10px] font-bold text-primary">Desvio Padrão</p>
+                  <p className="text-sm font-mono text-stone-400">{stat.sub}</p>
                 </div>
               </div>
             ))}
@@ -242,7 +242,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dispersão Bidimensional</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Dispersão Bidimensional</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">

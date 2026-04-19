@@ -33,6 +33,16 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     }
   }
 
+  const tooltipStyle = {
+    backgroundColor: '#1c1c1a',
+    titleColor: '#5eead4',
+    bodyColor: '#e7e5e4',
+    borderColor: 'rgba(94, 234, 212, 0.2)',
+    borderWidth: 1,
+    cornerRadius: 8,
+    padding: 12
+  }
+
   const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -44,19 +54,11 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
         color: 'rgba(255, 255, 255, 0.7)',
         font: { size: 14, family: 'Inter', weight: '600' }
       },
-      tooltip: {
-        backgroundColor: '#1E293B',
-        titleColor: '#00FFA3',
-        bodyColor: '#fff',
-        borderColor: 'rgba(0, 255, 163, 0.2)',
-        borderWidth: 1,
-        cornerRadius: 8,
-        padding: 12
-      }
+      tooltip: tooltipStyle
     },
     scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
-      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } }
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#78716c', font: { size: 11 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#78716c', font: { size: 11 } } }
     }
   }
 
@@ -71,21 +73,13 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
         color: 'rgba(255, 255, 255, 0.7)',
         font: { size: 14, family: 'Inter', weight: '600' }
       },
-      tooltip: {
-        backgroundColor: '#1E293B',
-        titleColor: '#00FFA3',
-        bodyColor: '#fff',
-        borderColor: 'rgba(0, 255, 163, 0.2)',
-        borderWidth: 1,
-        cornerRadius: 8,
-        padding: 12
-      }
+      tooltip: tooltipStyle
     },
     scales: {
       r: {
         grid: { color: 'rgba(255,255,255,0.08)' },
         angleLines: { color: 'rgba(255,255,255,0.08)' },
-        pointLabels: { color: '#94a3b8', font: { size: 11 } },
+        pointLabels: { color: '#78716c', font: { size: 11 } },
         ticks: { display: false }
       }
     }
@@ -103,15 +97,7 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
         color: 'rgba(255, 255, 255, 0.7)',
         font: { size: 14, family: 'Inter', weight: '600' }
       },
-      tooltip: {
-        backgroundColor: '#1E293B',
-        titleColor: '#00FFA3',
-        bodyColor: '#fff',
-        borderColor: 'rgba(0, 255, 163, 0.2)',
-        borderWidth: 1,
-        cornerRadius: 8,
-        padding: 12
-      }
+      tooltip: tooltipStyle
     }
   }
 
@@ -119,8 +105,8 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     datasets: [{
       label: 'Amostras',
       data: data || [],
-      backgroundColor: 'rgba(0, 255, 163, 0.6)',
-      borderColor: '#00FFA3',
+      backgroundColor: 'rgba(94, 234, 212, 0.6)',
+      borderColor: '#5eead4',
       pointRadius: 4,
       pointHoverRadius: 6
     }]
@@ -131,10 +117,10 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     datasets: datasets || [{
       label: 'Valor',
       data: data ? data.map(d => d.value) : [],
-      backgroundColor: 'rgba(0, 255, 163, 0.2)',
-      borderColor: '#00FFA3',
+      backgroundColor: 'rgba(94, 234, 212, 0.2)',
+      borderColor: '#5eead4',
       borderWidth: 1,
-      borderRadius: 6
+      borderRadius: 4
     }]
   }
 
@@ -143,13 +129,13 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     datasets: datasets || [{
       label: 'Tendência',
       data: data ? data.map(d => d.value) : [],
-      borderColor: '#00FFA3',
-      backgroundColor: 'rgba(0, 255, 163, 0.1)',
+      borderColor: '#5eead4',
+      backgroundColor: 'rgba(94, 234, 212, 0.1)',
       fill: true,
       tension: 0.4,
       pointRadius: 4,
-      pointBackgroundColor: '#00FFA3',
-      pointBorderColor: '#00FFA3',
+      pointBackgroundColor: '#5eead4',
+      pointBorderColor: '#5eead4',
       pointHoverRadius: 7,
       borderWidth: 2
     }]
@@ -160,10 +146,10 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     datasets: datasets || [{
       label: 'Perfil',
       data: data ? data.map(d => d.value) : [],
-      backgroundColor: 'rgba(0, 255, 163, 0.15)',
-      borderColor: '#00FFA3',
+      backgroundColor: 'rgba(94, 234, 212, 0.15)',
+      borderColor: '#5eead4',
       borderWidth: 2,
-      pointBackgroundColor: '#00FFA3',
+      pointBackgroundColor: '#5eead4',
       pointRadius: 4
     }]
   }
@@ -173,7 +159,7 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     datasets: datasets || [{
       data: data ? data.map(d => d.value) : [],
       backgroundColor: [
-        'rgba(0, 255, 163, 0.7)',
+        'rgba(94, 234, 212, 0.7)',
         'rgba(147, 51, 234, 0.7)',
         'rgba(59, 130, 246, 0.7)',
         'rgba(251, 146, 60, 0.7)',
@@ -181,14 +167,14 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
         'rgba(34, 211, 238, 0.7)'
       ],
       borderColor: [
-        'rgba(0, 255, 163, 1)',
+        'rgba(94, 234, 212, 1)',
         'rgba(147, 51, 234, 1)',
         'rgba(59, 130, 246, 1)',
         'rgba(251, 146, 60, 1)',
         'rgba(244, 63, 94, 1)',
         'rgba(34, 211, 238, 1)'
       ],
-      borderWidth: 2,
+      borderWidth: 1,
       hoverOffset: 8
     }]
   }
@@ -196,10 +182,10 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
   return (
     <div className="flex flex-col h-full w-full relative">
       <div className="absolute top-0 right-0 z-10">
-        <button 
+        <button
           onClick={downloadChart}
           title="Exportar Gráfico (PNG)"
-          className="p-2 bg-white/5 hover:bg-primary/20 text-slate-400 hover:text-primary rounded-xl transition-all"
+          className="p-2 bg-white/5 hover:bg-primary/20 text-stone-400 hover:text-primary rounded-xl transition-all"
         >
           <span className="material-symbols-rounded text-sm">download</span>
         </button>

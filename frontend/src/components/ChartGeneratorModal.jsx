@@ -153,15 +153,15 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       label: cat,
       data: table.map(r => r[cat]?.count ?? 0),
       backgroundColor: [
-        'rgba(0, 255, 163, 0.7)',
+        'rgba(94, 234, 212, 0.7)',
         'rgba(59, 130, 246, 0.7)',
         'rgba(147, 51, 234, 0.7)',
         'rgba(251, 146, 60, 0.7)',
         'rgba(244, 63, 94, 0.7)',
       ][ci % 5],
-      borderColor: ['#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E'][ci % 5],
-      borderWidth: 2,
-      borderRadius: 8,
+      borderColor: ['#5eead4', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E'][ci % 5],
+      borderWidth: 1,
+      borderRadius: 4,
     }))
     return { labels: rowLabels, datasets }
   }, [chartData, cType])
@@ -176,7 +176,7 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       datasets: [{
         data: totalCounts,
         backgroundColor: [
-          'rgba(0, 255, 163, 0.8)',
+          'rgba(94, 234, 212, 0.8)',
           'rgba(59, 130, 246, 0.7)',
           'rgba(147, 51, 234, 0.7)',
           'rgba(251, 146, 60, 0.7)',
@@ -184,9 +184,9 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
           'rgba(34, 211, 238, 0.7)',
         ],
         borderColor: [
-          '#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
+          '#5eead4', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
         ],
-        borderWidth: 2,
+        borderWidth: 1,
         hoverOffset: 12
       }]
     }
@@ -209,10 +209,10 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     datasets: [{
       label: varName || 'Valores',
       data: barValues,
-      backgroundColor: barValues.map((_, i) => `rgba(0, 255, 163, ${0.2 + (i % 6) * 0.1})`),
-      borderColor: '#00FFA3',
-      borderWidth: 2,
-      borderRadius: 8,
+      backgroundColor: barValues.map((_, i) => `rgba(94, 234, 212, ${0.2 + (i % 6) * 0.1})`),
+      borderColor: '#5eead4',
+      borderWidth: 1,
+      borderRadius: 4,
       borderSkipped: false,
     }]
   }
@@ -224,13 +224,13 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     datasets: [{
       label: varName || 'Valores',
       data: lineValues,
-      borderColor: '#00FFA3',
-      backgroundColor: 'rgba(0, 255, 163, 0.08)',
+      borderColor: '#5eead4',
+      backgroundColor: 'rgba(94, 234, 212, 0.08)',
       fill: true,
       tension: 0.4,
       pointRadius: 6,
-      pointBackgroundColor: '#00FFA3',
-      pointBorderColor: '#00FFA3',
+      pointBackgroundColor: '#5eead4',
+      pointBorderColor: '#5eead4',
       pointHoverRadius: 9,
       borderWidth: 3,
     }]
@@ -241,8 +241,8 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
       {
         label: 'Dados',
         data: scatterData.points,
-        backgroundColor: 'rgba(0, 255, 163, 0.6)',
-        borderColor: '#00FFA3',
+        backgroundColor: 'rgba(94, 234, 212, 0.6)',
+        borderColor: '#5eead4',
         borderWidth: 1,
         pointRadius: 5,
         pointHoverRadius: 8,
@@ -267,7 +267,7 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     datasets: [{
       data: safeLabels.length > 0 ? safeValues : barValues,
       backgroundColor: [
-        'rgba(0, 255, 163, 0.8)',
+        'rgba(94, 234, 212, 0.8)',
         'rgba(59, 130, 246, 0.7)',
         'rgba(147, 51, 234, 0.7)',
         'rgba(251, 146, 60, 0.7)',
@@ -275,9 +275,9 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
         'rgba(34, 211, 238, 0.7)',
       ],
       borderColor: [
-        '#00FFA3', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
+        '#5eead4', '#3B82F6', '#9333EA', '#FB923C', '#F43F5E', '#22D3EE'
       ],
-      borderWidth: 2,
+      borderWidth: 1,
       hoverOffset: 12
     }]
   }
@@ -291,18 +291,18 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
         display: true,
         text: chartTitleText,
         color: 'rgba(255, 255, 255, 0.8)',
-        font: { size: 16, family: 'Inter', weight: '700' }
+        font: { size: 15, family: 'Inter', weight: '600' }
       },
       tooltip: {
-        backgroundColor: '#1E293B',
-        titleColor: '#00FFA3',
-        bodyColor: '#fff',
-        borderColor: 'rgba(0, 255, 163, 0.3)',
+        backgroundColor: '#1c1c1a',
+        titleColor: '#5eead4',
+        bodyColor: '#e7e5e4',
+        borderColor: 'rgba(94, 234, 212, 0.2)',
         borderWidth: 1,
-        cornerRadius: 10,
-        padding: 14,
-        bodyFont: { size: 13 },
-        titleFont: { size: 14, weight: '700' }
+        cornerRadius: 8,
+        padding: 12,
+        bodyFont: { size: 12 },
+        titleFont: { size: 13, weight: '600' }
       }
     },
     scales: selectedType === 'doughnut' ? {} : selectedType === 'scatter' ? {
@@ -310,22 +310,22 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
         type: 'linear',
         position: 'bottom',
         grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#94a3b8', font: { size: 12 } },
-        title: { display: true, text: chartData.var_name || 'X', color: '#94a3b8' }
+        ticks: { color: '#78716c', font: { size: 12 } },
+        title: { display: true, text: chartData.var_name || 'X', color: '#78716c' }
       },
       y: {
         grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#94a3b8', font: { size: 12 } },
-        title: { display: true, text: 'Y', color: '#94a3b8' }
+        ticks: { color: '#78716c', font: { size: 12 } },
+        title: { display: true, text: 'Y', color: '#78716c' }
       }
     } : {
       x: {
         grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#94a3b8', font: { size: 12, weight: '600' } }
+        ticks: { color: '#78716c', font: { size: 12, weight: '600' } }
       },
       y: {
         grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#94a3b8', font: { size: 12 } }
+        ticks: { color: '#78716c', font: { size: 12 } }
       }
     }
   }
@@ -355,17 +355,17 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
           exit={{ opacity: 0, scale: 0.92, y: 30 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
           onClick={e => e.stopPropagation()}
-          className="glass-card w-full max-w-3xl rounded-[2.5rem] border border-white/10 overflow-hidden"
+          className="glass-card w-full max-w-3xl rounded-xl border border-white/10 overflow-hidden"
         >
           <div className="flex items-center justify-between p-8 border-b border-white/5">
             <div>
-              <h3 className="text-lg font-black text-white flex items-center gap-3">
-                <span className="material-symbols-rounded text-primary neon-glow-sm">bar_chart</span>
+              <h3 className="text-lg font-semibold text-white flex items-center gap-3">
+                <span className="material-symbols-rounded text-primary">bar_chart</span>
                 Gerar Gráfico
               </h3>
-              <p className="text-slate-500 text-xs mt-1 font-medium">{varName}</p>
+              <p className="text-stone-500 text-xs mt-1 font-medium">{varName}</p>
             </div>
-            <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all">
+            <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-stone-400 hover:text-white transition-all">
               <span className="material-symbols-rounded text-xl">close</span>
             </button>
           </div>
@@ -376,10 +376,10 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
                 <button
                   key={type.value}
                   onClick={() => setSelectedType(type.value)}
-                  className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                     selectedType === type.value
-                      ? 'bg-primary/15 text-primary border-2 border-primary/40 shadow-[0_0_20px_rgba(0,255,163,0.1)]'
-                      : 'bg-white/5 text-slate-500 border border-white/10 hover:border-white/20 hover:text-slate-300'
+                      ? 'bg-primary/15 text-primary border-2 border-primary/40'
+                      : 'bg-white/5 text-stone-500 border border-white/10 hover:border-white/20 hover:text-stone-300'
                   }`}
                 >
                   <span className="material-symbols-rounded text-sm">{type.icon}</span>
@@ -397,7 +397,7 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
 
             {regression && (
               <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
-                <p className="text-[10px] text-slate-300 font-mono">
+                <p className="text-[10px] text-stone-300 font-mono">
                   <span className="text-primary font-bold">Regressão Linear:</span> y = {regression.slope}x + {regression.intercept} | R² = {regression.r_squared} | Erro padrão = {regression.std_err}
                 </p>
               </div>
@@ -407,14 +407,14 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
           <div className="flex gap-3 p-6 pt-0">
             <button
               onClick={handleExport}
-              className="flex-1 flex items-center justify-center gap-2 bg-primary text-background py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:brightness-110 transition-all shadow-[0_4px_20px_rgba(0,255,163,0.3)] active:scale-[0.98]"
+              className="flex-1 flex items-center justify-center gap-2 bg-primary text-background py-4 rounded-2xl font-semibold text-[10px] tracking-wide hover:brightness-110 transition-all active:scale-[0.98]"
             >
               <span className="material-symbols-rounded text-sm">download</span>
               Exportar PNG
             </button>
             <button
               onClick={onClose}
-              className="px-8 py-4 rounded-2xl border border-white/10 text-xs font-bold text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+              className="px-8 py-4 rounded-2xl border border-white/10 text-xs font-bold text-stone-400 hover:bg-white/5 hover:text-white transition-all"
             >
               Fechar
             </button>

@@ -22,9 +22,9 @@ const TEST_COLORS = {
   DESCRITIVA: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30', badge: 'bg-blue-500/20 text-blue-300' },
   CORRELAÇÃO: { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30', badge: 'bg-violet-500/20 text-violet-300' },
   REGRESSÃO: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', badge: 'bg-amber-500/20 text-amber-300' },
-  COMPARAÇÃO: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', badge: 'bg-emerald-500/20 text-emerald-300' },
+  COMPARAÇÃO: { bg: 'bg-teal-400/15', text: 'text-teal-300', border: 'border-teal-400/30', badge: 'bg-teal-400/20 text-teal-200' },
   PAREADO: { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30', badge: 'bg-cyan-500/20 text-cyan-300' },
-  NORMALIDADE: { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30', badge: 'bg-rose-500/20 text-rose-300' },
+  NORMALIDADE: { bg: 'bg-stone-500/15', text: 'text-stone-400', border: 'border-stone-500/30', badge: 'bg-stone-500/20 text-stone-300' },
 }
 
 function parseColoredTags(text) {
@@ -91,21 +91,21 @@ const markdownComponents = {
   ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
   ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
   li: ({ children }) => <li className="text-[11px] leading-relaxed">{children}</li>,
-  strong: ({ children }) => <strong className="font-bold text-slate-100">{children}</strong>,
-  em: ({ children }) => <em className="text-slate-200 not-italic font-medium">{children}</em>,
+  strong: ({ children }) => <strong className="font-bold text-stone-100">{children}</strong>,
+  em: ({ children }) => <em className="text-stone-200 not-italic font-medium">{children}</em>,
   code: ({ children, className }) => {
     const isInline = !className
     if (isInline) {
-      return <span className="bg-white/10 text-slate-100 px-1.5 py-0.5 rounded text-[11px] font-semibold">{children}</span>
+      return <span className="bg-white/10 text-stone-100 px-1.5 py-0.5 rounded text-[11px] font-semibold">{children}</span>
     }
-    return <code className="block bg-white/5 border border-white/10 rounded-lg p-3 text-[10px] font-mono text-slate-300 overflow-x-auto my-2">{children}</code>
+    return <code className="block bg-white/5 border border-white/10 rounded-lg p-3 text-[10px] font-mono text-stone-300 overflow-x-auto my-2">{children}</code>
   },
   h1: ({ children }) => <h1 className="text-sm font-bold text-primary mb-2 mt-3">{children}</h1>,
   h2: ({ children }) => <h2 className="text-[12px] font-bold text-primary mb-1.5 mt-2">{children}</h2>,
-  h3: ({ children }) => <h3 className="text-[11px] font-semibold text-emerald-400 mb-1 mt-2">{children}</h3>,
-  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/30 pl-3 text-[11px] text-slate-400 italic my-2">{children}</blockquote>,
+  h3: ({ children }) => <h3 className="text-[11px] font-semibold text-teal-300 mb-1 mt-2">{children}</h3>,
+  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/30 pl-3 text-[11px] text-stone-400 italic my-2">{children}</blockquote>,
   hr: () => <hr className="border-white/10 my-3" />,
-  a: ({ children, href }) => <a href={href} className="text-primary underline hover:text-emerald-300 transition-colors">{children}</a>,
+  a: ({ children, href }) => <a href={href} className="text-primary underline hover:text-teal-200 transition-colors">{children}</a>,
 }
 
 function MarkdownContent({ content }) {
@@ -270,9 +270,9 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-8 right-8 w-16 h-16 bg-primary text-background rounded-full shadow-[0_10px_30px_rgba(0,255,163,0.3)] flex items-center justify-center z-[90] hover:scale-110 active:scale-95 transition-all group"
+            className="fixed bottom-8 right-8 w-16 h-16 bg-primary text-background rounded-full flex items-center justify-center z-[90] hover:scale-110 active:scale-95 transition-all group"
           >
-            <span className="material-symbols-rounded text-3xl font-black group-hover:rotate-12 transition-transform">smart_toy</span>
+            <span className="material-symbols-rounded text-3xl group-hover:rotate-12 transition-transform">smart_toy</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -283,14 +283,14 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-8 right-8 w-[420px] h-[650px] z-[100] glass-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-primary/20 flex flex-col overflow-hidden"
+            className="fixed bottom-8 right-8 w-[420px] h-[650px] z-[100] glass-card rounded-xl border-primary/20 flex flex-col overflow-hidden"
           >
             <div className="bg-primary/10 px-8 py-5 border-b border-white/5 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#00FFA3]"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>
                 <div>
-                  <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Paper Metrics</span>
-                  <span className="text-[9px] text-slate-500 ml-2">{currentPage}</span>
+                  <span className="text-[11px] font-semibold text-primary tracking-wide">Paper Metrics</span>
+                  <span className="text-[9px] text-stone-500 ml-2">{currentPage}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -299,9 +299,9 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                   className="p-2 hover:bg-white/10 rounded-xl transition-all group"
                   title="Anexar arquivo"
                 >
-                  <span className="material-symbols-rounded text-[18px] text-slate-400 group-hover:text-primary transition-colors">attach_file</span>
+                  <span className="material-symbols-rounded text-[18px] text-stone-400 group-hover:text-primary transition-colors">attach_file</span>
                 </button>
-                <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white transition-colors p-2">
+                <button onClick={() => setIsOpen(false)} className="text-stone-500 hover:text-white transition-colors p-2">
                   <span className="material-symbols-rounded text-[20px]">close</span>
                 </button>
               </div>
@@ -320,7 +320,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                   <div className={`max-w-[90%] rounded-[1.5rem] p-4 text-xs leading-relaxed font-medium ${
                     msg.role === 'user'
                       ? 'bg-primary text-background'
-                      : 'bg-white/5 text-slate-300 border border-white/5'
+                      : 'bg-white/5 text-stone-300 border border-white/5'
                   }`}>
                     {msg.fileName && (
                       <div className={`flex items-center gap-2 mb-2 pb-2 border-b ${msg.role === 'user' ? 'border-background/20' : 'border-white/10'}`}>
@@ -336,7 +336,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                     {msg.needsUpload && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className={`mt-3 w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                        className={`mt-3 w-full py-2.5 rounded-xl text-[10px] font-semibold tracking-wide transition-all active:scale-95 ${
                           msg.role === 'user'
                             ? 'bg-background/20 text-background hover:bg-background/30'
                             : 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20'
@@ -362,13 +362,13 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
 
               {messages.length <= 1 && !loading && (
                 <div className="space-y-2 pt-2">
-                  <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest px-1">Sugestões rápidas</p>
+                  <p className="text-[9px] font-bold text-stone-600 tracking-wide px-1">Sugestões rápidas</p>
                   <div className="grid grid-cols-1 gap-2">
                     {quickSuggestions.map((s, i) => (
                       <button
                         key={i}
                         onClick={() => handleSuggestionClick(s)}
-                        className="text-left text-[11px] text-slate-400 hover:text-primary bg-white/5 hover:bg-white/10 px-4 py-2.5 rounded-xl transition-all border border-transparent hover:border-primary/20"
+                        className="text-left text-[11px] text-stone-400 hover:text-primary bg-white/5 hover:bg-white/10 px-4 py-2.5 rounded-xl transition-all border border-transparent hover:border-primary/20"
                       >
                         {s}
                       </button>
@@ -383,9 +383,9 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-rounded text-primary text-[16px]">description</span>
                   <span className="text-[10px] font-bold text-white truncate max-w-[200px]">{attachedFile.name}</span>
-                  <span className="text-[9px] text-slate-500">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
+                  <span className="text-[9px] text-stone-500">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
                 </div>
-                <button onClick={() => setAttachedFile(null)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                <button onClick={() => setAttachedFile(null)} className="text-stone-500 hover:text-stone-400 transition-colors">
                   <span className="material-symbols-rounded text-[16px]">close</span>
                 </button>
               </div>
@@ -399,7 +399,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2.5 text-slate-500 hover:text-primary hover:bg-white/5 rounded-xl transition-all shrink-0"
+                  className="p-2.5 text-stone-500 hover:text-primary hover:bg-white/5 rounded-xl transition-all shrink-0"
                   title="Anexar arquivo CSV/Excel"
                 >
                   <span className="material-symbols-rounded text-[20px]">upload_file</span>
@@ -410,14 +410,14 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Perguntar sobre estatística..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all text-white placeholder:text-slate-600"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all text-white placeholder:text-stone-600"
                 />
                 <button
                   type="submit"
                   disabled={loading || (!input.trim() && !attachedFile)}
                   className="p-2.5 bg-primary text-background rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
-                  <span className="material-symbols-rounded text-[18px] font-black">send</span>
+                  <span className="material-symbols-rounded text-[18px]">send</span>
                 </button>
               </form>
             </div>

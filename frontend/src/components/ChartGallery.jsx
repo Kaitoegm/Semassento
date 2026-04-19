@@ -45,7 +45,7 @@ export default function ChartGallery({ projectId }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1">
+        <h4 className="text-xs font-bold text-zinc-500 tracking-wide pl-1">
           Gráficos Salvos ({charts.length})
         </h4>
 
@@ -54,7 +54,7 @@ export default function ChartGallery({ projectId }) {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setTypeFilter('todos')}
-              className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors ${
+              className={`px-3 py-1 text-[10px] font-bold tracking-wider rounded-lg transition-colors ${
                 typeFilter === 'todos' ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white/5 text-zinc-400 hover:text-white border border-transparent'
               }`}
             >
@@ -64,8 +64,8 @@ export default function ChartGallery({ projectId }) {
               <button
                 key={type}
                 onClick={() => setTypeFilter(type)}
-                className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors ${
-                  typeFilter === type ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/20' : 'bg-white/5 text-zinc-400 hover:text-white border border-transparent'
+                className={`px-3 py-1 text-[10px] font-bold tracking-wider rounded-lg transition-colors ${
+                  typeFilter === type ? 'bg-teal-300/20 text-teal-300 border border-teal-300/20' : 'bg-white/5 text-zinc-400 hover:text-white border border-transparent'
                 }`}
               >
                 {type}
@@ -77,7 +77,7 @@ export default function ChartGallery({ projectId }) {
 
       {loading ? (
         <div className="text-center py-10 text-zinc-400 animate-pulse text-sm flex flex-col items-center gap-2">
-          <span className="material-symbols-rounded animate-spin text-3xl text-emerald-400">autorenew</span>
+          <span className="material-symbols-rounded animate-spin text-3xl text-teal-300">autorenew</span>
           <p>Carregando galeria...</p>
         </div>
       ) : charts.length === 0 ? (
@@ -100,7 +100,7 @@ export default function ChartGallery({ projectId }) {
                  animate={{ opacity: 1, scale: 1 }}
                  exit={{ opacity: 0, scale: 0.9 }}
                  whileHover={{ y: -5 }}
-                 className="group relative cursor-pointer rounded-xl overflow-hidden bg-slate-900 border border-white/10 aspect-square shadow-lg"
+                 className="group relative cursor-pointer rounded-xl overflow-hidden bg-stone-900 border border-white/10 aspect-square shadow-lg"
                  onClick={() => {
                    setSelectedChart(chart);
                    setSelectedChartIndex(index);
@@ -115,8 +115,8 @@ export default function ChartGallery({ projectId }) {
                 />
                 
                 {/* Informações sobrepostas (Hover) */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                  <span className="text-[10px] uppercase font-black tracking-widest text-emerald-400 mb-1">{chart.chart_type || 'Dashboard'}</span>
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                  <span className="text-[10px] font-semibold tracking-wide text-teal-300 mb-1">{chart.chart_type || 'Dashboard'}</span>
                   <p className="text-white text-sm font-bold truncate" title={chart.filename}>{chart.filename}</p>
                   <p className="text-[10px] text-zinc-400 mt-1">{new Date(chart.created_at).toLocaleDateString('pt-BR')}</p>
                 </div>
@@ -142,9 +142,9 @@ export default function ChartGallery({ projectId }) {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative z-10 w-full max-w-5xl max-h-full flex flex-col pointer-events-none"
             >
-              <div className="flex justify-between items-center bg-slate-900 border border-white/10 p-4 rounded-t-2xl shadow-2xl pointer-events-auto">
+              <div className="flex justify-between items-center bg-stone-900 border border-white/10 p-4 rounded-t-2xl shadow-2xl pointer-events-auto">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-400/10 text-emerald-400 rounded-lg">
+                  <div className="p-2 bg-teal-300/10 text-teal-300 rounded-lg">
                     <span className="material-symbols-rounded">insert_chart</span>
                   </div>
                   <div>
@@ -174,7 +174,7 @@ export default function ChartGallery({ projectId }) {
                      download
                      target="_blank"
                      rel="noreferrer"
-                     className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-emerald-400/20 hover:text-emerald-400 text-white border border-transparent hover:border-emerald-400/20 rounded-lg text-xs font-bold transition-colors"
+                     className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-teal-300/20 hover:text-teal-300 text-white border border-transparent hover:border-teal-300/20 rounded-lg text-xs font-bold transition-colors"
                    >
                      <span className="material-symbols-rounded text-[18px]">download</span>
                      <span className="hidden sm:inline">Baixar Completo</span>
@@ -206,7 +206,7 @@ export default function ChartGallery({ projectId }) {
                  </div>
               </div>
 
-              <div className="flex-1 min-h-0 bg-slate-950/80 p-4 sm:p-8 rounded-b-2xl border-x border-b border-white/10 shadow-2xl overflow-auto custom-scrollbar flex items-center justify-center pointer-events-auto">
+              <div className="flex-1 min-h-0 bg-stone-950/80 p-4 sm:p-8 rounded-b-2xl border-x border-b border-white/10 shadow-2xl overflow-auto custom-scrollbar flex items-center justify-center pointer-events-auto">
                 <img 
                   src={`${API_URL}/api/charts/${selectedChart.id}/file?token=${session?.sessionToken}`} 
                   alt={selectedChart.filename}
