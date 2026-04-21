@@ -20,7 +20,7 @@ ChartJS.register(
   CategoryScale, BarElement, Title, ArcElement, RadialLinearScale, Filler
 )
 
-export default function DynamicChart({ data, type = 'scatter', title = 'Resultado Visual', labels, datasets }) {
+export default function DynamicChart({ data, type = 'scatter', title = 'Resultado Visual', labels, datasets, xLabel, yLabel }) {
   const chartRef = useRef(null)
 
   const downloadChart = () => {
@@ -43,6 +43,13 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
     padding: 12
   }
 
+  const axisLabelStyle = {
+    display: true,
+    color: 'rgba(255,255,255,0.55)',
+    font: { size: 11, family: 'Inter', weight: '500' },
+    padding: 6
+  }
+
   const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -57,8 +64,16 @@ export default function DynamicChart({ data, type = 'scatter', title = 'Resultad
       tooltip: tooltipStyle
     },
     scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#78716c', font: { size: 11 } } },
-      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#78716c', font: { size: 11 } } }
+      x: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#78716c', font: { size: 11 } },
+        title: xLabel ? { ...axisLabelStyle, text: xLabel } : { display: false }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#78716c', font: { size: 11 } },
+        title: yLabel ? { ...axisLabelStyle, text: yLabel } : { display: false }
+      }
     }
   }
 

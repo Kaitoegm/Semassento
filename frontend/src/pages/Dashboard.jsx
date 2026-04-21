@@ -573,11 +573,100 @@ export default function Dashboard() {
   // ============================================================
   // PASSO 0.5 → PASSO 0: Usuário confirmou domínios → OutcomeSelector
   // ============================================================
+  
+  // Atualiza columnOptions com base nas transformações confirmadas
+  const applyDomainTransformations = useCallback((originalColumns, transformations) => {
+    if (!transformations || transformations.length === 0) return originalColumns
+    
+    const transformedCols = originalColumns.map(col => ({ ...col }))
+    const tfMap = {}
+    for (const tf of transformations) {
+      tfMap[tf.column] = tf
+    }
+    
+    for (const col of transformedCols) {
+      const tf = tfMap[col.name]
+      if (tf && tf.transformation && tf.transformation !== "none") {
+        const domainInfo = tf.domain || tfMap[col.name]?.domain
+        let newName = col.name
+        let newType = col.type
+        let isSuggested = col.suggested
+        
+        const tfUpper = tf.transformation.toUpperCase()
+        
+        if (domainInfo === "visual_acuity_snellen") {
+          if (tf.transformation === "logmar") {
+            newName = `${col.name} (LogMAR)`
+            newType = "Numérico"
+            isSuggested = true
+          } else if (tf.transformation === "decimal") {
+            newName = `${col.name} (Decimal)`
+            newType = "Numérico"
+            isSuggested = true
+          }
+        } else if (domainInfo === "intraocular_pressure") {
+          if (tf.transformation === "mmhg") {
+            newName = `${col.name} (mmHg)`
+            newType = "Numérico"
+          }
+        } else if (domainInfo === "iop") {
+          if (tf.transformation === "mmhg") {
+            newName = `${col.name} (mmHg)`
+            newType = "Numérico"
+          }
+        } else {
+          newName = `${col.name} (${tfUpper})`
+          newType = "Numérico"
+        }
+        
+        col.name = newName
+        col.type = newType
+        col.suggested = isSuggested
+        
+        if (col.sample && col.sample.length > 0) {
+          col.sample = [`${tfUpper} calculado`, ...col.sample.slice(0, 2)]
+        }
+      }
+    }
+    
+    // Detectar pares bilaterais e adicionar coluna derivada "Acuidade visual (LogMAR)"
+    const colsLower = transformedCols.map(c => c.name.toLowerCase())
+    const hasOD = colsLower.some(c => c === 'od' || c.startsWith('od ') || c === 're' || c.startsWith('re ') || c.includes('olho_direito') || c.includes('right'))
+    const hasOE = colsLower.some(c => c === 'oe' || c.startsWith('oe ') || c === 'le' || c.startsWith('le ') || c.includes('olho_esquerdo') || c.includes('left'))
+    
+    console.log('[DEBUG] applyDomainTransformations:', { colsLower, hasOD, hasOE, transformedCols: transformedCols.map(c => c.name) })
+    
+    if (hasOD && hasOE) {
+      console.log('[DEBUG] Adicionando Acuidade visual (LogMAR)')
+      
+      // Remover a tag 'suggested' de COPIAS de todos os objetos para garantir re-render
+      const cleanedCols = transformedCols.map(c => ({ ...c, suggested: false }))
+
+      cleanedCols.push({
+        name: "Acuidade visual (LogMAR)",
+        type: "Numérico",
+        unique_count: 0,
+        sample: ["Mín(OD,OE)", "calculado"],
+        suggested: true
+      })
+      return cleanedCols
+    }
+    
+    return transformedCols
+  }, [])
+
   const handleDomainReviewConfirm = useCallback(async (choices) => {
+    console.log('[DEBUG] handleDomainReviewConfirm choices:', choices)
+    console.log('[DEBUG] columnOptions antes:', columnOptions.map(c => c.name))
     setConfirmedTransformations(choices)
+    
+    const updatedColumns = applyDomainTransformations(columnOptions, choices)
+    console.log('[DEBUG] columnOptions depois:', updatedColumns.map(c => c.name))
+    setColumnOptions(updatedColumns)
+    
     setShowDomainReview(false)
     setShowOutcomeSelector(true)
-  }, [])
+  }, [columnOptions, applyDomainTransformations])
 
   const handleDomainReviewSkip = useCallback(() => {
     setShowDomainReview(false)
@@ -612,6 +701,10 @@ export default function Dashboard() {
     const formData = new FormData()
     formData.append('file', pendingFile)
     formData.append('outcome_col', outcomeCol)
+    
+    if (confirmedTransformations && confirmedTransformations.length > 0) {
+      formData.append('domain_transformations', JSON.stringify(confirmedTransformations))
+    }
 
     try {
       const protocolRes = await fetch(`${API_URL}/api/data/analyze-protocol`, {
@@ -619,15 +712,25 @@ export default function Dashboard() {
         headers,
         body: formData
       })
-      if (!protocolRes.ok) throw new Error(`Erro no servidor: ${protocolRes.status}`);
+      if (!protocolRes.ok) {
+        const errData = await protocolRes.json().catch(() => ({}));
+        throw new Error(errData.detail || `Erro no servidor: ${protocolRes.status}`);
+      }
 
       const protocolData = await protocolRes.json()
       if (protocolData.protocol) {
-        const allVars = protocolData.protocol.map(v => v.name)
+        // Garantir que as opções de desfecho reflitam todas as colunas ATUAIS (incluindo as calculadas)
+        const allVars = columnOptions.map(c => c.name)
+        
+        // Se a coluna calculada não estiver na lista (fuga de estado), mas o backend sugeriu ela, adicione
+        if (protocolData.outcome && !allVars.includes(protocolData.outcome)) {
+          allVars.push(protocolData.outcome)
+        }
+
         setOutcomeOptions(allVars)
         setAnalysisProtocol({
           items: protocolData.protocol,
-          outcome: protocolData.outcome,
+          outcome: protocolData.outcome, 
           meta: protocolData.meta || null
         })
         setShowReview(true)
@@ -638,9 +741,11 @@ export default function Dashboard() {
       setFileData({ filename: pendingFile.name, formData: pendingFormData })
 
     } catch (err) {
-      alert(`Erro no upload: ${err.message}`);
+      console.error("Erro no analyze-protocol:", err);
+      alert(`Erro na análise: ${err.message}`);
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); }

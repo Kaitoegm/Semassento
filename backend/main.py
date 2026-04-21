@@ -428,6 +428,55 @@ def is_summary_table(df):
         return True
     return False
 
+def normalize_categorical_synonyms(series: pd.Series) -> pd.Series:
+    """
+    Agrupa variações de uma mesma categoria (ex: 'F', 'f', 'sim', 's', 'si') em
+    um único valor padronizado de forma inteligente, validando o contexto da coluna.
+    """
+    unique_vals = set(series.dropna().astype(str).str.lower().str.strip().unique())
+    if not unique_vals:
+        return series
+
+    is_gender = False
+    is_bool = False
+
+    # Detecção de intenção: Checar se existem chaves inequívocas ou pares
+    unambiguous_gender = {"feminino", "masculino", "mulher", "homem", "fem", "masc", "female", "male"}
+    if any(v in unambiguous_gender for v in unique_vals):
+        is_gender = True
+    elif "f" in unique_vals and "m" in unique_vals:
+        is_gender = True
+
+    unambiguous_bool = {"sim", "não", "nao", "yes", "no", "si", "true", "false", "verdadeiro", "falso"}
+    if any(v in unambiguous_bool for v in unique_vals):
+        is_bool = True
+    elif "s" in unique_vals and ("n" in unique_vals or "não" in unique_vals or "nao" in unique_vals or "no" in unique_vals):
+        is_bool = True
+
+    col_map = {}
+    if is_gender:
+        for v in {"f", "feminino", "fem", "female", "mulher", "mf", "f.", "fem.", "feminina"}: col_map[v] = "Feminino"
+        for v in {"m", "masculino", "masc", "male", "homem", "man", "m.", "masc.", "masculina"}: col_map[v] = "Masculino"
+        
+    if is_bool:
+        for v in {"sim", "s", "yes", "y", "verdadeiro", "true", "1", "si"}: col_map[v] = "Sim"
+        for v in {"nao", "não", "n", "no", "falso", "false", "0", "na", "nã"}: col_map[v] = "Não"
+
+    if not col_map:
+        return series
+
+    def _normalize(val):
+        if pd.isna(val) or str(val).strip() in ('nan', 'None', ''):
+            return val
+        key = str(val).lower().strip()
+        return col_map.get(key, val)
+
+    normalized = series.map(_normalize)
+    new_unique = normalized.dropna().unique()
+    print(f"DEBUG normalize_categorical_synonyms: {series.name} -> {list(new_unique[:8])}")
+    return normalized
+
+
 def sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
     """Higieniza o DataFrame: remove formatos brasileiros (120,5) e limpar categorias."""
     # Limpar headers de newlines e aspas
@@ -438,6 +487,9 @@ def sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
         if df[col].dtype == 'object':
             # Limpeza básica de espaços e aspas residuais
             df[col] = df[col].astype(str).str.strip().replace('nan', np.nan).replace('', np.nan).replace('None', np.nan)
+            
+            # 0. Normalizar sinônimos categóricos ANTES de qualquer conversão numérica
+            df[col] = normalize_categorical_synonyms(df[col])
             
             # 1. Detectar formato brasileiro (1.200,50 ou 120,5)
             sample = df[col].dropna().head(50).astype(str)
@@ -702,12 +754,113 @@ async def get_columns_endpoint(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Erro ao ler colunas: {str(e)}")
 
 @app.post("/api/data/analyze-protocol")
-async def analyze_protocol_v7(file: UploadFile = File(...), outcome_col: str = Form(None)):
+async def analyze_protocol_v7(
+    file: UploadFile = File(...), 
+    outcome_col: str = Form(None),
+    domain_transformations: Optional[str] = Form(None)
+):
     contents = await file.read()
     try:
         if file.filename.endswith('.csv'): df = robust_read_csv(contents)
         else: df = robust_read_excel(contents)
         df = sanitize_df(df)
+        
+        # ============================================================
+        # Aplicar transformações de domínio confirmadas pelo usuário
+        # ============================================================
+        transformations_map = {}
+        transformations_applied = []
+        
+        # Se o outcome_col contém transformação no nome (ex: "OD (LogMAR)"), 
+        # precisamos garantir que a transformação foi aplicada
+        original_outcome_col = outcome_col
+        if outcome_col and "(" in outcome_col and ")" in outcome_col:
+            match = re.match(r"^(.+?)\s*\((.+?)\)$", outcome_col)
+            if match:
+                base_col = match.group(1).strip()
+                tf_type = match.group(2).strip().lower()
+                if base_col in df.columns:
+                    # Marcar para transformação
+                    if tf_type in ("logmar", "decimal", "mmhg"):
+                        transformations_map[base_col] = {
+                            "column": base_col,
+                            "transformation": tf_type,
+                            "domain": "visual_acuity_snellen" if tf_type in ("logmar", "decimal") else "iop"
+                        }
+        
+        if domain_transformations:
+            try:
+                import json as json_lib
+                transformations = json_lib.loads(domain_transformations)
+                if transformations and isinstance(transformations, list):
+                    print(f"DEBUG: Recebi {len(transformations)} transformações de domínio")
+                    for tf in transformations:
+                        col = tf.get("column")
+                        if col:
+                            transformations_map[col] = tf
+            except Exception as e_tf:
+                print(f"WARN: Falha ao processar transformações: {e_tf}")
+        
+        # Aplicar todas as transformações necessárias
+        for base_col, tf in transformations_map.items():
+            original_col = tf.get("column") or base_col
+            transformation = tf.get("transformation")
+            domain = tf.get("domain")
+            
+            if original_col and transformation and transformation != "none" and original_col in df.columns:
+                if domain == "visual_acuity_snellen" and transformation == "logmar":
+                    new_col = f"{original_col} (LogMAR)"
+                    from domain_resolver import _snellen_to_logmar
+                    df[new_col] = df[original_col].apply(_snellen_to_logmar)
+                    df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
+                    transformations_applied.append((original_col, new_col))
+                    print(f"DEBUG: Transformou {original_col} -> {new_col}")
+                elif domain == "visual_acuity_snellen" and transformation == "decimal":
+                    new_col = f"{original_col} (Decimal)"
+                    from domain_resolver import _snellen_to_decimal
+                    df[new_col] = df[original_col].apply(_snellen_to_decimal)
+                    df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
+                    transformations_applied.append((original_col, new_col))
+                elif domain in ("intraocular_pressure", "iop") and transformation == "mmhg":
+                    new_col = f"{original_col} (mmHg)"
+                    df[new_col] = pd.to_numeric(df[original_col].astype(str).str.replace(',', '.'), errors='coerce')
+                    transformations_applied.append((original_col, new_col))
+                else:
+                    new_col = f"{original_col} ({transformation.upper()})"
+                    df[new_col] = df[original_col]
+                    transformations_applied.append((original_col, new_col))
+        
+        # ============================================================
+        # Detectar pares bilaterais (OD/OE) e criar coluna derivada "Melhor Olho"
+        # ============================================================
+        cols_lower = {c.lower().strip(): c for c in df.columns}
+        right_col = None
+        left_col = None
+        
+        for lower, orig in cols_lower.items():
+            if lower in ("od", "re", "olho_direito", "right_eye", "avod"):
+                right_col = orig
+            elif lower in ("oe", "le", "olho_esquerdo", "left_eye", "avoe"):
+                left_col = orig
+        
+        # Se temos OD e OE (ou outro par bilateral), verificar se já foram transformados para LogMAR
+        if right_col and left_col:
+            right_logmar = f"{right_col} (LogMAR)"
+            left_logmar = f"{left_col} (LogMAR)"
+            
+            # Se as colunas LogMAR existem, criar "Acuidade visual (LogMAR)" (menor = melhor)
+            if right_logmar in df.columns and left_logmar in df.columns:
+                df["Acuidade visual (LogMAR)"] = df[[right_logmar, left_logmar]].min(axis=1)
+                print(f"DEBUG: Criou coluna derivada 'Acuidade visual (LogMAR)' a partir de {right_col} e {left_col}")
+        
+        # Se o outcome_col escolhido contém transformação no nome, usar a coluna transformada
+        if outcome_col and "(" in outcome_col and ")" in outcome_col:
+            expected_col = outcome_col
+            if expected_col not in df.columns:
+                # Tentar encontrar a coluna base sem transformação
+                base_outcome = outcome_col.split(" (")[0].strip()
+                if base_outcome in df.columns:
+                    pass  # A transformação será aplicada automaticamente
         
         print(f"DEBUG: analyze_protocol_v7 -> File: {file.filename}, Shape: {df.shape}")
         
@@ -719,8 +872,12 @@ async def analyze_protocol_v7(file: UploadFile = File(...), outcome_col: str = F
         ignore_patterns = r'\b(id|nº|número|numero|nome|prontuario|data|sexo|registro|index|paciente|unidade|setor|atendimento|cpf|rg|matricula|codigo|código|chave|key|matrícula)\b'
         
         def is_meaningful_variable(col_name: str) -> bool:
-            """Retorna False para colunas que são apenas identificadores ou não têm valor estatístico."""
-            return not bool(re.search(ignore_patterns, col_name.lower()))
+            """Retorna False para colunas que são apenas identificadores, exceto domínios clínicos."""
+            name_low = col_name.lower()
+            # Whitelist clínica: estes termos NUNCA devem ser ignorados
+            if any(w in name_low for w in ['logmar', 'mmhg', 'decimal', 'snellen', 'acuidade', 'visual', 'acuity']):
+                return True
+            return not bool(re.search(ignore_patterns, name_low))
         
         # ============================================================
         # PASSO 1: Classificação detalhada de cada variável
@@ -730,7 +887,18 @@ async def analyze_protocol_v7(file: UploadFile = File(...), outcome_col: str = F
             col_series = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
             unique_count = len(df[col].dropna().unique())
             non_null = col_series.dropna()
-            is_numeric = not col_series.isna().all() and unique_count >= 5
+            # Variáveis clínicas (LogMAR, Decimal, mmHg) são tratadas como numéricas mesmo com poucos valores únicos ou erro de conversão
+            is_clinical_domain = any(d in col.lower() for d in ['(logmar)', '(decimal)', '(mmhg)', '(snellen)'])
+            
+            # Se for clínico, tentamos limpar caracteres estranhos para forçar numericidade
+            current_series = col_series
+            if is_clinical_domain and col_series.isna().all():
+                # Tentar extrair apenas números do texto (ex: "0.5 logmar" -> 0.5)
+                cleaned_series = pd.to_numeric(df[col].astype(str).str.extract(r'(\d+[.,]?\d*)')[0].str.replace(',', '.'), errors='coerce')
+                if not cleaned_series.isna().all():
+                    current_series = cleaned_series
+            
+            is_numeric = not current_series.isna().all() and (unique_count >= 5 or is_clinical_domain)
             
             # Detectar ordinal (poucos valores numéricos sequenciais, ex: 1-5 Likert)
             is_ordinal = False
@@ -920,47 +1088,97 @@ async def analyze_protocol_v7(file: UploadFile = File(...), outcome_col: str = F
                     "rationale": f"Comparação de '{num_col}' entre {cat_unique} grupos de '{cat_col}'. Normalidade: {normality_status}.",
                     "type": "Comparação de Grupos"
                 })
-        
-        # ============================================================
         # PASSO 5: Montar protocolo final com Smart Selection
         # ============================================================
         # Determinar outcome sugerido ANTES de qualquer loop (Passos 5 e 6 dependem disso)
         candidate_cols = [c for c in df.columns if is_meaningful_variable(c)]
-        # Usa o outcome confirmado pelo usuário; fallback para auto-detecção apenas se não informado
-        if outcome_col and outcome_col in df.columns:
-            outcome_suggested = outcome_col
+
+        if outcome_col:
+            outcome_col_norm = outcome_col.strip().lower().replace("  ", " ")
+            col_map_normalized = {c.strip().lower().replace("  ", " "): c for c in df.columns}
+            
+            if outcome_col_norm in col_map_normalized:
+                outcome_suggested = col_map_normalized[outcome_col_norm]
+                print(f"DEBUG outcome: match exato '{outcome_suggested}'")
+            else:
+                # Tentar match parcial para colunas derivadas (ex: 'Acuidade visual')
+                outcome_base = outcome_col.split(' (')[0].strip().lower()
+                partial = next((c for c in df.columns if outcome_base in c.lower()), None)
+                
+                if partial:
+                    outcome_suggested = partial
+                    print(f"DEBUG outcome: match parcial '{outcome_suggested}'")
+                else:
+                    # Tentar encontrar colunas clínicas prioritárias (Oftalmológicas)
+                    priority_cols = [c for c in candidate_cols if any(w in c.lower() for w in ['acuidade', 'visual', 'visão', 'vision', 'acuity', 'logmar'])]
+                    if priority_cols:
+                        outcome_suggested = priority_cols[-1] # Geralmente a última derivada é a mais completa
+                        print(f"DEBUG outcome: match por prioridade clínica '{outcome_suggested}'")
+                    else:
+                        # Tentar última numérica (melhor chute para desfecho em saúde)
+                        numeric_candidates = [c for c in candidate_cols if var_info.get(c, {}).get('is_numeric')]
+                        outcome_suggested = numeric_candidates[-1] if numeric_candidates else (candidate_cols[-1] if candidate_cols else df.columns[-1])
+                        print(f"DEBUG outcome: fallback para '{outcome_suggested}'")
         else:
-            outcome_suggested = candidate_cols[-1] if candidate_cols else df.columns[-1]
+            # Sem coluna pedida, tenta a última numérica
+            numeric_candidates = [c for c in candidate_cols if var_info.get(c, {}).get('is_numeric')]
+            outcome_suggested = numeric_candidates[-1] if numeric_candidates else (candidate_cols[-1] if candidate_cols else df.columns[-1])
+            print(f"DEBUG outcome: nenhum solicitado, usando '{outcome_suggested}'")
+
         outcome_series = pd.to_numeric(df[outcome_suggested].astype(str).str.replace(',', '.'), errors='coerce')
-        is_outcome_numeric = not outcome_series.isna().all() and len(outcome_series.dropna().unique()) >= 5
+        is_outcome_clinical = any(d in outcome_suggested.lower() for d in ['(logmar)', '(decimal)', '(mmhg)'])
+        is_outcome_numeric = not outcome_series.isna().all() and (len(outcome_series.dropna().unique()) >= 5 or is_outcome_clinical)
 
         variables = []
+        
+        # Adicionar o desfecho como a PRIMEIRA variável para estatística descritiva (garante que ele apareça na lista de 'realizar')
+        variables.append({
+            "id": "OUTCOME_DESC",
+            "name": f"Estatística Descritiva: {outcome_suggested}",
+            "variable_group": outcome_suggested,
+            "type": "Descritiva (Desfecho)",
+            "unique_count": var_info.get(outcome_suggested, {}).get('unique_count', 0),
+            "recommended_test": "Mediana/IQR" if not is_outcome_numeric or var_info.get(outcome_suggested, {}).get('normality') == 'nao-normal' else "Média/DP",
+            "test_options": ["Média/DP", "Mediana/IQR", "Frequência/Porcentagem", "Excluir"],
+            "rationale": f"Análise descritiva da variável desfecho principal '{outcome_suggested}'.",
+            "relevance": 100,
+            "is_selected": True,
+            "pair": {"predictor": outcome_suggested, "outcome": outcome_suggested}
+        })
         var_id = 0
         total_rows = len(df)
 
         def calculate_relevance(col_name, info, involves_outcome=False):
-            """Calcula score de relevância (0-100). Bônus para desfecho e penalidade para missing data."""
+            """Calcula score de relevância (0-100). Bônus para desfecho e domínios clínicos."""
             if not info: return 50
             # 1. Completude (máx 60)
             completion = (info['n'] / total_rows) * 60
             # 2. Diversidade (máx 20)
             diversity = min(info['unique_count'] / 10, 1.0) * 20
-            # 3. Bônus clínicos (máx 20)
+            # 3. Bônus clínicos (máx 25)
             clinical_bonus = 0
             name_lower = col_name.lower()
-            if any(w in name_lower for w in ['idade', 'age', 'sex', 'gender', 'outcome', 'desfecho', 'morte', 'alta', 'intern', 'weight', 'peso', 'imc', 'bmi']):
-                clinical_bonus = 20
+            clinical_keywords = ['idade', 'age', 'sex', 'gender', 'outcome', 'desfecho', 'morte', 'alta', 'intern', 'weight', 'peso', 'imc', 'bmi', 'acuidade', 'visual', 'visão', 'vision', 'acuity', 'logmar', 'mmhg', 'glaucoma', 'retina']
+            if any(w in name_lower for w in clinical_keywords):
+                clinical_bonus = 25
+            
+            # Bônus extra para domínios transformados (LogMAR, etc)
+            if any(d in name_lower for d in ['(logmar)', '(decimal)', '(mmhg)']):
+                clinical_bonus += 15
+
             # 4. Bônus de desfecho
             outcome_bonus = 25 if involves_outcome else 0
             
-            # 5. Penalidade por dados faltantes (>25% missing)
+            # 5. Penalidade por dados faltantes (>30% missing)
             missing_penalty = 0
             pct_missing = (total_rows - info['n']) / total_rows * 100
-            if pct_missing > 25:
-                missing_penalty = (pct_missing - 25) * 0.8 # Penalidade agressiva para variáveis vazias
+            if pct_missing > 30:
+                # Variáveis clínicas são mais tolerantes a missing data
+                penalty_factor = 0.4 if clinical_bonus > 0 else 0.8
+                missing_penalty = (pct_missing - 30) * penalty_factor
                 
             score = completion + diversity + clinical_bonus + outcome_bonus - missing_penalty
-            return max(0, min(score, 100))
+            return max(10, min(score, 100)) # Mínimo 10 para não desaparecer
 
 
         # 5a. Pares pareados (sempre selecionados — alto valor analítico)

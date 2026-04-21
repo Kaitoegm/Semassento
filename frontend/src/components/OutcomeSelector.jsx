@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
-  const [selected, setSelected] = useState(null)
+  // Inicializar com a sugestão se existir
+  const [selected, setSelected] = useState(columns.find(c => c.suggested)?.name || null)
 
   const suggested = columns.find(c => c.suggested)?.name
 
@@ -37,11 +38,12 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
                 <span className="material-symbols-rounded text-primary text-xl">target</span>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-text-main">
+                <h2 className="text-lg font-semibold text-text-main flex items-center gap-2">
                   Qual é a variável desfecho?
+                  {suggested && <span className="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-full border border-primary/30">Sugestão Ativa</span>}
                 </h2>
                 <p className="text-xs text-text-muted">
-                  Selecione a variável principal que será analisada em relação a todas as outras
+                  Selecione a variável principal (ex: Acuidade Visual) que será o foco da análise
                 </p>
               </div>
             </div>
@@ -69,12 +71,16 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
                     onClick={() => setSelected(col.name)}
                     className={`text-left p-3.5 rounded-lg border transition-all relative group
                       ${isSelected
-                        ? 'bg-primary/8 border-primary/30 ring-1 ring-primary/20'
+                        ? 'bg-primary/8 border-primary/30 ring-1 ring-primary/40'
                         : isSuggested
-                          ? 'bg-surface border-primary/15 border-dashed hover:border-primary/30 hover:bg-primary/5'
+                          ? 'bg-surface border-primary/15 border-dashed hover:border-primary/30 hover:bg-primary/5 shadow-[0_0_15px_rgba(var(--primary-rgb),0.05)]'
                           : 'bg-surface border-border-subtle hover:border-border-subtle hover:bg-white/[0.03]'
                       }`}
                   >
+                    {/* Efeito Glow para Sugestão */}
+                    {isSuggested && !isSelected && (
+                      <div className="absolute inset-0 bg-primary/5 blur-xl rounded-full -z-10 group-hover:bg-primary/10 transition-all opacity-50"></div>
+                    )}
                     {/* Badges */}
                     <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                       <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${typeBadge(col.type)}`}>

@@ -76,9 +76,21 @@ def _match_pattern(pattern: str, values: list) -> float:
     """
     if not pattern or not values:
         return 0.0
-    compiled = re.compile(pattern)
-    hits = sum(1 for v in values if compiled.match(v))
-    return hits / len(values) if values else 0.0
+    try:
+        compiled = re.compile(pattern)
+        hits = sum(1 for v in values if compiled.match(v))
+        return hits / len(values) if values else 0.0
+    except re.error:
+        # Se o padrão tem flags no meio (não permitido em Python), tentar corrigir
+        clean_pattern = pattern.replace("(?i)", "").replace("(?m)", "")
+        if clean_pattern != pattern:
+            try:
+                compiled = re.compile(clean_pattern)
+                hits = sum(1 for v in values if compiled.match(v))
+                return hits / len(values) if values else 0.0
+            except re.error:
+                return 0.0
+        return 0.0
 
 
 def _check_column_name_hints(col_name: str, hints: list) -> bool:
@@ -125,7 +137,34 @@ def _try_dict_match(col_name: str, sample_values: list, dictionaries: dict) -> t
     """
     Tenta casar a coluna com um domínio do dicionário.
     Retorna: (domain_key, confidence_score, confidence_label)
+
+    REGRA DE ORO: Para evitar falsos positivos em colunas genéricas (ex: 'idade',
+    'turma', 'classe'), exigimos que o nome da coluna contenha um dos hints
+    registrados no dicionário, OU que o padrão de valores seja extremamente
+    específico (>= 85%). Colunas sem hint E com pattern baixo são descartadas.
     """
+    # Termos que indicam colunas demográficas/administrativas genéricas
+    # — jamais devem ser classificadas como domínio clínico especializado
+    GENERIC_COLUMN_BLOCKLIST = {
+        # Demográfico
+        "idade", "age", "anos", "years",
+        "genero", "gênero", "sexo", "sex", "gender",
+        # Acadêmico/administrativo
+        "turma", "classe", "class", "grupo", "group",
+        "aluno", "alunos", "student", "students",
+        "nome", "name", "paciente", "patient",
+        "id", "codigo", "código", "code", "matricula", "número",
+        # Temporal
+        "data", "date", "ano", "year", "mes", "month", "dia", "day",
+        # Outros
+        "peso", "height", "altura", "peso_corporal", "imc", "bmi",
+    }
+    
+    col_lower_clean = col_name.lower().strip()
+    # Verificar se algum termo da blocklist está no nome da coluna
+    if any(term in col_lower_clean for term in GENERIC_COLUMN_BLOCKLIST):
+        return None, 0.0, "blocked"
+        
     best_domain = None
     best_score = 0.0
 
@@ -137,28 +176,38 @@ def _try_dict_match(col_name: str, sample_values: list, dictionaries: dict) -> t
         value_range = detection.get("value_range")
         exact_set = detection.get("unique_values_exact")
 
-        # Heurística multi-fator
+        # Calcular componentes individuais
         pattern_score = _match_pattern(pattern, sample_values) if pattern else 0.0
-        name_bonus = 0.15 if _check_column_name_hints(col_name, hints) else 0.0
+        has_name_hint = _check_column_name_hints(col_name, hints)
         range_score = _check_value_range(sample_values, value_range) if value_range else 1.0
         exact_match = _check_unique_values_exact(sample_values, exact_set) if exact_set else True
 
+        # ──────────────────────────────────────────────────────────
+        # GATE DUPLO: para ser candidato, a coluna DEVE:
+        #   (a) ter o nome reconhecido entre os hints do domínio, OU
+        #   (b) ter pattern_score muito alto (>= 0.85) — sinal muito específico
+        # Isso elimina coincidências com colunas numéricas genéricas.
+        # ──────────────────────────────────────────────────────────
+        if not has_name_hint and pattern_score < 0.85:
+            continue
+
         # Pontuação composta
-        score = pattern_score * 0.7 + name_bonus + (0.15 if range_score >= 0.9 else 0.0)
+        name_bonus = 0.20 if has_name_hint else 0.0
+        score = pattern_score * 0.65 + name_bonus + (0.15 if range_score >= 0.9 else 0.0)
         if not exact_match:
             score *= 0.5  # penalizar se os valores não casam o conjunto exato
 
         # Só considerar se atingir threshold mínimo de pattern
-        if pattern_score >= threshold * 0.6 and score > best_score:
+        if pattern_score >= threshold * 0.7 and score > best_score:
             best_score = score
             best_domain = domain_key
 
     if best_domain is None:
         return None, 0.0, "unknown"
 
-    if best_score >= 0.75:
+    if best_score >= 0.85:
         return best_domain, best_score, "high"
-    elif best_score >= 0.45:
+    elif best_score >= 0.60:
         return best_domain, best_score, "medium"
     else:
         return None, best_score, "low"

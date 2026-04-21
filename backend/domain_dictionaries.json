@@ -6726,6 +6726,635 @@
       "bilateral_rule": { "enabled": false },
       "transformations": { "none": { "label": "Numérico", "suitable_for": ["Mann-Whitney U"] } },
       "default_transformation": "none"
+    },
+    "refraction_spherical": {
+      "display_name": "Refração Esférico (D)",
+      "description": "Componente esférico do erro refrativo em dioptrias",
+      "detection": {
+        "pattern": "^-?\\d{1,2}(\\.\\d{1,2})?$",
+        "value_range": [-25.0, 25.0],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["esferico", "sphere", "esf", "spherical", "refraction"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "Componente esférico da correção óptica. Miopia > -0.5D e hipermetropia > +0.5D são clinicamente significativos.",
+      "reference": "American Academy of Ophthalmology (AAO).",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["esf_od", "sphere_od", "od_refracao"],
+          "left": ["esf_oe", "sphere_oe", "oe_refracao"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "ANOVA", "correlação"] },
+        "refractive_error_category": {
+          "type": "category_cutoffs",
+          "label": "Erro Refrativo: Miopia Grave (<-6D) / Miopia Mod (-6 a -0.5D) / Emetro / Hipermetropia (>+0.5D)",
+          "thresholds": [-6.0, -0.5, 0.5],
+          "labels": ["Miopia Grave", "Miopia Leve-Moderada", "Emetropia", "Hipermetropia"],
+          "right_inclusive": true,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "refraction_cylinder": {
+      "display_name": "Refração Cilíndrico (D)",
+      "description": "Componente cilíndrico do astigmatismo em dioptrias",
+      "detection": {
+        "pattern": "^-?\\d{1,2}(\\.\\d{1,2})?$",
+        "value_range": [-10.0, 10.0],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["cilindro", "cylinder", "cil", "astigmatism", "astig"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "Astigmatismo > 0.75D é clinicamente significativo e requer correção.",
+      "reference": "AAO Preferred Practice Pattern.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["cil_od", "cylinder_od"],
+          "left": ["cil_oe", "cylinder_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "Mann-Whitney"] },
+        "astigmatism_grade": {
+          "type": "category_cutoffs",
+          "label": "Grau Astigmatismo: Leve (≤0.75D) / Moderado (0.75-2D) / Alto (>2D)",
+          "thresholds": [0.75, 2.0],
+          "labels": ["Astigmatismo Leve", "Astigmatismo Moderado", "Astigmatismo Alto"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "refraction_axis": {
+      "display_name": "Eixo do Astigmatismo (graus)",
+      "description": "Eixo do componente cilíndrico em graus (0-180)",
+      "detection": {
+        "pattern": "^\\d{1,3}$",
+        "value_range": [0, 180],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["eixo", "axis", "ax", "orientation"]
+      },
+      "gold_standard": "ordinal cíclico",
+      "rationale": "O eixo é uma variável cíclica (0° = 180°). Análises estatísticas diretas são problemáticas.",
+      "reference": "Ophthalmic guidelines.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["eixo_od", "axis_od"],
+          "left": ["eixo_oe", "axis_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Manter como ordinal cíclico", "suitable_for": ["Mann-Whitney U"] },
+        "axis_quadrant": {
+          "type": "category_cutoffs",
+          "label": "Quadrante: Horizontal (0-45 ou 135-180) / Oblíquo (46-134)",
+          "thresholds": [45, 135],
+          "labels": ["Oblíquo", "Horizontal"],
+          "right_inclusive": true,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "corneal_thickness_pachymetry": {
+      "display_name": "Espessura Corneana (Paquimetria)",
+      "description": "Espessura corneana central em micrômetros",
+      "detection": {
+        "pattern": "^\\d{2,4}(\\.\\d)?$",
+        "value_range": [400, 700],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["pachymetry", "paquimetria", "cct", "corneal_thickness", "espessura_corneana"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "Espessura corneana central (CCT) é crítica para correção de pressão intraocular e eligibility para cirurgia refrativa. CCT < 500µm aumenta risco de ecotásia.",
+      "reference": "AAO Cornea External Disease Guideline.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["cct_od", "pach_od"],
+          "left": ["cct_oe", "pach_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "ANOVA"] },
+        "corneal_thickness_risk": {
+          "type": "category_cutoffs",
+          "label": "Risco Cirúrgico: Fina (<470µm) / Limítrofe (470-500µm) / Normal (>500µm)",
+          "thresholds": [470, 500],
+          "labels": ["Córnea Fina (Alto Risco)", "Córnea Limítrofe", "Córnea Normal"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "anterior_chamber_depth": {
+      "display_name": "Profundidade de Câmera Anterior",
+      "description": "Profundidade da câmara anterior em mm",
+      "detection": {
+        "pattern": "^\\d(\\.\\d{1,2})?$",
+        "value_range": [1.0, 5.0],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["acd", "camera_anterior", "anterior_chamber", "profundidade_ca"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "ACA < 2.5mm indica câmara anterior rasa, risco para glaucoma de ângulo estreito.",
+      "reference": "International Glaucoma Association.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["acd_od"],
+          "left": ["acd_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test"] },
+        "angle_closure_risk": {
+          "type": "category_cutoffs",
+          "label": "Risco Ângulo Fechado: Profunda (>2.5mm) / Intermediária / Rasa (<2mm)",
+          "thresholds": [2.0, 2.5],
+          "labels": ["Câmara Rasa", "Câmara Intermediária", "Câmara Profunda"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "lens_opacity_locs": {
+      "display_name": "Opacidade de Cristalino (LOCS III)",
+      "description": "Grau de opacidade crystallineana pela escala LOCS III (0.0-5.9)",
+      "detection": {
+        "pattern": "^\\d(\\.\\d)?$",
+        "value_range": [0.0, 6.0],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["locs", "opacidade_cristalino", "catarata", "lens_opacity", "no", "nc", "ns"]
+      },
+      "gold_standard": "ordinal",
+      "rationale": "LOCS III é escala ordinal para classificação de catarata. N → Nucleus, N → Nuclear, C → Cortical.",
+      "reference": "Chylack LT et al. The Lens Opacities Classification System III. Arch Ophthalmol. 1993.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["locs_od", "no_od"],
+          "left": ["locs_oe", "no_oe"]
+        }
+      },
+      "transformations": {
+        "ordinal": { "label": "Manter ordinal LOCS", "suitable_for": ["Mann-Whitney U", "Kruskal-Wallis"] },
+        "cataract_severity": {
+          "type": "category_cutoffs",
+          "label": "Cirurgia: Sem Catarata (<2) / Incipiente (2-3) / Imatura (3-4) / Madura (≥4)",
+          "thresholds": [2.0, 3.0, 4.0],
+          "labels": ["Sem Catarata", "Incipiente", "Imatura", "Madura"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "ordinal"
+    },
+    "retinal_nerve_fiber_layer_rnfl": {
+      "display_name": "Espessura RNFL (OCT)",
+      "description": "Espessura da camada de fibras nervosas da retina em µm",
+      "detection": {
+        "pattern": "^\\d{2,3}(\\.\\d)?$",
+        "value_range": [20, 200],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["rnfl", "retinal_nerve_fiber", "nfis", "cpf", "nerve_fiber_layer"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "RNFL thinning é biomarcador de progresso glaucomatoso. Média < 70µm indica perda significativa.",
+      "reference": "Glaucoma Progression Trial. AAO.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["rnfl_od", "rnfl_avg_od"],
+          "left": ["rnfl_oe", "rnfl_avg_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "ANOVA"] },
+        "glaucoma_damage": {
+          "type": "category_cutoffs",
+          "label": "Dano Glaucomatoso: Normal (≥70µm) / Leve (56-69) / Moderado (46-55) / Grave (<46)",
+          "thresholds": [46, 55, 69],
+          "labels": ["Normal", "Dano Leve", "Dano Moderado", "Dano Grave"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "visual_field_md": {
+      "display_name": "Campo Visual - MD",
+      "description": "Mean Deviation (dB) - desvio médio do campo visual",
+      "detection": {
+        "pattern": "^-?\\d{1,2}(\\.\\d)?$",
+        "value_range": [-35.0, 5.0],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["md", "mean_deviation", "deviacao_media", "cv_md"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "MD < -6dB indica dano glaucoma significativo. MD < -12dB indica glaucoma avançado.",
+      "reference": "Humphrey Field Analyzer - Carl Zeiss.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["md_od"],
+          "left": ["md_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "ANOVA"] },
+        "glaucoma_stage": {
+          "type": "category_cutoffs",
+          "label": "Estágio Glaucoma: Inicial (>-6dB) / Moderado (-6 a -12dB) / Avançado (<-12dB)",
+          "thresholds": [-6.0, -12.0],
+          "labels": ["Glaucoma Inicial", "Glaucoma Moderado", "Glaucoma Avançado"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "visual_field_psd": {
+      "display_name": "Campo Visual - PSD",
+      "description": "Pattern Standard Deviation (dB)",
+      "detection": {
+        "pattern": "^\\d(\\.\\d)?$",
+        "value_range": [0, 20],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["psd", "pattern_std_dev", "desvio_padrao"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "PSD elevado indica defeito focal (glaucoma) vs defeito difuso. PSD > 2dB é clinicamente significativo.",
+      "reference": "Humphrey Visual Field.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["psd_od"],
+          "left": ["psd_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["Mann-Whitney U"] },
+        "focal_defect": {
+          "type": "category_cutoffs",
+          "label": "Defeito Focal: Normal (<2dB) / Leve (2-5dB) / Significativo (>5dB)",
+          "thresholds": [2.0, 5.0],
+          "labels": ["Normal", "Defeito Leve", "Defeito Significativo"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "color_vision_test": {
+      "display_name": "Teste de Visão de Cores",
+      "description": "Teste de Ishihara ou Farnsworth D-15 - acertos/erros",
+      "detection": {
+        "pattern": "^\\d{1,2}$",
+        "value_range": [0, 15],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["ishihara", "cores", "color", "farnsworth", "d15", "teste_cores"]
+      },
+      "gold_standard": "ordinal",
+      "rationale": "Teste D-15 classifica daltonismo em eixo (vermelho-verde, azul-amarelo) ou difuso.",
+      "reference": "Farnsworth D. The Farnsworth-Munsell 100-hue test.",
+      "bilateral_rule": { "enabled": false },
+      "transformations": {
+        "ordinal": { "label": "Ordinal (acertos)", "suitable_for": ["Mann-Whitney U"] },
+        "color_deficiency": {
+          "type": "category_cutoffs",
+          "label": "Daltonismo: Normal (0) / Leve (1-2) / Moderado (3-5) / Grave (>5)",
+          "thresholds": [0, 2, 5],
+          "labels": ["Visão Normal", "Deficiência Leve", "Deficiência Moderada", "Deficiência Grave"],
+          "right_inclusive": true,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "ordinal"
+    },
+    "contrast_sensitivity": {
+      "display_name": "Sensibilidade ao Contraste",
+      "description": "Sensibilidade ao contraste spatial (CSF) em log",
+      "detection": {
+        "pattern": "^\\d(\\.\\d)?$",
+        "value_range": [0, 2.5],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["contrast_sensitivity", "csf", "sensibilidade_contraste", "log_cs"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "LogCS < 1.5 indica comprometimento funcional de visão. Essencial para QC do paciente.",
+      "reference": "Pelli-Robson Contrast Sensitivity Chart.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["cs_od"],
+          "left": ["cs_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test"] },
+        "vision_function": {
+          "type": "category_cutoffs",
+          "label": "Função Visual: Baixa (<1.5) / Moderada (1.5-1.9) / Normal (≥2.0)",
+          "thresholds": [1.5, 2.0],
+          "labels": ["Sensibilidade Reduzida", "Sensibilidade Moderada", "Sensibilidade Normal"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "pupil_reflex": {
+      "display_name": "Reflexo Pupilar",
+      "description": "Avaliação do reflexo fotomotor (normal/anormal)",
+      "detection": {
+        "pattern": "^(normal|anormal|ausente|preterido|N|A|n|a)$",
+        "value_range": null,
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["reflexo_pupilar", "pupil", "frm", "photomotor", "pupil_reflex"]
+      },
+      "gold_standard": "categórico nominal",
+      "rationale": "REFLEXO pupilar anormal indica neuropatia óptica ou dano neural aferente (RAPD).",
+      "reference": "Neuro-ophthalmology guidelines.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["frm_od"],
+          "left": ["frm_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Categórico Nominal", "suitable_for": ["qui-quadrado", "Fisher"] },
+        "afferent_defect": {
+          "type": "category_cutoffs",
+          "label": "Defeito Aferente: Normal / RAPD Presente",
+          "thresholds": [],
+          "labels": ["Normal", "RAPD Presente"],
+          "right_inclusive": true,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "strabismus_angle": {
+      "display_name": "Ângulo de Estrabismo",
+      "description": "Ângulo de desvio em dioptrias prismáticas (PD)",
+      "detection": {
+        "pattern": "^-?\\d{1,2}$",
+        "value_range": [-80, 80],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["estrabismo", "strabismus", "angle", "desvio", "pd", "prism"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "Ângulo > 10PD em儿童 indica estrabismo significativo. Usar para planejamento cirúrgico.",
+      "reference": "American Association for Pediatric Ophthalmology and Strabismus.",
+      "bilateral_rule": { "enabled": false },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "ANOVA"] },
+        "strabismus_severity": {
+          "type": "category_cutoffs",
+          "label": "Gravidade: Micro (<10PD) / Leve (10-20PD) / Moderado (21-40PD) / Grave (>40PD)",
+          "thresholds": [10, 20, 40],
+          "labels": ["Estrabismo Micro", "Estrabismo Leve", "Estrabismo Moderado", "Estrabismo Grave"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "gonioscopy": {
+      "display_name": "Gonioscopia",
+      "description": "Classificação do ângulo de câmara anterior (Shaffer)",
+      "detection": {
+        "pattern": "^[0-4]$",
+        "value_range": [0, 4],
+        "unique_values_exact": [0, 1, 2, 3, 4],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["gonioscopia", "gonio", "shaffer", "angle_grade"]
+      },
+      "gold_standard": "ordinal",
+      "rationale": "Escala Shaffer: 4=aberto (>20°), 3=abertonarrow (20°), 2=estreito (10°), 1=muito estreito (5°), 0=fechado.",
+      "reference": "Shaffer RN. A Simplified Classification of the Angles. Am J Ophthalmol. 1960.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["gonio_od"],
+          "left": ["gonio_oe"]
+        }
+      },
+      "transformations": {
+        "ordinal": { "label": "Ordinal Shaffer", "suitable_for": ["Mann-Whitney U"] },
+        "closure_risk": {
+          "type": "category_cutoffs",
+          "label": "Risco Fechamento: Aberto (Grau 3-4) / Estreito (Grau 1-2) / Fechado (Grau 0)",
+          "thresholds": [1, 3],
+          "labels": ["Ângulo Fechado", "Ângulo Estreito", "Ângulo Aberto"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "ordinal"
+    },
+    "central_cornea_curvature": {
+      "display_name": "Curvatura Corneana Central (K)",
+      "description": "Ceratometria corneal central em dioptrias",
+      "detection": {
+        "pattern": "^\\d{2}(\\.\\d{1,2})?$",
+        "value_range": [30, 60],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["k", "k1", "k2", "ceratometria", "keratometry", "curvature", "k_max", "km"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "K > 47D ou < 43D indica córnea irregular. Usado para diagnose de ceratocone e eligibility cirúrgica.",
+      "reference": "AAO Refractive Surgery Guidelines.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["k_od", "k1_od", "k2_od"],
+          "left": ["k_oe", "k1_oe", "k2_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test"] },
+        "irregular_cornea": {
+          "type": "category_cutoffs",
+          "label": "Regularidade: Plana (<43D) / Normal (43-47D) / Curva (>47D)",
+          "thresholds": [43, 47],
+          "labels": ["Córnea Plana", "Córnea Normal", "Córnea Curva"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "axial_length": {
+      "display_name": "Comprimento Axial",
+      "description": "Comprimento axial do globo ocular em mm",
+      "detection": {
+        "pattern": "^\\d{2}(\\.\\d{1,2})?$",
+        "value_range": [15, 35],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["axial_length", "al", "comprimento_axial", "axislength", "axial"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "AL > 26mm indica olho long глаза (alta miopia). Risco de degeneração macular miópica.",
+      "reference": "Meta-analysis in Myopia.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["al_od"],
+          "left": ["al_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "ANOVA"] },
+        "myopia_risk": {
+          "type": "category_cutoffs",
+          "label": "Classificação: Emétrope (<22mm) / Baixa (22-24.5mm) / Alta (>24.5mm)",
+          "thresholds": [22.0, 24.5],
+          "labels": ["Emétrope", "Miopia Baixa", "Miopia Alta"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "intraocular_lens_power": {
+      "display_name": "Poder da Lente Intraocular (D)",
+      "description": "Poder da LIO em dioptrias para cirurgia de catarata",
+      "detection": {
+        "pattern": "^\\d{1,2}(\\.\\d)?$",
+        "value_range": [5, 35],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["lio", "iol_power", "lens_power", "dioptras_lio", "poder_lente"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "Cálculo de poder de LIO (fórmulas Hoffer-Q, SRK/T, Barrett) é crítico para alcançar emetropia pós-operatória.",
+      "reference": "American Society of Cataract and Refractive Surgery.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["iol_od"],
+          "left": ["iol_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test"] },
+        "iol_range": {
+          "type": "category_cutoffs",
+          "label": "Categoria LIO: Baixa (<15D) / Média (15-22D) / Alta (>22D)",
+          "thresholds": [15, 22],
+          "labels": ["LIO Baixa Potência", "LIO Média Potência", "LIO Alta Potência"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "keratoconus_severity_index": {
+      "display_name": "Índice de Severidade Ceratocone",
+      "description": "Índice KISA ou classificação de severidade do ceratocone",
+      "detection": {
+        "pattern": "^\\d{1,3}(\\.\\d)?$",
+        "value_range": [0, 500],
+        "sample_match_threshold": 0.7,
+        "column_name_hints": ["kisa", "keratoconus", "kc_index", "severidade_ceratocone", "indices_ceratocone"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "KISA < 100 = normal/astigmatismo, 100-300 = ceratocone subclínico, >300 = ceratocone clínico.",
+      "reference": "Rabinowitz YS. Keratoconus. Surv Ophthalmol. 1998.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["kisa_od"],
+          "left": ["kisa_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico KISA", "suitable_for": ["Mann-Whitney U"] },
+        "keratoconus_stage": {
+          "type": "category_cutoffs",
+          "label": "Estágio: Normal (<100) / Subclínico (100-300) / Leve (301-400) / Moderado-Grave (>400)",
+          "thresholds": [100, 300, 400],
+          "labels": ["Normal/Astigma", "Ceratocone Subclínico", "Ceratocone Leve", "Ceratocone Moderado-Grave"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "cup_to_disc_ratio": {
+      "display_name": "Relação Cúpula/Disco (CDR)",
+      "description": "Razão vertical do disco óptico",
+      "detection": {
+        "pattern": "^0?\\.\\d{1,2}$",
+        "value_range": [0.1, 1.0],
+        "sample_match_threshold": 0.8,
+        "column_name_hints": ["cdr", "cup_disc", "cup_to_disc", "relacao_cupula"]
+      },
+      "gold_standard": "numérico contínuo",
+      "rationale": "CDR > 0.7 é altamente sugestivo de glaucoma. Avaliar estrutura vs função.",
+      "reference": "Glaucoma Basic and Clinical Science Course. AAO.",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["cdr_od"],
+          "left": ["cdr_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Numérico Contínuo", "suitable_for": ["t-test", "correlação"] },
+        "glaucoma_suspect": {
+          "type": "category_cutoffs",
+          "label": "Suspeita Glaucoma: Normal (≤0.5) / Leve (0.5-0.7) / Moderado (>0.7)",
+          "thresholds": [0.5, 0.7],
+          "labels": ["Normal", "Suspeita Leve", "Suspeita/significativo"],
+          "right_inclusive": false,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
+    },
+    "fundus_exam_findings": {
+      "display_name": "Achados de Fundo de Olho",
+      "description": "Achados da retinografia/fundo de olho (texto livre)",
+      "detection": {
+        "pattern": ".*",
+        "value_range": null,
+        "sample_match_threshold": 0.6,
+        "column_name_hints": ["fundo", "fundus", "retina", "oct", "macula", "dp", "diabetic_retinopathy"]
+      },
+      "gold_standard": "texto livre categórico",
+      "rationale": "FINDINGS de fundo de olho devem ser categorizados pós-detecção (normal, NPDR, PDR, edema macular).",
+      "reference": "Early Treatment Diabetic Retinopathy Study (ETDRS).",
+      "bilateral_rule": {
+        "enabled": true,
+        "pair_keywords": {
+          "right": ["fundus_od", "fundo_od"],
+          "left": ["fundus_oe", "fundo_oe"]
+        }
+      },
+      "transformations": {
+        "none": { "label": "Texto Livre", "suitable_for": ["análise textual"] },
+        "dr_category": {
+          "type": "category_cutoffs",
+          "label": "Retinopatia: Normal / NPDR Leve / NPDR Moderada-Avançada / PDR",
+          "thresholds": [],
+          "labels": ["Normal", "NPDR Leve", "NPDR Moderada-Avançada", "PDR"],
+          "right_inclusive": true,
+          "suitable_for": ["qui-quadrado"]
+        }
+      },
+      "default_transformation": "none"
     }
   },
   "_meta": {

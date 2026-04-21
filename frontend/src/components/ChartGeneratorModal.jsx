@@ -79,14 +79,16 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
   const cType = chartData?.type ?? 'bar'
   const regression = chartData?.regression
 
-  useEffect(() => {
-    if (chartData?.type) {
-      const type = chartData.type
-      if (type === 'histogram' || type === 'scatter' || type === 'contingency_table') {
-        setSelectedType('bar')
-      }
+  const [prevVar, setPrevVar] = useState(varName)
+  if (varName !== prevVar) {
+    setPrevVar(varName)
+    const type = chartData?.type
+    if (type === 'scatter') {
+      setSelectedType('scatter')
+    } else if (type === 'histogram' || type === 'contingency_table') {
+      setSelectedType('bar')
     }
-  }, [chartData?.type])
+  }
 
   useEffect(() => {
     if (!isOpen || !activeProjectId || !chartRef.current) return
@@ -199,6 +201,31 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
     return `${varName} — Contagem (N) por Grupo`
   }, [cType, varName])
 
+  // ────── Labels dos eixos derivados dos dados do backend ──────
+  const xAxisLabel = useMemo(() => {
+    if (cType === 'scatter') {
+      const parts = (chartData?.var_name || '').split(' vs ')
+      return parts[0]?.trim() || 'Variável X'
+    }
+    if (cType === 'histogram') return chartData?.var_name || varName || 'Valor'
+    if (cType === 'contingency_table') return chartData?.predictor || varName || 'Categoria'
+    return varName || 'Categoria'
+  }, [cType, chartData, varName])
+
+  const yAxisLabel = useMemo(() => {
+    if (cType === 'scatter') {
+      const parts = (chartData?.var_name || '').split(' vs ')
+      return parts[1]?.trim() || 'Variável Y'
+    }
+    if (cType === 'contingency_table') return chartData?.outcome || 'Desfecho'
+    return 'Frequência (N)'
+  }, [cType, chartData])
+
+  const axisLabelStyleModal = {
+    color: '#78716c',
+    font: { size: 12, family: 'Inter', weight: '500' }
+  }
+
   if (!isOpen || !chartData) return null
 
   const barLabels = histogramBins ? histogramBins.labels : safeLabels
@@ -305,27 +332,18 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
         titleFont: { size: 13, weight: '600' }
       }
     },
-    scales: selectedType === 'doughnut' ? {} : selectedType === 'scatter' ? {
+    scales: selectedType === 'doughnut' ? {} : {
       x: {
-        type: 'linear',
+        type: selectedType === 'scatter' ? 'linear' : 'category',
         position: 'bottom',
         grid: { color: 'rgba(255,255,255,0.04)' },
         ticks: { color: '#78716c', font: { size: 12 } },
-        title: { display: true, text: chartData.var_name || 'X', color: '#78716c' }
+        title: { display: true, text: xAxisLabel, ...axisLabelStyleModal }
       },
       y: {
         grid: { color: 'rgba(255,255,255,0.04)' },
         ticks: { color: '#78716c', font: { size: 12 } },
-        title: { display: true, text: 'Y', color: '#78716c' }
-      }
-    } : {
-      x: {
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#78716c', font: { size: 12, weight: '600' } }
-      },
-      y: {
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#78716c', font: { size: 12 } }
+        title: { display: true, text: yAxisLabel, ...axisLabelStyleModal }
       }
     }
   }
