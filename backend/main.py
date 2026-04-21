@@ -28,6 +28,16 @@ from lifelines.statistics import logrank_test
 from bs4 import BeautifulSoup
 from stats_engine import engine as premium_engine
 from meta_pipeline import run_pipeline
+from clinical_transforms import (
+    detect_derived_candidates,
+    apply_all_transforms,
+    apply_derived_candidate,
+    snellen_to_logmar,
+    snellen_to_decimal,
+    best_eye_logmar,
+    calc_imc,
+    calc_pulse_pressure,
+)
 
 # ============================================================
 # Configuração de Diretórios de Upload (Fase 1 — Histórico)
@@ -719,39 +729,466 @@ async def get_columns_endpoint(file: UploadFile = File(...)):
             df = robust_read_excel(contents)
         df = sanitize_df(df)
 
-        # Heurísticas para sugerir o outcome
-        outcome_keywords = [
-            'desfecho', 'outcome', 'resultado', 'diagnose', 'diagnostico',
-            'morte', 'obito', 'alta', 'cura', 'resposta', 'target',
-            'sobrevida', 'prognostico', 'recidiva', 'progrssao'
-        ]
-        suggested_col = df.columns[-1]  # fallback: última coluna
-        for col in reversed(df.columns.tolist()):
-            if any(kw in col.lower() for kw in outcome_keywords):
-                suggested_col = col
-                break
+        # ============================================================
+        # Heurísticas de sugestão de desfecho — sistema de prioridade em 4 camadas
+        # Camada 1: domínios clínicos de desfecho (qualquer especialidade)
+        # Camada 2: keywords gerais de outcome
+        # Camada 3: última coluna numérica
+        # Camada 4: última coluna (fallback)
+        # ============================================================
 
+        # Camada 1 — Domínios clínicos com forte semântica de desfecho
+        # Ordenados para que colunas DERIVADAS (ex: LogMAR) tenham prioridade sobre brutas
+        CLINICAL_OUTCOME_KEYWORDS = [
+            # Oftalmologia
+            'acuidade', 'visual', 'visão', 'vision', 'acuity', 'logmar', 'snellen',
+            # Cardiologia / Pressão
+            'pressao', 'pressão', 'sistolica', 'diastolica', 'sistólica', 'diastólica',
+            'evento_cardiovascular', 'cardiovascular',
+            # Oncologia / Sobrevida
+            'sobrevida', 'survival', 'recidiva', 'recurrence', 'progressao', 'progressão',
+            'tumor', 'metastase', 'metástase', 'remissao', 'remissão',
+            # Laboratorial
+            'glicemia', 'hemoglobina', 'hba1c', 'creatinina', 'colesterol', 'ldl', 'hdl',
+            'leucocito', 'eritrocito', 'plaqueta', 'pcr', 'vhs',
+            # Saúde geral
+            'imc', 'bmi', 'peso corporal', 'score', 'escala', 'indice', 'índice',
+            # Desfechos gerais
+            'desfecho', 'outcome', 'resultado', 'diagnostico', 'diagnóstico',
+            'morte', 'obito', 'óbito', 'alta', 'cura', 'resposta', 'target',
+            'prognostico', 'prognóstico', 'internacao', 'internação',
+        ]
+
+        def _outcome_priority(col_name: str, col_series_num, unique_count: int) -> int:
+            """Retorna prioridade de desfecho (maior = mais provável desfecho). 0 = não candidato."""
+            name_low = col_name.lower()
+
+            # Rejeitar identificadores e metadados definitivamente
+            reject_patterns = r'\b(id|nº|numero|nome|prontuario|data|registro|cpf|rg|matricula|codigo|chave|key)\b'
+            if re.search(reject_patterns, name_low):
+                return 0
+
+            score = 0
+
+            # Camada 1a: colunas DERIVADAS (ex: "OD (LogMAR)") — altíssima prioridade
+            if '(logmar)' in name_low or '(decimal)' in name_low or '(mmhg)' in name_low:
+                score += 200
+
+            # Camada 1b: nome tem keyword clínica de desfecho
+            for kw in CLINICAL_OUTCOME_KEYWORDS:
+                if kw in name_low:
+                    score += 100
+                    break
+
+            # Camada 2: numérico com variância razoável (bom candidato a desfecho contínuo)
+            is_numeric = not col_series_num.isna().all() and unique_count >= 5
+            if is_numeric:
+                score += 30
+
+            # Camada 3: binária (bom candidato a desfecho dicotômico)
+            if unique_count == 2:
+                score += 20
+
+            # Pequeno bônus para colunas mais à direita (convenção: desfecho fica ao final)
+            score += 5  # será multiplicado pela posição normalizada pelo chamador
+
+            return score
+
+        # Calcular scores e selecionar melhor candidato
         columns = []
-        for col in df.columns:
+        col_scores = []
+        for pos, col in enumerate(df.columns):
             col_series = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
             unique_count = len(df[col].dropna().unique())
             is_numeric_col = not col_series.isna().all() and unique_count >= 5
             dtype_label = "Numérico" if is_numeric_col else ("Binário" if unique_count == 2 else "Categórico")
             sample_vals = df[col].dropna().head(6).astype(str).tolist()
+
+            # Score de posição: colunas mais à direita têm +5 por posição
+            base_score = _outcome_priority(col, col_series, unique_count)
+            if base_score > 0:
+                pos_bonus = (pos / max(len(df.columns) - 1, 1)) * 5  # 0 a 5 pontos extra
+                final_score = base_score + pos_bonus
+            else:
+                final_score = 0
+
+            col_scores.append((col, final_score))
             columns.append({
                 "name": col,
                 "type": dtype_label,
                 "unique_count": unique_count,
                 "sample": sample_vals[:3],
-                "sample_values": sample_vals,  # alias para resolve-columns endpoint
-                "suggested": col == suggested_col
+                "sample_values": sample_vals,
+                "suggested": False  # será marcado logo abaixo
             })
 
-        return {"columns": columns, "suggested_outcome": suggested_col}
+        # Selecionar o melhor candidato
+        best_col, best_score = max(col_scores, key=lambda x: x[1]) if col_scores else (df.columns[-1], 0)
+        if best_score == 0:
+            # Nenhum candidato bom: fallback para última coluna numérica, ou última coluna
+            numeric_cols_fb = [c for c, _ in col_scores if _ > 0]
+            best_col = numeric_cols_fb[-1] if numeric_cols_fb else df.columns[-1]
+
+        # Marcar sugestão
+        for col_obj in columns:
+            col_obj["suggested"] = (col_obj["name"] == best_col)
+
+        # ── Detectar candidatos de variáveis derivadas clínicas ──────────
+        try:
+            derived_candidates = detect_derived_candidates(df)
+            # Recalcular o best_col incluindo possíveis derivadas na pontuação
+            # Se existe candidato "Acuidade visual (LogMAR)", ele deve subir na sugestão
+            for cand in derived_candidates:
+                if "acuidade visual" in cand["derived_name"].lower() and "(logmar)" in cand["derived_name"].lower():
+                    # Marcar como sugestão preferida se não houver outra clínica forte
+                    if best_col.lower() not in [kw for kw in CLINICAL_OUTCOME_KEYWORDS if kw in best_col.lower()]:
+                        best_col = cand["derived_name"]
+                        for col_obj in columns:
+                            col_obj["suggested"] = False
+        except Exception as e_dc:
+            logger.warning(f"detect_derived_candidates falhou: {e_dc}")
+            derived_candidates = []
+
+        return {
+            "columns": columns,
+            "suggested_outcome": best_col,
+            "derived_candidates": derived_candidates,
+        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao ler colunas: {str(e)}")
+
+# ============================================================
+# Endpoints de Catálogo de Domínios Dinâmico
+# ============================================================
+
+@app.get("/api/domain-catalog")
+async def get_domain_catalog():
+    """
+    Retorna o catálogo de domínios disponíveis no sistema, organizados por categoria.
+    Usado pelo DomainCatalog.jsx para busca e seleção manual do usuário.
+    """
+    try:
+        dict_path = Path(__file__).parent / "domain_dictionaries.json"
+        with open(dict_path, encoding="utf-8") as f:
+            raw = json.load(f)
+
+        # 5 categorias consolidadas — mapeamento domínio → categoria
+        DEFAULT_CATEGORIES = {
+            # Exames Laboratoriais
+            "glucose_fasting":          "Exames Laboratoriais",
+            "hemoglobin":               "Exames Laboratoriais",
+            "creatinine":               "Exames Laboratoriais",
+            "viral_load_hiv":           "Exames Laboratoriais",
+            "leukocyte_count":          "Exames Laboratoriais",
+            # Escalas Clínicas
+            "pain_scale_vas_nrs":       "Escalas Clínicas",
+            "likert_scale_5":           "Escalas Clínicas",
+            "likert_scale_7":           "Escalas Clínicas",
+            "questionnaire_score":      "Escalas Clínicas",
+            "binary_clinical":          "Escalas Clínicas",
+            # Sinais Vitais e Medidas
+            "blood_pressure_systolic":  "Sinais Vitais e Medidas",
+            "blood_pressure_diastolic": "Sinais Vitais e Medidas",
+            "heart_rate":               "Sinais Vitais e Medidas",
+            "bmi_calculable":           "Sinais Vitais e Medidas",
+            "bmi_direct":               "Sinais Vitais e Medidas",
+            "age_continuous":           "Sinais Vitais e Medidas",
+            "gender_categorical":       "Sinais Vitais e Medidas",
+            # Oftalmologia
+            "visual_acuity_snellen":    "Oftalmologia",
+            "intraocular_pressure":     "Oftalmologia",
+            # Desfechos e Sobrevida
+            "survival_time":            "Desfechos e Sobrevida",
+            "event_indicator":          "Desfechos e Sobrevida",
+            "mixed_time_units":         "Desfechos e Sobrevida",
+        }
+
+        catalog_by_category = {}
+        domains = raw.get("domains", {})
+
+        for domain_key, domain_data in domains.items():
+            category = domain_data.get("category") or DEFAULT_CATEGORIES.get(domain_key, "🔬 Outros")
+            display_name = domain_data.get("display_name", domain_key.replace("_", " ").title())
+            description = domain_data.get("description", "")
+
+            # Extrair opções de transformação disponíveis
+            transformations = []
+            tf_data = domain_data.get("transformations", {})
+            for tf_key, tf_info in tf_data.items():
+                if isinstance(tf_info, dict):
+                    transformations.append({
+                        "key": tf_key,
+                        "label": tf_info.get("label", tf_key),
+                        "warning": tf_info.get("warning"),
+                    })
+
+            if not transformations:
+                transformations.append({"key": "none", "label": "Nenhuma (usar valores originais)", "warning": None})
+
+            if category not in catalog_by_category:
+                catalog_by_category[category] = []
+
+            catalog_by_category[category].append({
+                "key": domain_key,
+                "display_name": display_name,
+                "description": description,
+                "transformations": transformations,
+                "gold_standard": domain_data.get("gold_standard"),
+                "rationale": domain_data.get("rationale", "")[:200] if domain_data.get("rationale") else None,
+            })
+
+        # Ordenar categorias e domínios dentro de cada categoria
+        sorted_catalog = {k: sorted(v, key=lambda x: x["display_name"]) for k, v in sorted(catalog_by_category.items())}
+
+        return {
+            "catalog": sorted_catalog,
+            "total_domains": sum(len(v) for v in sorted_catalog.values()),
+            "total_categories": len(sorted_catalog),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar catálogo: {str(e)}")
+
+
+class AiDomainSuggestRequest(BaseModel):
+    column_name: str
+    sample_values: List[str]
+    context_description: Optional[str] = None
+
+
+@app.post("/api/ai-domain-suggest")
+async def ai_domain_suggest(request: AiDomainSuggestRequest):
+    """
+    Sugestão de domínio via IA com streaming (SSE).
+    Primeiro tenta resolver via dicionário. Se não encontrar, usa ai_domain_inferrer.
+    """
+    import asyncio
+
+    async def event_stream():
+        try:
+            yield "data: " + json.dumps({"type": "thinking", "message": "Analisando o padrão de valores..."}) + "\n\n"
+            await asyncio.sleep(0.1)
+
+            # Passo 1: Tentar resolver via dicionário local
+            from domain_resolver import resolve_column
+            dict_path = Path(__file__).parent / "domain_dictionaries.json"
+            with open(dict_path, encoding="utf-8") as f:
+                domain_dict = json.load(f)
+
+            # Tentar match direto pelo dicionário
+            sample_list = [str(v) for v in request.sample_values[:10] if v is not None]
+            dict_result = resolve_column(request.column_name, sample_list, domain_dict)
+
+            if dict_result and dict_result.get("domain") and dict_result.get("confidence") in ("high", "medium"):
+                domain_key = dict_result["domain"]
+                domains = domain_dict.get("domains", {})
+                domain_data = domains.get(domain_key, {})
+                tf_data = domain_data.get("transformations", {})
+                transformations = []
+                for tf_key, tf_info in tf_data.items():
+                    if isinstance(tf_info, dict):
+                        transformations.append({
+                            "key": tf_key,
+                            "label": tf_info.get("label", tf_key),
+                            "warning": tf_info.get("warning"),
+                            "suitable_for": tf_info.get("suitable_for", []),
+                        })
+                if not transformations:
+                    transformations.append({"key": "none", "label": "Nenhuma transformação", "warning": None, "suitable_for": []})
+
+                yield "data: " + json.dumps({"type": "thinking", "message": "Encontrado no dicionário clínico!"}) + "\n\n"
+                await asyncio.sleep(0.3)
+                yield "data: " + json.dumps({
+                    "type": "result",
+                    "found_in_system": True,
+                    "domain_key": domain_key,
+                    "display_name": domain_data.get("display_name", domain_key),
+                    "description": domain_data.get("description", ""),
+                    "transformations": transformations,
+                    "suggested_transformation": dict_result.get("suggested_transformation", "none"),
+                    "rationale": dict_result.get("rationale", domain_data.get("rationale", ""))[:300] if dict_result.get("rationale") or domain_data.get("rationale") else None,
+                    "confidence": dict_result.get("confidence", "medium"),
+                    "source": "dictionary",
+                }) + "\n\n"
+                yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+                return
+
+            # Passo 2: Usar IA como fallback
+            yield "data: " + json.dumps({"type": "thinking", "message": "Não encontrado no dicionário — consultando IA especializada..."}) + "\n\n"
+            await asyncio.sleep(0.2)
+
+            from ai_domain_inferrer import infer_domain
+            ai_result = infer_domain(request.column_name, sample_list)
+
+            # Guard: garantir que ai_result é um dict antes de chamar .get()
+            if not isinstance(ai_result, dict):
+                ai_result = {
+                    "source": "unknown",
+                    "confidence": "low",
+                    "domain_description": str(ai_result) if ai_result else None,
+                    "data_type": "outro",
+                    "reasoning": "Resposta inesperada da IA.",
+                    "warning": "Não foi possível processar a resposta da IA. Revisão manual recomendada.",
+                }
+
+            # Verificar se a IA sugeriu algo que existe no nosso sistema
+            found_in_system = False
+            matched_domain_key = None
+            domains = domain_dict.get("domains", {})
+
+            domain_desc_lower = (ai_result.get("domain_description") or "").lower()
+            for dk, dd in domains.items():
+                dn_lower = dd.get("display_name", "").lower()
+                if dn_lower and any(word in domain_desc_lower for word in dn_lower.split() if len(word) > 4):
+                    found_in_system = True
+                    matched_domain_key = dk
+                    break
+
+            if found_in_system and matched_domain_key:
+                domain_data = domains[matched_domain_key]
+                tf_data = domain_data.get("transformations", {})
+                transformations = [
+                    {"key": k, "label": v.get("label", k), "warning": v.get("warning"), "suitable_for": v.get("suitable_for", [])}
+                    for k, v in tf_data.items() if isinstance(v, dict)
+                ] or [{"key": "none", "label": "Nenhuma transformação", "warning": None, "suitable_for": []}]
+
+                yield "data: " + json.dumps({
+                    "type": "result",
+                    "found_in_system": True,
+                    "domain_key": matched_domain_key,
+                    "display_name": domain_data.get("display_name", matched_domain_key),
+                    "description": domain_data.get("description", ""),
+                    "transformations": transformations,
+                    "suggested_transformation": "none",
+                    "rationale": (ai_result.get("reasoning") or "")[:300],
+                    "confidence": ai_result.get("confidence", "low"),
+                    "source": "ai_library",
+                }) + "\n\n"
+            else:
+                # IA não encontrou no sistema → sugerir ao desenvolvedor
+                yield "data: " + json.dumps({
+                    "type": "result",
+                    "found_in_system": False,
+                    "suggested_name": ai_result.get("domain_description") or request.column_name,
+                    "suggested_treatment": ai_result.get("data_type", "outro"),
+                    "rationale": ai_result.get("reasoning", ""),
+                    "warning": ai_result.get("warning"),
+                    "confidence": ai_result.get("confidence", "low"),
+                    "source": ai_result.get("source", "ai_generic"),
+                }) + "\n\n"
+
+            yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+
+        except Exception as e:
+            yield "data: " + json.dumps({"type": "error", "message": str(e)[:200]}) + "\n\n"
+            yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
+
+
+class SuggestDomainRequest(BaseModel):
+    column_name: str
+    sample_values: List[str]
+    suggested_name: str
+    suggested_treatment: Optional[str] = None
+    user_note: Optional[str] = None
+
+
+@app.post("/api/suggest-domain")
+async def suggest_new_domain(request: SuggestDomainRequest):
+    """
+    Envia sugestão de novo domínio por e-mail ao desenvolvedor.
+    Também salva localmente em domain_suggestions.json.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    # Salvar localmente
+    suggestions_path = Path(__file__).parent / "domain_suggestions.json"
+    suggestions = []
+    if suggestions_path.exists():
+        try:
+            with open(suggestions_path, encoding="utf-8") as f:
+                suggestions = json.load(f)
+        except Exception:
+            suggestions = []
+
+    new_suggestion = {
+        "id": str(uuid.uuid4())[:8],
+        "column_name": request.column_name,
+        "sample_values": request.sample_values[:6],
+        "suggested_name": request.suggested_name,
+        "suggested_treatment": request.suggested_treatment,
+        "user_note": request.user_note,
+        "submitted_at": datetime.utcnow().isoformat(),
+    }
+    suggestions.append(new_suggestion)
+    with open(suggestions_path, "w", encoding="utf-8") as f:
+        json.dump(suggestions, f, indent=2, ensure_ascii=False)
+
+    # Enviar e-mail
+    developer_email = os.getenv("DEVELOPER_EMAIL", "juankaitoegm@gmail.com")
+    email_user = os.getenv("EMAIL_USER")
+    email_password = os.getenv("EMAIL_PASSWORD")
+    email_host = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+    email_port = int(os.getenv("EMAIL_PORT", "587"))
+
+    email_sent = False
+    if email_user and email_password:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"[SciStat] Nova sugestão de categoria — {request.suggested_name}"
+            msg["From"] = email_user
+            msg["To"] = developer_email
+
+            html_body = f"""
+            <html><body style="font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px;">
+            <h2 style="color: #818cf8;">🔬 Nova Sugestão de Categoria</h2>
+            <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px; width: 160px;">Coluna:</td>
+                  <td style="padding: 8px 0; font-family: monospace; color: #a5b4fc;">{request.column_name}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Nome sugerido:</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #f1f5f9;">{request.suggested_name}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Tratamento sugerido:</td>
+                  <td style="padding: 8px 0; color: #94a3b8;">{request.suggested_treatment or '—'}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Amostras:</td>
+                  <td style="padding: 8px 0; font-family: monospace; font-size: 12px; color: #94a3b8;">{', '.join(request.sample_values[:6])}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Nota do usuário:</td>
+                  <td style="padding: 8px 0; color: #94a3b8;">{request.user_note or '—'}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">ID da sugestão:</td>
+                  <td style="padding: 8px 0; font-family: monospace; font-size: 11px; color: #475569;">{new_suggestion['id']}</td></tr>
+            </table>
+            <p style="margin-top: 20px; font-size: 12px; color: #475569;">
+              Enviado automaticamente pelo SciStat em {new_suggestion['submitted_at'][:10]}
+            </p>
+            </body></html>
+            """
+
+            msg.attach(MIMEText(html_body, "html"))
+
+            with smtplib.SMTP(email_host, email_port) as server:
+                server.starttls()
+                server.login(email_user, email_password)
+                server.sendmail(email_user, developer_email, msg.as_string())
+
+            email_sent = True
+            print(f"SUGGEST: E-mail enviado para {developer_email} — {request.suggested_name}")
+        except Exception as e:
+            print(f"WARN: Falha ao enviar e-mail de sugestão: {e}")
+
+    return {
+        "success": True,
+        "id": new_suggestion["id"],
+        "email_sent": email_sent,
+        "message": "Sugestão registrada com sucesso. Obrigado pela contribuição!"
+    }
+
 
 @app.post("/api/data/analyze-protocol")
 async def analyze_protocol_v7(
@@ -801,66 +1238,99 @@ async def analyze_protocol_v7(
             except Exception as e_tf:
                 print(f"WARN: Falha ao processar transformações: {e_tf}")
         
-        # Aplicar todas as transformações necessárias
+        # Aplicar transformações de domínio confirmadas pelo usuário
+        # Usa clinical_transforms para parsing correto de Snellen e outras fórmulas
         for base_col, tf in transformations_map.items():
             original_col = tf.get("column") or base_col
-            transformation = tf.get("transformation")
-            domain = tf.get("domain")
-            
-            if original_col and transformation and transformation != "none" and original_col in df.columns:
-                if domain == "visual_acuity_snellen" and transformation == "logmar":
-                    new_col = f"{original_col} (LogMAR)"
-                    from domain_resolver import _snellen_to_logmar
-                    df[new_col] = df[original_col].apply(_snellen_to_logmar)
-                    df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
-                    transformations_applied.append((original_col, new_col))
-                    print(f"DEBUG: Transformou {original_col} -> {new_col}")
-                elif domain == "visual_acuity_snellen" and transformation == "decimal":
-                    new_col = f"{original_col} (Decimal)"
-                    from domain_resolver import _snellen_to_decimal
-                    df[new_col] = df[original_col].apply(_snellen_to_decimal)
-                    df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
-                    transformations_applied.append((original_col, new_col))
-                elif domain in ("intraocular_pressure", "iop") and transformation == "mmhg":
-                    new_col = f"{original_col} (mmHg)"
-                    df[new_col] = pd.to_numeric(df[original_col].astype(str).str.replace(',', '.'), errors='coerce')
-                    transformations_applied.append((original_col, new_col))
-                else:
-                    new_col = f"{original_col} ({transformation.upper()})"
-                    df[new_col] = df[original_col]
-                    transformations_applied.append((original_col, new_col))
+            transformation = tf.get("transformation", "").lower()
+            domain = tf.get("domain", "")
+
+            if not original_col or not transformation or transformation == "none":
+                continue
+            if original_col not in df.columns:
+                continue
+
+            if domain == "visual_acuity_snellen" and transformation == "logmar":
+                new_col = f"{original_col} (LogMAR)"
+                # Usar snellen_to_logmar do clinical_transforms — parseia frações, decimais e especiais
+                df[new_col] = df[original_col].apply(snellen_to_logmar)
+                df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
+                transformations_applied.append((original_col, new_col))
+                print(f"DEBUG: Snellen→LogMAR: {original_col} → {new_col}")
+
+            elif domain == "visual_acuity_snellen" and transformation == "decimal":
+                new_col = f"{original_col} (Decimal)"
+                df[new_col] = df[original_col].apply(snellen_to_decimal)
+                df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
+                transformations_applied.append((original_col, new_col))
+
+            elif domain in ("intraocular_pressure", "iop") and transformation == "mmhg":
+                new_col = f"{original_col} (mmHg)"
+                # PIO já é numérica — apenas limpar e converter
+                df[new_col] = pd.to_numeric(
+                    df[original_col].astype(str).str.replace(',', '.').str.extract(r'([\d.]+)')[0],
+                    errors='coerce'
+                )
+                transformations_applied.append((original_col, new_col))
+
+            else:
+                new_col = f"{original_col} ({transformation.upper()})"
+                df[new_col] = df[original_col]
+                transformations_applied.append((original_col, new_col))
         
         # ============================================================
-        # Detectar pares bilaterais (OD/OE) e criar coluna derivada "Melhor Olho"
+        # Motor de variáveis derivadas — via clinical_transforms
+        # Detecta automaticamente: Snellen→LogMAR, melhor olho, IMC, etc.
         # ============================================================
-        cols_lower = {c.lower().strip(): c for c in df.columns}
-        right_col = None
-        left_col = None
-        
-        for lower, orig in cols_lower.items():
-            if lower in ("od", "re", "olho_direito", "right_eye", "avod"):
-                right_col = orig
-            elif lower in ("oe", "le", "olho_esquerdo", "left_eye", "avoe"):
-                left_col = orig
-        
-        # Se temos OD e OE (ou outro par bilateral), verificar se já foram transformados para LogMAR
-        if right_col and left_col:
-            right_logmar = f"{right_col} (LogMAR)"
-            left_logmar = f"{left_col} (LogMAR)"
-            
-            # Se as colunas LogMAR existem, criar "Acuidade visual (LogMAR)" (menor = melhor)
-            if right_logmar in df.columns and left_logmar in df.columns:
-                df["Acuidade visual (LogMAR)"] = df[[right_logmar, left_logmar]].min(axis=1)
-                print(f"DEBUG: Criou coluna derivada 'Acuidade visual (LogMAR)' a partir de {right_col} e {left_col}")
-        
-        # Se o outcome_col escolhido contém transformação no nome, usar a coluna transformada
-        if outcome_col and "(" in outcome_col and ")" in outcome_col:
-            expected_col = outcome_col
-            if expected_col not in df.columns:
-                # Tentar encontrar a coluna base sem transformação
-                base_outcome = outcome_col.split(" (")[0].strip()
-                if base_outcome in df.columns:
-                    pass  # A transformação será aplicada automaticamente
+        try:
+            derived_candidates = detect_derived_candidates(df)
+            if derived_candidates:
+                # Aplicar as de auto_apply=True SEMPRE
+                # + Aplicar as que geram a outcome_col se ela ainda não existe
+                auto_names = [c["derived_name"] for c in derived_candidates if c.get("auto_apply")]
+
+                # Se o outcome escolhido corresponde a algum candidato, forçar aplicação
+                if outcome_col:
+                    for cand in derived_candidates:
+                        if cand["derived_name"].lower() == outcome_col.lower():
+                            auto_names.append(cand["derived_name"])
+                        # Se o outcome é "OD (LogMAR)" e "Acuidade visual (LogMAR)" depende dele → aplicar também
+                        if outcome_col.lower() in [s.lower() for s in cand.get("source_columns", [])]:
+                            auto_names.append(cand["derived_name"])
+
+                df = apply_all_transforms(df, derived_candidates, accepted=list(set(auto_names)))
+                if derived_candidates:
+                    print(f"DEBUG clinical_transforms: {[c['derived_name'] for c in derived_candidates if c.get('auto_apply')]}")
+        except Exception as e_ct:
+            print(f"WARN clinical_transforms: {e_ct}")
+
+        # ── Fallback final: se outcome_col ainda não existe, tentar criar ──
+        if outcome_col and outcome_col not in df.columns:
+            # Caso 1: "OD (LogMAR)" → base = "OD", parse Snellen
+            m_paren = re.match(r'^(.+?)\s*\((.+?)\)$', outcome_col)
+            if m_paren:
+                base_col = m_paren.group(1).strip()
+                tf_type  = m_paren.group(2).strip().lower()
+                if base_col in df.columns:
+                    if tf_type == "logmar":
+                        df[outcome_col] = pd.to_numeric(df[base_col].apply(snellen_to_logmar), errors='coerce')
+                        print(f"DEBUG fallback‑logmar: '{outcome_col}' criado de '{base_col}'")
+                    elif tf_type == "decimal":
+                        df[outcome_col] = pd.to_numeric(df[base_col].apply(snellen_to_decimal), errors='coerce')
+                    elif tf_type == "mmhg":
+                        df[outcome_col] = pd.to_numeric(
+                            df[base_col].astype(str).str.replace(',', '.').str.extract(r'([\d.]+)')[0],
+                            errors='coerce'
+                        )
+
+            # Caso 2: "Acuidade visual (LogMAR)" → procurar alias já criado
+            if outcome_col not in df.columns and 'acuidade visual' in outcome_col.lower():
+                alias_candidates = [c for c in df.columns if 'acuidade' in c.lower()
+                                    or ('visual' in c.lower() and 'logmar' in c.lower())]
+                if alias_candidates:
+                    alias = sorted(alias_candidates, key=lambda c: 'logmar' in c.lower(), reverse=True)[0]
+                    df[outcome_col] = df[alias]
+                    print(f"DEBUG fallback‑alias: '{outcome_col}' → '{alias}'")
         
         print(f"DEBUG: analyze_protocol_v7 -> File: {file.filename}, Shape: {df.shape}")
         

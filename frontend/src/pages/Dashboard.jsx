@@ -374,6 +374,7 @@ export default function Dashboard() {
   const [bilateralWarnings, setBilateralWarnings] = useState([])
   const [confirmedTransformations, setConfirmedTransformations] = useState([])
   const [pendingColumnSamples, setPendingColumnSamples] = useState([])
+  const [derivedCandidates, setDerivedCandidates] = useState([])
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -529,6 +530,12 @@ export default function Dashboard() {
       const colData = await colRes.json()
       setColumnOptions(colData.columns || [])
       setPendingFile(file)
+      // Guardar candidatos de variáveis derivadas vindos do backend
+      if (colData.derived_candidates?.length) {
+        setDerivedCandidates(colData.derived_candidates)
+      } else {
+        setDerivedCandidates([])
+      }
 
       // ── Passo 0.5: Resolução de domínios especializados ──────────
       const columnSamples = (colData.columns || []).map(col => ({
@@ -547,18 +554,19 @@ export default function Dashboard() {
           const resolveData = await resolveRes.json()
           const hasSpecialDomains = (
             (resolveData.resolutions || []).length > 0 ||
-            (resolveData.bilateral_warnings || []).length > 0
+            (resolveData.bilateral_warnings || []).length > 0 ||
+            (colData.derived_candidates || []).length > 0
           )
           if (hasSpecialDomains) {
             setDomainResolutions(resolveData.resolutions || [])
             setBilateralWarnings(resolveData.bilateral_warnings || [])
             setLoading(false)
             setShowDomainReview(true)
-            return // aguardar confirmação do usuário no modal
+            return
           }
         }
       } catch (resolveErr) {
-        console.warn('[DomainReview] resolve falhou, prosseguindo sem revisão:', resolveErr)
+        console.warn('[DomainReview] resolve falhou, prosseguindo sem revisao:', resolveErr)
       }
       // ─────────────────────────────────────────────────────────────
 
@@ -629,36 +637,45 @@ export default function Dashboard() {
       }
     }
     
-    // Detectar pares bilaterais e adicionar coluna derivada "Acuidade visual (LogMAR)"
-    const colsLower = transformedCols.map(c => c.name.toLowerCase())
-    const hasOD = colsLower.some(c => c === 'od' || c.startsWith('od ') || c === 're' || c.startsWith('re ') || c.includes('olho_direito') || c.includes('right'))
-    const hasOE = colsLower.some(c => c === 'oe' || c.startsWith('oe ') || c === 'le' || c.startsWith('le ') || c.includes('olho_esquerdo') || c.includes('left'))
-    
-    console.log('[DEBUG] applyDomainTransformations:', { colsLower, hasOD, hasOE, transformedCols: transformedCols.map(c => c.name) })
-    
-    if (hasOD && hasOE) {
-      console.log('[DEBUG] Adicionando Acuidade visual (LogMAR)')
-      
-      // Remover a tag 'suggested' de COPIAS de todos os objetos para garantir re-render
-      const cleanedCols = transformedCols.map(c => ({ ...c, suggested: false }))
+    // ── Adicionar colunas derivadas vindas do backend (derived_candidates) ──
+    // O backend já detectou quais transformações são aplicáveis.
+    // Adicionamos ao lista de colunas para que apareçam no OutcomeSelector.
+    const derivedNames = new Set(transformedCols.map(c => c.name))
+    const candidatesToAdd = (derivedCandidates || []).filter(
+      cand => !derivedNames.has(cand.derived_name)
+    )
 
-      cleanedCols.push({
-        name: "Acuidade visual (LogMAR)",
-        type: "Numérico",
-        unique_count: 0,
-        sample: ["Mín(OD,OE)", "calculado"],
-        suggested: true
-      })
+    if (candidatesToAdd.length > 0) {
+      // Limpar previous "suggested" para dar destaque à derivada
+      const cleanedCols = transformedCols.map(c => ({ ...c, suggested: false }))
+      for (const cand of candidatesToAdd) {
+        const isPreferred = cand.derived_name.toLowerCase().includes('acuidade visual') &&
+                           cand.derived_name.toLowerCase().includes('logmar')
+        cleanedCols.push({
+          name: cand.derived_name,
+          type: 'Numérico',
+          unique_count: 0,
+          sample: [cand.description || 'Variável derivada'],
+          suggested: isPreferred,
+          isDerived: true,
+          derivedType: cand.type,
+        })
+      }
       return cleanedCols
     }
-    
-    return transformedCols
-  }, [])
 
-  const handleDomainReviewConfirm = useCallback(async (choices) => {
+    return transformedCols
+  }, [derivedCandidates])
+
+  const handleDomainReviewConfirm = useCallback(async (choices, passedDerivedCandidates) => {
     console.log('[DEBUG] handleDomainReviewConfirm choices:', choices)
     console.log('[DEBUG] columnOptions antes:', columnOptions.map(c => c.name))
     setConfirmedTransformations(choices)
+
+    // se o CDR passou candidatos derivados, sincronizar o state
+    if (passedDerivedCandidates && passedDerivedCandidates.length > 0) {
+      setDerivedCandidates(passedDerivedCandidates)
+    }
     
     const updatedColumns = applyDomainTransformations(columnOptions, choices)
     console.log('[DEBUG] columnOptions depois:', updatedColumns.map(c => c.name))
@@ -719,18 +736,51 @@ export default function Dashboard() {
 
       const protocolData = await protocolRes.json()
       if (protocolData.protocol) {
-        // Garantir que as opções de desfecho reflitam todas as colunas ATUAIS (incluindo as calculadas)
+        // ── Construir lista de opções de desfecho robusta ──────────────
+        // 1. Todas as colunas atuais (incluindo derivadas adicionadas pelo ColumnDomainReview)
         const allVars = columnOptions.map(c => c.name)
-        
-        // Se a coluna calculada não estiver na lista (fuga de estado), mas o backend sugeriu ela, adicione
+
+        // 2. Incluir colunas derivadas de transformações confirmadas que podem não estar em columnOptions
+        if (confirmedTransformations && confirmedTransformations.length > 0) {
+          for (const tf of confirmedTransformations) {
+            if (!tf.column || !tf.transformation || tf.transformation === 'none') continue
+            const tfType = tf.transformation
+            let derivedName = null
+            if (tfType === 'logmar') derivedName = `${tf.column} (LogMAR)`
+            else if (tfType === 'decimal') derivedName = `${tf.column} (Decimal)`
+            else if (tfType === 'mmhg') derivedName = `${tf.column} (mmHg)`
+            if (derivedName && !allVars.includes(derivedName)) allVars.push(derivedName)
+          }
+          // Adicionar coluna bilateral derivada se tiver pares OD/OE confirmados
+          const hasAcuidade = allVars.some(v => v.toLowerCase().includes('acuidade visual'))
+          if (!hasAcuidade) {
+            const BILATERAL_RIGHT = ['od', 're', 'olho_direito', 'avod']
+            const BILATERAL_LEFT  = ['oe', 'le', 'olho_esquerdo', 'avoe']
+            const colsL = allVars.map(v => v.toLowerCase())
+            const hasOD = colsL.some(c => BILATERAL_RIGHT.some(p => c === p || c.startsWith(p + ' ') || c.startsWith(p + '_')))
+            const hasOE = colsL.some(c => BILATERAL_LEFT.some(p  => c === p || c.startsWith(p + ' ') || c.startsWith(p + '_')))
+            if (hasOD && hasOE) allVars.push('Acuidade visual (LogMAR)')
+          }
+        }
+
+        // 3. INCLUIR DERIVADAS de derived_candidates (FIX B: garante aparicao no Review)
+        for (const cand of (derivedCandidates || [])) {
+          if (cand.derived_name && !allVars.includes(cand.derived_name)) {
+            allVars.push(cand.derived_name)
+          }
+        }
+
+        // 4. Garantir que o outcome sugerido pelo backend esteja na lista
         if (protocolData.outcome && !allVars.includes(protocolData.outcome)) {
           allVars.push(protocolData.outcome)
         }
+        // 5. Remover duplicatas mantendo ordem
+        const uniqueVars = [...new Set(allVars)]
 
-        setOutcomeOptions(allVars)
+        setOutcomeOptions(uniqueVars)
         setAnalysisProtocol({
           items: protocolData.protocol,
-          outcome: protocolData.outcome, 
+          outcome: protocolData.outcome,
           meta: protocolData.meta || null
         })
         setShowReview(true)
@@ -1039,6 +1089,7 @@ export default function Dashboard() {
         isOpen={showDomainReview}
         resolutions={domainResolutions}
         bilateralWarnings={bilateralWarnings}
+        derivedCandidates={derivedCandidates}
         onConfirm={handleDomainReviewConfirm}
         onSkip={handleDomainReviewSkip}
         onTeachDomain={handleTeachDomain}

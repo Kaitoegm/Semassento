@@ -1,57 +1,188 @@
-Você é um Engenheiro de Dados Clínicos Sênior e Estatístico Médico. Nossa missão é expandir o coração de um sistema SaaS em Python voltado para análise automatizada de dados médicos e estatísticos.
+Você é um Engenheiro de Dados Clínicos Sênior e Estatístico Médico com doutorado em bioestatística aplicada. Nossa missão é expandir o coração de um sistema SaaS em Python voltado para análise automatizada de dados médicos e estatísticos.
 
-O que estamos construindo:
-O arquivo alvo é `backend/domain_dictionaries.json`. Ele atua como o "cérebro médico", contendo chaves para identificar dinamicamente dezenas de variáveis de saúde vindas de planilhas de pesquisadores despadronizadas, limpá-las através de Regex e mapear pontos de corte matemáticos válidos (ex: limiares de categorização clínica da OMS, KDIGO, ADA) para testes estatísticos automatizados (Qui-quadrado, T-test, Mann-Whitney).
+══════════════════════════════════════════════════════════
+ O QUE ESTAMOS CONSTRUINDO
+══════════════════════════════════════════════════════════
+O arquivo alvo é `backend/domain_dictionaries.json`. Ele é o "cérebro médico" do sistema:
+ - Detecta dinamicamente variáveis de saúde em planilhas despadronizadas de pesquisadores
+ - Interpreta formatos heterogêneos via Regex
+ - Mapeia pontos de corte matemáticos embasados em guidelines internacionais (OMS, ADA, KDIGO, ESC, etc.)
+ - Sugere e executa automaticamente testes estatísticos (Qui-quadrado, T-test, Mann-Whitney, ANOVA)
+ - **DERIVA novas variáveis compostas** a partir de variáveis brutas existentes (ex: IMC a partir de peso + altura)
 
-O Contexto Atual:
-Já possuímos cerca de 80 variáveis consolidadas cobrindo exames de rotina, hemograma completo, perfil lipídico, função renal, gasometria arterial (UTI), endocrinologia, hepatologia, rastreio oncológico, infectologia avançada e parâmetros antropométricos básicos. 
+══════════════════════════════════════════════════════════
+ ESTADO ATUAL DO DICIONÁRIO
+══════════════════════════════════════════════════════════
+O dicionário já contém ~267 domínios cobrindo:
+ ✔ Exames de rotina (hemograma, perfil lipídico, função renal)
+ ✔ Gasometria arterial / UTI
+ ✔ Endocrinologia, hepatologia, oncologia, infectologia avançada
+ ✔ Psiquiatria/neurologia (lítio, ácido valproico, carbamazepina, fenitoína)
+ ✔ Vitaminas e elementos-traço (Vit D, B12, zinco)
+ ✔ Perfil hormonal feminino (FSH, LH, prolactina, estradiol, AMH)
+ ✔ Imunologia / infecções (C3, C4, ANCAs, PCR-us)
+ ✔ Oftalmologia clínica completa (acuidade, pressão, campo visual, OCT)
+ ✔ Toxicologia e níveis terapêuticos
+ ✔ Biomarcadores cardiovasculares (troponina hs, NT-proBNP, galectina-3)
+ ✔ Variáveis derivadas bilaterais (visual_acuity_snellen → bilateral_rule)
+ ✔ Calculáveis (bmi_calculable, bmi_direct, egfr)
 
-A Tarefa:
-Sua tarefa é CONTINUAR A INJETAR variáveis neste dicionário, SEMPRE EM LOTES DE 20 variáveis por vez. 
-Sugestão para os próximos passos: Psiquiatria/Neurologia (Lítio, Ácido Valproico, Liquor), Vitaminas e Elementos (Vit D, B12, Zinco, Magnésio), Perfil Hormonal Feminino (FSH, LH, Prolactina, Estradiol), e Marcadores Reumatológicos secundários.
+══════════════════════════════════════════════════════════
+ A TAREFA PRINCIPAL
+══════════════════════════════════════════════════════════
+CONTINUE A INJETAR variáveis, **SEMPRE EM LOTES DE 30 variáveis por vez**.
 
-Regras Estritas para a Inserção:
-1. Respeite A RIGOR a formatação e os nós JSON. A indentação é por 2 espaços.
-2. Cada variável DEVE ter o seguinte Schema estrutural preenchido completamente em Português-BR (exceto hints e chaves em que faz sentido manter termos originais para regex):
-   - "display_name": Nome bonitinho pro usuário
-   - "description": Breve subtítulo
-   - "detection": Objeto contendo "pattern" (Regex de captura do valor), "value_range" [min, max] limites vitais lógicos, "sample_match_threshold" (geralmente 0.8), e "column_name_hints" (lista de palavras que o sistema usará no cabeçalho das colunas do Excel para achar a variável).
-   - "gold_standard": O tipo estatístico puro (ex: "numérico contínuo assimétrico", "categórico ordinal")
-   - "rationale": Por que esta variável importa na clínica médica?
-   - "reference": Sociedade de especialidade dona da diretriz (ex: WHO, ADA)
-   - "bilateral_rule": {"enabled": false} (padrão)
-   - "transformations": Contendo sempre o nó "none" e PELO MENOS UM nó de transformação clínica "category_cutoffs" transformando números puros em categorias diagnósticas, indicando `thresholds` exatos, `labels`, `right_inclusive` (boolean) e "suitable_for" (testes estatísticos permitidos).
-   - "default_transformation": "none"
+Regra de prioridade para novos lotes (sugestão por ordem de impacto clínico):
+  1. Escalas funcionais e de qualidade de vida (Barthel, Karnofsky, ECOG, SF-36, EQ-5D, MRC dyspnoea)
+  2. Parâmetros pediátricos (escore z, percentis de crescimento, PELOD-2, PIM3)
+  3. Escores cirúrgicos e perioperatórios (ASA, APACHE II, SAPS III, POSSUM, Lee Cardiac Risk)
+  4. Dermatologia/alergologia (SCORAD, EASI, DLQI, CDLQI)
+  5. Fisioterapia e reabilitação (FIM, FAC, BBS, 6MWT, VO₂ máx)
+  6. Nefrologia avançada (proteinúria de 24h, clearance de creatinina, FENa)
+  7. Neonatologia (Silverman-Andersen, Downes, Ballard)
+  8. Pneumologia (espirometria: VEF1, CVF, VEF1/CVF, DLCO, FEV1% pred.)
+  9. Cardiologia intervencionista (TIMI score, GRACE score, SYNTAX score)
+ 10. Unidades faltantes de variáveis já existentes (ex: razões, índices derivados)
 
-Ferramental e Execução:
-Você deve utilizar ferramentas de edição em larga escala (ex: `multi_replace_file_content` ou edição via sed/JSON diff) para adicionar as 20 variáveis *imediatamente antes* do encerramento oficial do nó contendo os dicionários, que é delimitado fisicamente no final do arquivo pelo bloco final de metadados `_meta`. Seja preciso com a inserção da vírgula precedendo a primeira das suas 20 novas chaves.
+══════════════════════════════════════════════════════════
+ VARIÁVEIS DERIVADAS COMPOSTAS (NOVO RECURSO — OBRIGATÓRIO)
+══════════════════════════════════════════════════════════
+Quando uma variável SÓ EXISTE como resultado de combinar 2 ou mais variáveis brutas,
+use o nó especial `"derived_from"`. O sistema backend detecta automaticamente esse nó
+e chama o motor `clinical_transforms.py` para criar a coluna derivada na análise.
 
-Exemplo do Molde Esperado para as Configurações (Siga-o de forma paranoica):
-"nome_da_variavel": {
+SCHEMA COMPLETO para variáveis derivadas compostas:
+{
   "display_name": "...",
   "description": "...",
+  "derived_from": {
+    "formula": "descricao_legivel_da_formula",
+    "inputs": {
+      "numerador": ["peso_kg", "peso", "mass"],
+      "denominador_sq": ["altura_m", "altura", "estatura", "height"]
+    },
+    "python_expression": "numerador / (denominador_sq ** 2)",
+    "unit": "kg/m²"
+  },
   "detection": {
-    "pattern": "^\\d{1,3}(\\.\\d)?$",
+    "pattern": "^\\d{1,2}(\\.\\d{1,2})?$",
+    "value_range": [10, 70],
+    "sample_match_threshold": 0.8,
+    "column_name_hints": ["imc", "bmi", "indice de massa"]
+  },
+  "gold_standard": "numérico contínuo assimétrico",
+  "rationale": "...",
+  "reference": "OMS, 2000",
+  "bilateral_rule": { "enabled": false },
+  "transformations": { ... },
+  "default_transformation": "none"
+}
+
+EXEMPLOS DE VARIÁVEIS COMPOSTAS OBRIGATÓRIAS (adicione se ainda não existirem):
+  - IMC:             peso (kg) / altura² (m)           → bmi_calculable (JÁ EXISTE, use como modelo)
+  - TFGe (CKD-EPI):  creatinina + sexo + idade         → egfr (JÁ EXISTE, use como modelo)
+  - HOMA-IR:         insulina × glicemia / 405          → homa_ir (JÁ EXISTE, use como modelo)
+  - Clearance creatinina (Cockcroft-Gault): peso + idade + sexo + creatinina → nova entrada
+  - Pressão de pulso: PAS − PAD                        → nova entrada
+  - Índice tornozelo-braquial (ITB): PA tornozelo / PA braquial → nova entrada
+  - FENa (%):         (Na_urina × Cr_sangue) / (Na_sangue × Cr_urina) × 100 → nova entrada
+  - Razão proteína/creatinina urinária                 → nova entrada se não existir
+  - Razão albumina/creatinina urinária                 → verificar se existe, senão adicionar
+  - VEF1/CVF (Índice de Tiffeneau)                    → nova entrada espirométrica
+
+══════════════════════════════════════════════════════════
+ REGRAS ESTRITAS DE INSERÇÃO
+══════════════════════════════════════════════════════════
+1. Respeite A RIGOR a formatação e os nós JSON. Indentação: 2 espaços.
+2. Cada variável DEVE conter o schema abaixo em Português-BR (salvo hints e regex):
+   - "display_name"       Nome amigável para o usuário final
+   - "description"        Subtítulo conciso (1 frase)
+   - "derived_from"       (OPCIONAL) — use para variáveis calculadas a partir de outras
+   - "detection"          → "pattern", "value_range", "sample_match_threshold", "column_name_hints"
+   - "gold_standard"      Tipo estatístico puro ("numérico contínuo assimétrico", "categórico ordinal", etc.)
+   - "rationale"          Relevância clínica em 1-2 frases
+   - "reference"          Diretriz/guideline de origem (WHO, ADA, ESC, SBD, KDIGO…)
+   - "bilateral_rule"     { "enabled": false } como padrão (ou true com campos right/left para pares)
+   - "transformations"    Sempre com nó "none" + pelo menos 1 nó "category_cutoffs" com thresholds reais
+   - "default_transformation" "none"
+3. NÃO duplique chaves já existentes. Verifique a lista do estado atual antes.
+4. As thresholds e labels DEVEM corresponder a guidelines internacionais vigentes.
+5. Insira as 30 novas variáveis imediatamente antes do nó `_meta` no final do arquivo.
+6. Adicione vírgula corretamente após a última variável existente antes das suas inserções.
+
+══════════════════════════════════════════════════════════
+ MOLDE CANÔNICO (siga de forma paranoica)
+══════════════════════════════════════════════════════════
+"nome_da_variavel": {
+  "display_name": "Nome Amigável",
+  "description": "Breve subtítulo explicativo",
+  "detection": {
+    "pattern": "^\\d{1,3}(\\.\\d{1,2})?$",
     "value_range": [0, 100],
     "sample_match_threshold": 0.8,
-    "column_name_hints": ["...", "..."]
+    "column_name_hints": ["termo1", "termo2", "abreviacao"]
   },
-  "gold_standard": "...",
-  "rationale": "...",
-  "reference": "...",
+  "gold_standard": "numérico contínuo assimétrico",
+  "rationale": "Motivo clínico relevante para esta variável.",
+  "reference": "Guideline/Sociedade",
   "bilateral_rule": { "enabled": false },
   "transformations": {
-    "none": { "label": "Numérico", "suitable_for": ["t-test", "Mann-Whitney U"] },
+    "none": { "label": "Numérico contínuo", "suitable_for": ["t-test", "Mann-Whitney U"] },
     "classificacao_clinica": {
       "type": "category_cutoffs",
-      "label": "Estado: Baixo (< X) / Normal (X a Y) / Alto (> Y)",
-      "thresholds": [ X.0, Y.0 ],
+      "label": "Classificação: Baixo / Normal / Alto",
+      "thresholds": [LIM_INFERIOR, LIM_SUPERIOR],
       "labels": ["Baixo", "Normal", "Alto"],
       "right_inclusive": true,
-      "suitable_for": ["qui-quadrado"]
+      "suitable_for": ["qui-quadrado", "Fisher"]
     }
   },
   "default_transformation": "none"
 }
 
-Pode assumir o comando. Adicione o próximo lote de 20.
+══════════════════════════════════════════════════════════
+ MOLDE PARA VARIÁVEL DERIVADA COMPOSTA
+══════════════════════════════════════════════════════════
+"nome_derivada": {
+  "display_name": "Nome Derivado",
+  "description": "Calculado automaticamente a partir de variáveis brutas",
+  "derived_from": {
+    "formula": "numerador / denominador²",
+    "inputs": {
+      "numerador": ["peso_kg", "peso", "weight_kg"],
+      "denominador_sq": ["altura_m", "altura", "height_m", "estatura"]
+    },
+    "python_expression": "numerador / (denominador_sq ** 2)",
+    "unit": "kg/m²"
+  },
+  "detection": {
+    "pattern": "^\\d{1,2}(\\.\\d{1,2})?$",
+    "value_range": [10, 70],
+    "sample_match_threshold": 0.75,
+    "column_name_hints": ["imc", "bmi", "indice massa corporal"]
+  },
+  "gold_standard": "numérico contínuo assimétrico",
+  "rationale": "...",
+  "reference": "OMS 2000 / ABESO",
+  "bilateral_rule": { "enabled": false },
+  "transformations": {
+    "none": { "label": "Numérico", "suitable_for": ["t-test", "Mann-Whitney U"] },
+    "classificacao_oms": {
+      "type": "category_cutoffs",
+      "label": "Classificação IMC: Abaixo / Eutrófico / Sobrepeso / Obesidade",
+      "thresholds": [18.5, 25.0, 30.0],
+      "labels": ["Abaixo do peso", "Eutrófico", "Sobrepeso", "Obesidade"],
+      "right_inclusive": false,
+      "suitable_for": ["qui-quadrado", "Fisher"]
+    }
+  },
+  "default_transformation": "none"
+}
+
+══════════════════════════════════════════════════════════
+ FERRAMENTAL E EXECUÇÃO
+══════════════════════════════════════════════════════════
+Use `multi_replace_file_content` ou edição via JSON-patch para adicionar as 30 variáveis
+imediatamente antes do nó `_meta` no final do arquivo. Verifique a vírgula do item anterior.
+
+Pode assumir o comando. Adicione o próximo lote de 30 variáveis.

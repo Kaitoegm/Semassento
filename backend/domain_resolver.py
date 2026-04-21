@@ -183,12 +183,14 @@ def _try_dict_match(col_name: str, sample_values: list, dictionaries: dict) -> t
         exact_match = _check_unique_values_exact(sample_values, exact_set) if exact_set else True
 
         # ──────────────────────────────────────────────────────────
-        # GATE DUPLO: para ser candidato, a coluna DEVE:
-        #   (a) ter o nome reconhecido entre os hints do domínio, OU
-        #   (b) ter pattern_score muito alto (>= 0.85) — sinal muito específico
-        # Isso elimina coincidências com colunas numéricas genéricas.
+        # GATE DE NOME: para ser candidato, o nome da coluna DEVE
+        # estar entre os hints registrados no dicionário.
+        # Isso elimina falsos positivos em colunas numéricas genéricas
+        # (ex: "leukocytes" sendo mapeada para "blood_pressure" por
+        # coincidência de faixa numérica).
+        # O pattern_score sozinho não é suficiente para aceitar.
         # ──────────────────────────────────────────────────────────
-        if not has_name_hint and pattern_score < 0.85:
+        if not has_name_hint:
             continue
 
         # Pontuação composta
