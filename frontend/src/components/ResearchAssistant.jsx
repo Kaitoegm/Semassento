@@ -270,7 +270,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-8 right-8 w-16 h-16 bg-primary text-background rounded-full flex items-center justify-center z-[90] hover:scale-110 active:scale-95 transition-all group"
+            className="fixed bottom-20 lg:bottom-8 right-4 sm:right-8 w-14 h-14 sm:w-16 sm:h-16 bg-primary text-background rounded-full flex items-center justify-center z-[90] hover:scale-110 active:scale-95 transition-all group"
           >
             <span className="material-symbols-rounded text-3xl group-hover:rotate-12 transition-transform">smart_toy</span>
           </motion.button>
@@ -283,7 +283,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-8 right-8 w-[420px] h-[650px] z-[100] glass-card rounded-xl border-primary/20 flex flex-col overflow-hidden"
+            className="fixed bottom-0 right-0 sm:bottom-8 sm:right-8 w-full sm:w-[420px] h-[100dvh] sm:h-[650px] z-[100] glass-card sm:rounded-xl border-primary/20 flex flex-col overflow-hidden"
           >
             <div className="bg-primary/10 px-8 py-5 border-b border-white/5 flex justify-between items-center">
               <div className="flex items-center gap-3">

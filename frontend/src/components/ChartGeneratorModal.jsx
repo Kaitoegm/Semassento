@@ -506,9 +506,9 @@ export default function ChartGeneratorModal({ isOpen, onClose, chartData, varNam
           exit={{ opacity: 0, scale: 0.92, y: 30 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
           onClick={e => e.stopPropagation()}
-          className="glass-card w-full max-w-3xl rounded-xl border border-white/10 overflow-hidden"
+          className="glass-card w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-white/10"
         >
-          <div className="flex items-center justify-between p-8 border-b border-white/5">
+          <div className="flex items-center justify-between p-4 sm:p-8 border-b border-white/5">
             <div>
               <h3 className="text-lg font-semibold text-white flex items-center gap-3">
                 <span className="material-symbols-rounded text-primary">bar_chart</span>

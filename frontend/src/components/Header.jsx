@@ -41,9 +41,9 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full bg-background/80 backdrop-blur-xl border-b border-border-subtle">
-      <div className="flex justify-between items-center px-6 lg:px-10 py-3 w-full mx-auto max-w-[1600px]">
-        <div className="flex items-center gap-12">
-          <Link to="/" className="flex items-center gap-2 group text-primary">
+      <div className="flex justify-between items-center px-4 sm:px-6 lg:px-10 py-3 w-full mx-auto max-w-[1600px]">
+        <div className="flex items-center gap-4 sm:gap-12 min-w-0">
+          <Link to="/" className="flex items-center gap-2 group text-primary shrink-0">
             <span className="text-[18px] font-semibold tracking-[-1px]">Paper</span>
             <ForestPlot className="w-5 h-2.5" />
             <span className="text-[18px] font-semibold tracking-[-1px]">Metrics</span>
@@ -83,8 +83,9 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-border-subtle">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* Project selector + theme + notifications - hidden on very small screens */}
+          <div className="hidden sm:flex items-center gap-1 bg-surface p-1 rounded-lg border border-border-subtle">
             {/* Seletor de Projeto Ativo */}
             <div className="relative group/project">
               <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-primary/5 rounded-md text-xs text-text-muted transition-all font-medium">
@@ -149,7 +150,7 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
                     initial={{ opacity: 0, y: 10, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.97 }}
-                    className="absolute right-0 mt-2 w-80 bg-surface border border-border-subtle rounded-xl shadow-lg p-4 overflow-hidden"
+                    className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-surface border border-border-subtle rounded-xl shadow-lg p-4 overflow-hidden"
                   >
                     <div className="flex justify-between items-center mb-4 px-2">
                        <h4 className="text-[12px] font-medium tracking-wide text-primary">Notificações</h4>
@@ -185,6 +186,59 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
             </div>
           </div>
 
+          {/* Mobile-only: theme toggle + notifications */}
+          <div className="flex sm:hidden items-center gap-1">
+            <button
+              onClick={() => setDark(!dark)}
+              className="p-2.5 rounded-lg hover:bg-primary/5 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+            >
+              <span className="material-symbols-rounded text-[20px] text-text-muted">
+                {dark ? 'light_mode' : 'dark_mode'}
+              </span>
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="p-2.5 rounded-lg hover:bg-primary/5 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center relative"
+              >
+                <span className="material-symbols-rounded text-[20px] text-text-muted">notifications</span>
+                {notifications.length > 0 && <span className="absolute top-3 right-3 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-background"></span>}
+              </button>
+
+              <AnimatePresence>
+                {isNotificationsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                    className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-surface border border-border-subtle rounded-xl shadow-lg p-4 overflow-hidden z-50"
+                  >
+                    <div className="flex justify-between items-center mb-4 px-2">
+                       <h4 className="text-[12px] font-medium tracking-wide text-primary">Notificações</h4>
+                       <button onClick={clearNotifications} className="text-[11px] text-text-muted hover:text-text-main font-medium">Limpar</button>
+                    </div>
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                      {notifications.length === 0 && (
+                        <p className="text-[12px] text-text-muted text-center py-6">Nenhum alerta recente</p>
+                      )}
+                      {notifications.map(n => (
+                        <div key={n.id} className="p-3 hover:bg-primary/5 rounded-lg transition-colors">
+                          <div className="flex gap-3">
+                            <span className="material-symbols-rounded text-primary text-[18px] shrink-0">{getIcon(n.type)}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-text-main leading-none mb-1 truncate">{n.title}</p>
+                              <p className="text-[11px] text-text-muted leading-tight">{n.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
           <button
             onClick={signOut}
             className="hidden sm:flex items-center gap-2 border border-border-subtle hover:border-text-muted text-text-muted px-4 py-2 rounded-lg text-[12px] font-medium transition-all active:scale-95"
@@ -193,7 +247,7 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
             Sair
           </button>
 
-          <Link to="/profile" className="flex items-center gap-3 pl-4 border-l border-border-subtle hover:bg-primary/5 pr-2 py-1 rounded-lg transition-all group">
+          <Link to="/profile" className="flex items-center gap-3 pl-2 sm:pl-4 sm:border-l border-border-subtle hover:bg-primary/5 pr-2 py-1 rounded-lg transition-all group">
             <div className="text-right hidden sm:block">
               <p className="text-[12px] font-medium text-text-main leading-none group-hover:text-primary transition-colors">
                 {user?.name || 'Cientista'}

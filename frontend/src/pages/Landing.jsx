@@ -90,6 +90,7 @@ const testimonials = [
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState(null)
   const [mounted, setMounted] = useState(false)
+  const [mobileMenu, setMobileMenu] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -115,12 +116,38 @@ export default function Landing() {
               <a href="#faq" className="text-[#a8a29e] hover:text-[#e7e5e4] transition-colors text-sm font-medium">FAQ</a>
             </div>
             <div className="flex items-center gap-3">
-              <a href="/login" className="px-4 py-2 text-sm font-medium text-[#a8a29e] hover:text-[#e7e5e4] transition-colors">Entrar</a>
-              <a href="/login" className="px-5 py-2 bg-[#5eead4] hover:bg-[#99f6e4] text-[#134e4a] font-semibold text-sm rounded-lg transition-all">
+              <a href="/login" className="hidden sm:block px-4 py-2 text-sm font-medium text-[#a8a29e] hover:text-[#e7e5e4] transition-colors">Entrar</a>
+              <a href="/login" className="px-4 sm:px-5 py-2 bg-[#5eead4] hover:bg-[#99f6e4] text-[#134e4a] font-semibold text-sm rounded-lg transition-all">
                 Começar grátis
               </a>
+              <button
+                onClick={() => setMobileMenu(!mobileMenu)}
+                className="md:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#a8a29e] hover:text-[#e7e5e4]"
+              >
+                <span className="material-symbols-rounded text-2xl">{mobileMenu ? 'close' : 'menu'}</span>
+              </button>
             </div>
           </div>
+
+          {/* Mobile menu drawer */}
+          <AnimatePresence>
+            {mobileMenu && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="md:hidden overflow-hidden border-t border-[#292524]"
+              >
+                <div className="flex flex-col gap-1 p-4">
+                  <a href="#recursos" onClick={() => setMobileMenu(false)} className="px-4 py-3 text-[#a8a29e] hover:text-[#e7e5e4] hover:bg-[#111110] rounded-lg transition-colors text-sm font-medium">Recursos</a>
+                  <a href="#como-funciona" onClick={() => setMobileMenu(false)} className="px-4 py-3 text-[#a8a29e] hover:text-[#e7e5e4] hover:bg-[#111110] rounded-lg transition-colors text-sm font-medium">Como funciona</a>
+                  <a href="#planos" onClick={() => setMobileMenu(false)} className="px-4 py-3 text-[#a8a29e] hover:text-[#e7e5e4] hover:bg-[#111110] rounded-lg transition-colors text-sm font-medium">Planos</a>
+                  <a href="#faq" onClick={() => setMobileMenu(false)} className="px-4 py-3 text-[#a8a29e] hover:text-[#e7e5e4] hover:bg-[#111110] rounded-lg transition-colors text-sm font-medium">FAQ</a>
+                  <a href="/login" onClick={() => setMobileMenu(false)} className="px-4 py-3 text-[#5eead4] hover:bg-[#111110] rounded-lg transition-colors text-sm font-medium">Entrar</a>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
 
@@ -142,7 +169,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={mounted ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl md:text-7xl font-semibold tracking-[-1.5px] mb-6 leading-[1.05]"
+              className="text-3xl sm:text-5xl md:text-7xl font-semibold tracking-[-1.5px] mb-6 leading-[1.05]"
             >
               Análise estatística
               <br />
@@ -197,7 +224,7 @@ export default function Landing() {
                 <span className="ml-4 text-xs text-[#57534e]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>Paper Metrics Dashboard</span>
               </div>
               <div className="p-6 min-h-[300px] flex items-center justify-center">
-                <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full max-w-2xl">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="h-24 rounded-lg bg-[#0a0a09] border border-[#292524] flex items-center justify-center">
                       <span className="material-symbols-rounded text-3xl text-[#5eead4]/20">analytics</span>

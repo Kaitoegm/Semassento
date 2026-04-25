@@ -23,6 +23,18 @@ const VIS_ICONS = {
   )
 }
 
+function useIsDark() {
+  const [dark, setDark] = useState(document.documentElement.classList.contains('dark'))
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+  return dark
+}
+
 async function generateData(distribution, n, params) {
   const res = await fetch(`${API_URL}/api/data/generate`, {
     method: 'POST',
@@ -37,6 +49,7 @@ export default function Visualizations() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const isDark = useIsDark()
 
   useEffect(() => {
     const load = async () => {
@@ -61,22 +74,29 @@ export default function Visualizations() {
   }, [])
 
   const themeColor = '#5eead4'
+  const textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'
+  const tickColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.35)'
+  const gridColor = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.06)'
+  const barSecondary = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'
+  const tooltipBg = isDark ? 'rgba(28, 28, 26, 0.9)' : 'rgba(255,255,255,0.95)'
+  const tooltipColor = isDark ? '#e7e5e4' : '#1c1917'
 
   const chartOpts = (title) => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      title: { 
-        display: true, 
-        text: title, 
-        font: { size: 11, weight: '900' }, 
-        color: 'rgba(255,255,255,0.5)',
+      title: {
+        display: true,
+        text: title,
+        font: { size: 11, weight: '900' },
+        color: textColor,
         padding: { bottom: 20 },
-        textTransform: 'none'
       },
       tooltip: {
-        backgroundColor: 'rgba(28, 28, 26, 0.9)',
+        backgroundColor: tooltipBg,
+        titleColor: tooltipColor,
+        bodyColor: tooltipColor,
         titleFont: { size: 11 },
         bodyFont: { size: 10 },
         padding: 12,
@@ -85,13 +105,13 @@ export default function Visualizations() {
       }
     },
     scales: {
-      x: { 
-        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
-        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 9 } } 
+      x: {
+        grid: { color: gridColor, drawBorder: false },
+        ticks: { color: tickColor, font: { size: 9 } }
       },
-      y: { 
-        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
-        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 9 } } 
+      y: {
+        grid: { color: gridColor, drawBorder: false },
+        ticks: { color: tickColor, font: { size: 9 } }
       },
     }
   })
@@ -113,8 +133,8 @@ export default function Visualizations() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-[60vh]">
-      <motion.div 
-        animate={{ rotate: 360 }} 
+      <motion.div
+        animate={{ rotate: 360 }}
         transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
         className="text-primary"
       >
@@ -125,7 +145,7 @@ export default function Visualizations() {
 
   if (error) return (
     <div className="flex items-center justify-center h-[60vh]">
-      <p className="text-stone-400 font-bold">{error}</p>
+      <p className="text-text-muted font-bold">{error}</p>
     </div>
   )
 
@@ -145,7 +165,7 @@ export default function Visualizations() {
     labels: ['Normal A', 'Normal B', 'Uniforme'],
     datasets: [
       { label: 'Média', data: stats ? [stats.normal1.mean, stats.normal2.mean, stats.uniform.mean] : [], backgroundColor: themeColor, borderRadius: 4 },
-      { label: 'Desvio Padrão', data: stats ? [stats.normal1.std, stats.normal2.std, stats.uniform.std] : [], backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 },
+      { label: 'Desvio Padrão', data: stats ? [stats.normal1.std, stats.normal2.std, stats.uniform.std] : [], backgroundColor: barSecondary, borderRadius: 4 },
     ]
   }
 
@@ -169,35 +189,33 @@ export default function Visualizations() {
 
   return (
     <div className="space-y-10">
-      <header>
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
-            Visualizações <span className="text-primary">Interativas</span>
-          </h1>
-          <p className="text-stone-400 max-w-2xl">Explore padrões e tendências nos seus dados científicos com gráficos de alta fidelidade.</p>
-        </motion.div>
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-text-main">
+          Visualizações <span className="text-primary">Interativas</span>
+        </h1>
+        <p className="text-sm text-text-muted font-medium max-w-2xl">Explore padrões e tendências nos seus dados científicos com gráficos de alta fidelidade.</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Distribuição Normal</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted">Distribuição Normal</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">
-            <Bar 
+            <Bar
               data={{
                 labels: hist.labels,
                 datasets: [{ label: 'Frequência', data: hist.counts, backgroundColor: themeColor, borderRadius: 2 }]
-              }} 
-              options={chartOpts('Histograma de Frequência')} 
+              }}
+              options={chartOpts('Histograma de Frequência')}
             />
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Função de Distribuição Acumulada</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted">Função de Distribuição Acumulada</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">
@@ -207,7 +225,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Análise Comparativa</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted">Análise Comparativa</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">
@@ -217,7 +235,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6 min-h-[350px] relative overflow-hidden">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Resumo de Estatísticas</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted">Resumo de Estatísticas</h3>
             <span className="text-primary/50">{VIS_ICONS.dots}</span>
           </div>
           <div className="space-y-4">
@@ -226,14 +244,14 @@ export default function Visualizations() {
               { label: 'Normal B', val: stats.normal2.mean.toFixed(1), sub: `± ${stats.normal2.std.toFixed(1)}` },
               { label: 'Uniforme', val: stats.uniform.mean.toFixed(1), sub: `± ${stats.uniform.std.toFixed(1)}` },
             ].map((stat, i) => (
-              <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group hover:border-primary/20 transition-all">
+              <div key={i} className="flex items-center justify-between p-4 bg-surface rounded-2xl border border-border-subtle group hover:border-primary/20 transition-all">
                 <div>
-                  <p className="text-[10px] font-bold text-stone-500">{stat.label}</p>
-                  <p className="text-2xl font-semibold text-white">{stat.val}</p>
+                  <p className="text-[10px] font-bold text-text-muted">{stat.label}</p>
+                  <p className="text-2xl font-semibold text-text-main">{stat.val}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-primary">Desvio Padrão</p>
-                  <p className="text-sm font-mono text-stone-400">{stat.sub}</p>
+                  <p className="text-sm font-mono text-text-muted">{stat.sub}</p>
                 </div>
               </div>
             ))}
@@ -242,7 +260,7 @@ export default function Visualizations() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 min-h-[350px]">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Dispersão Bidimensional</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted">Dispersão Bidimensional</h3>
             <span className="text-primary/50">{VIS_ICONS.chart}</span>
           </div>
           <div className="h-64">

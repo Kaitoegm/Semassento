@@ -61,10 +61,10 @@ export default function PowerCalculator() {
           animate={{ opacity: 1, x: 0 }}
           className="relative z-10"
         >
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
-            Calculadora de <span className="text-primary">Poder</span>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text-main">
+            Calculadora de Poder
           </h1>
-          <p className="text-stone-400 max-w-2xl">Determine o tamanho da amostra ideal para garantir a validade estatística do seu estudo.</p>
+          <p className="text-sm text-text-muted font-medium mt-2">Determine o tamanho da amostra ideal para garantir a validade estatística do seu estudo.</p>
         </motion.div>
       </header>
 
@@ -72,7 +72,7 @@ export default function PowerCalculator() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-2 glass-card p-8 relative overflow-hidden"
+          className="lg:col-span-2 glass-card p-5 sm:p-8 relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] -mr-32 -mt-32"></div>
           
@@ -83,46 +83,46 @@ export default function PowerCalculator() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-[11px] font-bold tracking-wider text-stone-500 block">Tipo de Análise</label>
+              <label className="text-[11px] font-bold tracking-wider text-text-muted block">Tipo de Análise</label>
               <select 
                 value={form.type} 
                 onChange={e => set('type', e.target.value)} 
-                className="w-full bg-white/5 border border-white/10 rounded-xl text-sm font-semibold py-4 px-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none cursor-pointer"
+                className="w-full bg-surface border border-border-subtle rounded-xl text-sm font-semibold py-4 px-4 text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none cursor-pointer"
               >
                 {types.map(t => <option key={t.value} value={t.value} className="bg-stone-900">{t.label}</option>)}
               </select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-bold tracking-wider text-stone-500 block">Nível de Significância (α)</label>
+              <label className="text-[11px] font-bold tracking-wider text-text-muted block">Nível de Significância (α)</label>
               <input 
                 type="number" 
                 value={form.alpha} 
                 onChange={e => set('alpha', e.target.value)} 
                 step="0.01" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl text-sm font-mono py-4 px-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" 
+                className="w-full bg-surface border border-border-subtle rounded-xl text-sm font-mono py-4 px-4 text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" 
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-bold tracking-wider text-stone-500 block">Poder Estatístico (1 - β)</label>
+              <label className="text-[11px] font-bold tracking-wider text-text-muted block">Poder Estatístico (1 - β)</label>
               <input 
                 type="number" 
                 value={form.power} 
                 onChange={e => set('power', e.target.value)} 
                 step="0.05" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl text-sm font-mono py-4 px-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" 
+                className="w-full bg-surface border border-border-subtle rounded-xl text-sm font-mono py-4 px-4 text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" 
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-bold tracking-wider text-stone-500 block">Tamanho do Efeito (Cohen's d)</label>
+              <label className="text-[11px] font-bold tracking-wider text-text-muted block">Tamanho do Efeito (Cohen's d)</label>
               <input 
                 type="number" 
                 value={form.effect} 
                 onChange={e => set('effect', e.target.value)} 
                 step="0.1" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl text-sm font-mono py-4 px-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" 
+                className="w-full bg-surface border border-border-subtle rounded-xl text-sm font-mono py-4 px-4 text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" 
               />
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function PowerCalculator() {
             <button 
               onClick={calculate} 
               disabled={loading} 
-              className="bg-primary hover:bg-primary-hover text-stone-900 px-10 py-4 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-3 disabled:opacity-50 group"
+              className="bg-primary hover:bg-primary-hover text-white dark:text-accent px-10 py-4 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-3 disabled:opacity-50 group"
             >
               <span className={`${loading ? 'animate-spin' : 'group-hover:rotate-12 transition-transform'}`}>
                 {CALCULATOR_ICONS.calculate}
@@ -141,7 +141,7 @@ export default function PowerCalculator() {
             
             <button 
               onClick={() => { setForm({ type: 'two-sample', alpha: '0.05', power: '0.80', effect: '0.50' }); setResult(null); }} 
-              className="bg-white/5 text-stone-300 px-10 py-4 rounded-xl font-bold hover:bg-white/10 border border-white/10 transition-all active:scale-95 flex items-center gap-3"
+              className="bg-surface text-stone-300 px-10 py-4 rounded-xl font-bold hover:bg-white/10 border border-border-subtle transition-all active:scale-95 flex items-center gap-3"
             >
               <span>{CALCULATOR_ICONS.refresh}</span> 
               Resetar
@@ -153,7 +153,7 @@ export default function PowerCalculator() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`glass-card p-10 text-center relative overflow-hidden group transition-all duration-500 ${result ? 'border-primary/50' : ''}`}
+            className={`glass-card p-6 sm:p-10 text-center relative overflow-hidden group transition-all duration-500 ${result ? 'border-primary/50' : ''}`}
           >
             {result && (
               <motion.div 
@@ -163,7 +163,7 @@ export default function PowerCalculator() {
               />
             )}
             
-            <p className="text-[10px] font-semibold tracking-wide text-stone-500 mb-6 underline decoration-primary/30 underline-offset-8">Amostra Recomendada</p>
+            <p className="text-[10px] font-semibold tracking-wide text-text-muted mb-6 underline decoration-primary/30 underline-offset-8">Amostra Recomendada</p>
             
             <div className="relative inline-block">
               <AnimatePresence mode="wait">
@@ -172,17 +172,17 @@ export default function PowerCalculator() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className={`text-7xl font-semibold ${result ? 'text-primary' : 'text-white/10'}`}
+                  className={`text-5xl sm:text-7xl font-semibold ${result ? 'text-primary' : 'text-text-main/10'}`}
                 >
                   {result?.error ? 'Erro' : (result?.total || '--')}
                 </motion.p>
               </AnimatePresence>
             </div>
 
-            <p className="text-[10px] font-bold text-stone-400 mt-8 tracking-wide leading-relaxed max-w-[200px] mx-auto">
+            <p className="text-[10px] font-bold text-text-muted mt-8 tracking-wide leading-relaxed max-w-[200px] mx-auto">
               {result?.n1 ? (
                 <>
-                  Participantes por braço: <span className="text-white ml-1">{result.n1}</span>
+                  Participantes por braço: <span className="text-text-main ml-1">{result.n1}</span>
                 </>
               ) : result?.total ? (
                 <>
@@ -211,10 +211,10 @@ export default function PowerCalculator() {
               ].map((e, idx) => (
                 <div key={e.label} className="group cursor-help">
                   <div className="flex justify-between items-end text-[11px] mb-3 font-bold tracking-wider">
-                    <span className="text-stone-400 group-hover:text-white transition-colors">{e.label}</span>
-                    <span className="font-mono text-stone-500">d = {e.d.toFixed(2)}</span>
+                    <span className="text-text-muted group-hover:text-text-main transition-colors">{e.label}</span>
+                    <span className="font-mono text-text-muted">d = {e.d.toFixed(2)}</span>
                   </div>
-                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${(e.d / 1.0) * 100}%` }}
@@ -226,8 +226,8 @@ export default function PowerCalculator() {
               ))}
             </div>
             
-            <div className="mt-8 pt-6 border-t border-white/5">
-              <p className="text-[9px] text-stone-500 leading-relaxed italic">
+            <div className="mt-8 pt-6 border-t border-border-subtle">
+              <p className="text-[9px] text-text-muted leading-relaxed italic">
                 * Cálculos executados pelo motor statsmodels (TTestIndPower). Amostras maiores reduzem o risco de erro Tipo II.
               </p>
             </div>

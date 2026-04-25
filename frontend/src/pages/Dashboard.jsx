@@ -320,9 +320,9 @@ function getTestTypeBadge(testLabel) {
     return { label: 'Pareado', bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' }
   }
   if (label.includes('shapiro') || label.includes('levene') || label.includes('normalidade')) {
-    return { label: 'Normalidade', bg: 'bg-stone-500/15', text: 'text-stone-400', border: 'border-stone-500/30' }
+    return { label: 'Normalidade', bg: 'bg-stone-500/15', text: 'text-text-muted', border: 'border-stone-500/30' }
   }
-  return { label: 'Teste', bg: 'bg-stone-700/40', text: 'text-stone-400', border: 'border-stone-600/30' }
+  return { label: 'Teste', bg: 'bg-stone-700/40', text: 'text-text-muted', border: 'border-stone-600/30' }
 }
 
 // Helper: determine if p-value is N/A for a given test type
@@ -1130,14 +1130,9 @@ export default function Dashboard() {
       </AnimatePresence>
 
 
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Paper <span className="text-primary">Metrics</span></h1>
-            <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/30 mt-2">Cloud Sync</span>
-          </div>
-          <p className="text-stone-500 font-medium mt-2 max-w-md">Consultoria Estatística Inteligente e Inferência Clínica.</p>
-        </motion.div>
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-text-main">Painel de Análise</h1>
+        <p className="text-sm text-text-muted font-medium">Envie seus dados e receba análises estatísticas completas com interpretação automática.</p>
       </header>
       
       {/* Resumo de Ensaios Clínicos */}
@@ -1148,16 +1143,16 @@ export default function Dashboard() {
           className="grid grid-cols-1 md:grid-cols-3 gap-6"
         >
           {trials.slice(0,3).map((t, i) => (
-             <div key={i} className="glass-card p-6 rounded-xl border border-white/5 relative overflow-hidden group">
+             <div key={i} className="glass-card p-6 rounded-xl border border-border-subtle relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <span className="material-symbols-rounded text-6xl">clinical_notes</span>
                 </div>
                 <p className="text-[9px] font-semibold tracking-wide text-primary mb-2">Fase {t.phase} • {t.status}</p>
-                <h4 className="text-sm font-bold text-white mb-4 line-clamp-2 leading-tight">{t.title}</h4>
+                <h4 className="text-sm font-bold text-text-main mb-4 line-clamp-2 leading-tight">{t.title}</h4>
                 <div className="flex items-end justify-between mt-auto">
                     <div>
-                        <p className="text-[10px] font-bold text-stone-500">Recrutamento</p>
-                        <p className="text-lg font-semibold text-white">{t.n_actual} <span className="text-[10px] text-stone-600">/ {t.n_target}</span></p>
+                        <p className="text-[10px] font-bold text-text-muted">Recrutamento</p>
+                        <p className="text-lg font-semibold text-text-main">{t.n_actual} <span className="text-[10px] text-text-muted">/ {t.n_target}</span></p>
                     </div>
                     <div className="w-12 h-12 rounded-full border-2 border-primary/20 flex items-center justify-center text-[10px] font-semibold text-primary">
                         {Math.round((t.n_actual / t.n_target)*100)}%
@@ -1177,7 +1172,7 @@ export default function Dashboard() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`glass-card rounded-xl p-20 border-2 transition-all flex flex-col items-center text-center relative overflow-hidden ${isDragging ? 'border-primary bg-primary/5' : 'border-primary/10'}`}
+              className={`glass-card rounded-xl p-8 sm:p-20 border-2 transition-all flex flex-col items-center text-center relative overflow-hidden ${isDragging ? 'border-primary bg-primary/5' : 'border-primary/10'}`}
             >
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
 
@@ -1187,7 +1182,7 @@ export default function Dashboard() {
                     <motion.div className="absolute inset-0 rounded-full border-2 border-primary/30" animate={{ scale: [1, 1.5], opacity: [0.5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} />
                     <span className="material-symbols-rounded text-primary text-3xl">analytics</span>
                   </motion.div>
-                  <p className="text-stone-300 font-medium">A Máquina está analisando o seu protocolo...</p>
+                  <p className="text-text-main font-medium">A Máquina está analisando o seu protocolo...</p>
                   <motion.div className="flex gap-1 mt-4">
                     {[0, 1, 2].map(i => (
                       <motion.div key={i} className="w-2 h-2 bg-primary rounded-full" animate={{ y: [0, -8, 0], opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }} />
@@ -1204,13 +1199,13 @@ export default function Dashboard() {
                   />
                   <motion.div 
                     onClick={() => fileInputRef.current.click()} 
-                    className="cursor-pointer w-28 h-28 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl flex items-center justify-center text-primary relative border border-primary/20"
+                    className="cursor-pointer w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl flex items-center justify-center text-primary relative border border-primary/20"
                     whileHover={{ scale: 1.1, rotate: 3 }}
                     whileTap={{ scale: 0.95 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   >
                     <motion.span 
-                      className="material-symbols-rounded text-6xl"
+                      className="material-symbols-rounded text-4xl sm:text-6xl"
                       animate={{ y: [0, -6, 0] }}
                       transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                     >
@@ -1226,7 +1221,7 @@ export default function Dashboard() {
                   </motion.div>
                 </div>
                 <motion.h3 
-                  className="text-2xl font-semibold text-white tracking-tight"
+                  className="text-xl sm:text-2xl font-semibold text-text-main tracking-tight"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
@@ -1234,7 +1229,7 @@ export default function Dashboard() {
                   Envie seu arquivo
                 </motion.h3>
                 <motion.p 
-                  className="text-stone-500 font-medium text-sm mt-3 px-4 max-w-sm"
+                  className="text-text-muted font-medium text-sm mt-3 px-4 max-w-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
@@ -1249,7 +1244,7 @@ export default function Dashboard() {
                 >
                   <span className="px-3 py-1.5 bg-primary/5 rounded-full text-[9px] font-semibold tracking-wide text-primary/70 border border-primary/10">CSV</span>
                   <span className="px-3 py-1.5 bg-primary/5 rounded-full text-[9px] font-semibold tracking-wide text-primary/70 border border-primary/10">XLSX</span>
-                  <span className="px-3 py-1.5 bg-white/5 rounded-full text-[9px] font-semibold tracking-wide text-stone-500 border border-white/5">Máx 50MB</span>
+                  <span className="px-3 py-1.5 bg-surface rounded-full text-[9px] font-semibold tracking-wide text-text-muted border border-border-subtle">Máx 50MB</span>
                 </motion.div>
                 <motion.button 
                   onClick={() => fileInputRef.current.click()} 
@@ -1271,16 +1266,16 @@ export default function Dashboard() {
                   <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                     <span className="material-symbols-rounded text-3xl">dataset</span>
                   </div>
-                  <button onClick={() => setFileData(null)} className="text-stone-500 hover:text-stone-400">
+                  <button onClick={() => setFileData(null)} className="text-text-muted hover:text-text-muted">
                     <span className="material-symbols-rounded text-xl">close</span>
                   </button>
                 </div>
-                <h4 className="text-lg font-semibold text-white truncate">{fileData.filename}</h4>
+                <h4 className="text-lg font-semibold text-text-main truncate">{fileData.filename}</h4>
                 <p className="text-primary text-[10px] font-semibold tracking-wide mt-1 opacity-70">Arquivo Ativo</p>
                 
                 <AnimatePresence>
                   {descriptiveData && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 pt-6 border-t border-white/5">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 pt-6 border-t border-border-subtle">
                       <h5 className="text-[10px] font-semibold tracking-wide text-primary mb-4 flex items-center gap-2">
                         <span className="material-symbols-rounded text-sm">analytics</span>
                         Análise Descritiva Completa
@@ -1290,25 +1285,25 @@ export default function Dashboard() {
                           <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                               <thead>
-                                <tr className="border-b border-white/5">
-                                  <th className="text-left py-3 px-2 font-semibold text-stone-500 text-[9px] tracking-wide">Variável</th>
-                                  <th className="text-center py-3 px-2 font-semibold text-stone-500 text-[9px] tracking-wide">n</th>
-                                  <th className="text-right py-3 px-2 font-semibold text-stone-500 text-[9px] tracking-wide">Média ± DP</th>
+                                <tr className="border-b border-border-subtle">
+                                  <th className="text-left py-3 px-2 font-semibold text-text-muted text-[9px] tracking-wide">Variável</th>
+                                  <th className="text-center py-3 px-2 font-semibold text-text-muted text-[9px] tracking-wide">n</th>
+                                  <th className="text-right py-3 px-2 font-semibold text-text-muted text-[9px] tracking-wide">Média ± DP</th>
                                   <th className="text-right py-3 px-2 font-semibold text-primary text-[9px] tracking-wide">Mediana (IQR)</th>
-                                  <th className="text-right py-3 px-2 font-semibold text-stone-500 text-[9px] tracking-wide">Min – Max</th>
-                                  <th className="text-right py-3 px-2 font-semibold text-stone-500 text-[9px] tracking-wide">Assimetria</th>
+                                  <th className="text-right py-3 px-2 font-semibold text-text-muted text-[9px] tracking-wide">Min – Max</th>
+                                  <th className="text-right py-3 px-2 font-semibold text-text-muted text-[9px] tracking-wide">Assimetria</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-white/5">
                                 {Object.entries(descriptiveData.descriptive_stats).map(([col, s]) => (
                                   <tr key={col} className="hover:bg-primary/5 transition-colors group">
-                                    <td className="py-3 px-2 font-bold text-white group-hover:text-primary text-xs truncate max-w-[150px]">{col}</td>
-                                    <td className="py-3 px-2 text-center font-mono text-stone-400">{s.n}</td>
-                                    <td className="py-3 px-2 text-right font-mono text-stone-400">{s.mean} ± {s.std}</td>
+                                    <td className="py-3 px-2 font-bold text-text-main group-hover:text-primary text-xs truncate max-w-[150px]">{col}</td>
+                                    <td className="py-3 px-2 text-center font-mono text-text-muted">{s.n}</td>
+                                    <td className="py-3 px-2 text-right font-mono text-text-muted">{s.mean} ± {s.std}</td>
                                     <td className="py-3 px-2 text-right font-mono font-bold text-primary">{s.median_iqr}</td>
-                                    <td className="py-3 px-2 text-right font-mono text-stone-500">{s.min} – {s.max}</td>
+                                    <td className="py-3 px-2 text-right font-mono text-text-muted">{s.min} – {s.max}</td>
                                     <td className="py-3 px-2 text-right font-mono">
-                                      <span className={`${Math.abs(s.skewness) > 1 ? 'text-amber-400' : 'text-stone-500'}`}>
+                                      <span className={`${Math.abs(s.skewness) > 1 ? 'text-amber-400' : 'text-text-muted'}`}>
                                         {s.skewness}
                                       </span>
                                     </td>
@@ -1319,27 +1314,27 @@ export default function Dashboard() {
                           </div>
                           <div className="mt-4 flex gap-3 flex-wrap">
                             <span className="px-2 py-1 bg-primary/5 rounded-lg text-[8px] font-bold text-primary/70 border border-primary/10">IQR = Q3 - Q1</span>
-                            <span className="px-2 py-1 bg-white/5 rounded-lg text-[8px] font-bold text-stone-500 border border-white/5">|Assimetria| &gt; 1 = Não-normal</span>
-                            <span className="px-2 py-1 bg-white/5 rounded-lg text-[8px] font-bold text-stone-500 border border-white/5">Padrão: Mediana (IQR) para não-normais</span>
+                            <span className="px-2 py-1 bg-surface rounded-lg text-[8px] font-bold text-text-muted border border-border-subtle">|Assimetria| &gt; 1 = Não-normal</span>
+                            <span className="px-2 py-1 bg-surface rounded-lg text-[8px] font-bold text-text-muted border border-border-subtle">Padrão: Mediana (IQR) para não-normais</span>
                           </div>
                         </>
                       ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                            <p className="text-[9px] font-bold text-stone-500 tracking-wide">Mediana</p>
-                            <p className="text-lg font-semibold text-white mt-1">{descriptiveData.median?.toFixed(2)}</p>
+                            <p className="text-[9px] font-bold text-text-muted tracking-wide">Mediana</p>
+                            <p className="text-lg font-semibold text-text-main mt-1">{descriptiveData.median?.toFixed(2)}</p>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                            <p className="text-[9px] font-bold text-stone-500 tracking-wide">IQR</p>
-                            <p className="text-lg font-semibold text-white mt-1">{descriptiveData.iqr?.toFixed(2)}</p>
+                          <div className="p-4 bg-surface rounded-2xl border border-border-subtle">
+                            <p className="text-[9px] font-bold text-text-muted tracking-wide">IQR</p>
+                            <p className="text-lg font-semibold text-text-main mt-1">{descriptiveData.iqr?.toFixed(2)}</p>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                            <p className="text-[9px] font-bold text-stone-500 tracking-wide">Média ± DP</p>
-                            <p className="text-lg font-semibold text-white mt-1">{descriptiveData.mean?.toFixed(2)} ± {descriptiveData.std?.toFixed(2)}</p>
+                          <div className="p-4 bg-surface rounded-2xl border border-border-subtle">
+                            <p className="text-[9px] font-bold text-text-muted tracking-wide">Média ± DP</p>
+                            <p className="text-lg font-semibold text-text-main mt-1">{descriptiveData.mean?.toFixed(2)} ± {descriptiveData.std?.toFixed(2)}</p>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                            <p className="text-[9px] font-bold text-stone-500 tracking-wide">Mín – Máx</p>
-                            <p className="text-lg font-semibold text-white mt-1">{descriptiveData.min?.toFixed(2)} – {descriptiveData.max?.toFixed(2)}</p>
+                          <div className="p-4 bg-surface rounded-2xl border border-border-subtle">
+                            <p className="text-[9px] font-bold text-text-muted tracking-wide">Mín – Máx</p>
+                            <p className="text-lg font-semibold text-text-main mt-1">{descriptiveData.min?.toFixed(2)} – {descriptiveData.max?.toFixed(2)}</p>
                           </div>
                         </div>
                       )}
@@ -1353,18 +1348,18 @@ export default function Dashboard() {
             {!fileData && history.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8 space-y-4">
                 <div className="flex justify-between items-center px-4">
-                  <h3 className="text-[10px] font-semibold tracking-wide text-stone-500">Histórico Recente</h3>
+                  <h3 className="text-[10px] font-semibold tracking-wide text-text-muted">Histórico Recente</h3>
                   <Link to="/archive" className="text-[10px] font-bold text-primary hover:underline">Ver tudo</Link>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {history.slice(0, 4).map((h, i) => (
-                    <div key={i} className="glass-card p-4 rounded-xl flex items-center gap-4 hover:bg-white/5 transition-colors group">
+                    <div key={i} className="glass-card p-4 rounded-xl flex items-center gap-4 hover:bg-surface transition-colors group">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><span className="material-symbols-rounded text-xl">history</span></div>
                       <div className="flex-1 overflow-hidden">
-                        <p className="text-xs font-bold text-white truncate">{h.filename}</p>
-                        <p className="text-[9px] text-stone-500 truncate">Proc: {h.outcome || 'Indefinido'}</p>
+                        <p className="text-xs font-bold text-text-main truncate">{h.filename}</p>
+                        <p className="text-[9px] text-text-muted truncate">Proc: {h.outcome || 'Indefinido'}</p>
                       </div>
-                      <span className="text-[9px] font-mono text-stone-600">{new Date(h.created_at).toLocaleDateString()}</span>
+                      <span className="text-[9px] font-mono text-text-muted">{new Date(h.created_at).toLocaleDateString()}</span>
                     </div>
                   ))}
                 </div>
@@ -1386,7 +1381,7 @@ export default function Dashboard() {
         {results.length > 0 && (
           <motion.section initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="grid lg:grid-cols-12 gap-8 items-start">
             <div className="lg:col-span-12 glass-card rounded-xl overflow-hidden">
-              <div className="p-6 border-b border-white/5 bg-white/2">
+              <div className="p-4 sm:p-6 border-b border-border-subtle bg-surface">
                 {validationReport && (validationReport.missing_cells > 0 || validationReport.duplicates > 0 || (validationReport.warnings && validationReport.warnings.length > 0)) && (
                   <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
                     <span className="material-symbols-rounded text-amber-400 text-sm mt-0.5 shrink-0">warning</span>
@@ -1399,8 +1394,8 @@ export default function Dashboard() {
                 )}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                   <div>
-                    <h3 className="text-[11px] font-semibold tracking-wide text-stone-500">Relatório Consolidado</h3>
-                    <p className="text-[10px] text-stone-600 mt-1">Variáveis descritivas primeiro, seguidas por testes inferenciais</p>
+                    <h3 className="text-[11px] font-semibold tracking-wide text-text-muted">Relatório Consolidado</h3>
+                    <p className="text-[10px] text-text-muted mt-1">Variáveis descritivas primeiro, seguidas por testes inferenciais</p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[9px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">{results.length} testes executados</span>
@@ -1438,7 +1433,7 @@ export default function Dashboard() {
                     </button>
                     <button
                       onClick={exportResultsPDF}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-500/10 hover:bg-stone-500/20 text-stone-400 border border-stone-500/20 rounded-full text-[9px] font-semibold tracking-wide transition-all"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-500/10 hover:bg-stone-500/20 text-text-muted border border-stone-500/20 rounded-full text-[9px] font-semibold tracking-wide transition-all"
                       title="Exportar relatório para impressão / PDF"
                     >
                       <span className="material-symbols-rounded text-sm">print</span>
@@ -1446,7 +1441,7 @@ export default function Dashboard() {
                     </button>
                     <button
                       onClick={handleNewAnalysis}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border border-white/10 rounded-full text-[9px] font-semibold tracking-wide transition-all"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 text-text-muted hover:text-text-main border border-white/10 rounded-full text-[9px] font-semibold tracking-wide transition-all"
                       title="Iniciar nova análise"
                     >
                       <span className="material-symbols-rounded text-sm">add_circle</span>
@@ -1480,9 +1475,9 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface border border-border-subtle">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-                      <span className="text-[9px] font-semibold tracking-wide text-stone-500">{results.length} TESTES</span>
+                      <span className="text-[9px] font-semibold tracking-wide text-text-muted">{results.length} TESTES</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1493,7 +1488,7 @@ export default function Dashboard() {
                         Object.keys(expandedGroups).forEach(k => { newState[k] = !allExpanded })
                         setExpandedGroups(newState)
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white border border-white/10 rounded-full text-[9px] font-semibold tracking-wide transition-all"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 text-text-muted hover:text-text-main border border-white/10 rounded-full text-[9px] font-semibold tracking-wide transition-all"
                     >
                       <span className="material-symbols-rounded text-sm">{Object.values(expandedGroups).every(Boolean) ? 'unfold_less' : 'unfold_more'}</span>
                       {Object.values(expandedGroups).every(Boolean) ? 'Recolher' : 'Expandir'}
@@ -1504,11 +1499,11 @@ export default function Dashboard() {
 
               {sortedResults.length === 0 ? (
                 <div className="p-12 text-center">
-                  <span className="material-symbols-rounded text-4xl text-stone-600">inbox</span>
-                  <p className="text-sm text-stone-500 mt-3">Nenhum resultado nesta categoria.</p>
+                  <span className="material-symbols-rounded text-4xl text-text-muted">inbox</span>
+                  <p className="text-sm text-text-muted mt-3">Nenhum resultado nesta categoria.</p>
                 </div>
               ) : (
-                <div className="p-5 space-y-4">
+                <div className="p-3 sm:p-5 space-y-4">
                   {(() => {
                     const groups = [
                       { key: 'simpleDescriptive', label: 'Análises Descritivas', icon: 'monitoring', items: [] },
@@ -1562,10 +1557,10 @@ export default function Dashboard() {
                     }
 
                     const effectColor = (interp) => {
-                      if (!interp) return 'text-stone-500'
+                      if (!interp) return 'text-text-muted'
                       if (['Grande', 'Forte', 'Muito forte'].includes(interp)) return 'text-primary'
                       if (['Médio', 'Moderado'].includes(interp)) return 'text-amber-400'
-                      return 'text-stone-500'
+                      return 'text-text-muted'
                     }
 
                     /* ── Render: Descriptive card ── */
@@ -1586,11 +1581,11 @@ export default function Dashboard() {
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {r?.chart_data && (
-                              <button onClick={() => setChartModal({ open: true, data: r.chart_data, varName: varName(r.testLabel) })} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-primary/10 flex items-center justify-center text-stone-500 hover:text-primary transition-all">
+                              <button onClick={() => setChartModal({ open: true, data: r.chart_data, varName: varName(r.testLabel) })} className="w-8 h-8 rounded-lg bg-surface hover:bg-primary/10 flex items-center justify-center text-text-muted hover:text-primary transition-all">
                                 <span className="material-symbols-rounded text-sm">bar_chart</span>
                               </button>
                             )}
-                            <button onClick={() => copyApa(r)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${apaCopied === r.testLabel ? 'bg-primary/15 text-primary' : 'bg-white/5 text-stone-500 hover:text-text-main'}`}>
+                            <button onClick={() => copyApa(r)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${apaCopied === r.testLabel ? 'bg-primary/15 text-primary' : 'bg-surface text-text-muted hover:text-text-main'}`}>
                               <span className="material-symbols-rounded text-sm">{apaCopied === r.testLabel ? 'check' : 'content_copy'}</span>
                             </button>
                           </div>
@@ -1619,14 +1614,14 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               {r?.chart_data && (
-                                <button onClick={() => setChartModal({ open: true, data: r.chart_data, varName: varName(r.testLabel) })} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-primary/10 flex items-center justify-center text-stone-500 hover:text-primary transition-all">
+                                <button onClick={() => setChartModal({ open: true, data: r.chart_data, varName: varName(r.testLabel) })} className="w-8 h-8 rounded-lg bg-surface hover:bg-primary/10 flex items-center justify-center text-text-muted hover:text-primary transition-all">
                                   <span className="material-symbols-rounded text-sm">bar_chart</span>
                                 </button>
                               )}
-                              <button onClick={() => copyApa(r)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${apaCopied === r.testLabel ? 'bg-primary/15 text-primary' : 'bg-white/5 text-stone-500 hover:text-text-main'}`}>
+                              <button onClick={() => copyApa(r)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${apaCopied === r.testLabel ? 'bg-primary/15 text-primary' : 'bg-surface text-text-muted hover:text-text-main'}`}>
                                 <span className="material-symbols-rounded text-sm">{apaCopied === r.testLabel ? 'check' : 'content_copy'}</span>
                               </button>
-                              <button onClick={() => setDetailModal(r)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-stone-500 hover:text-text-main transition-all">
+                              <button onClick={() => setDetailModal(r)} className="w-8 h-8 rounded-lg bg-surface hover:bg-white/10 flex items-center justify-center text-text-muted hover:text-text-main transition-all">
                                 <span className="material-symbols-rounded text-sm">info</span>
                               </button>
                             </div>
@@ -1637,20 +1632,20 @@ export default function Dashboard() {
                             {!naForPval && r?.p_value != null && (
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-text-muted">p</span>
-                                <span className={`text-lg font-semibold font-mono tracking-tight ${isSig ? 'text-primary' : 'text-stone-500'}`}>
+                                <span className={`text-lg font-semibold font-mono tracking-tight ${isSig ? 'text-primary' : 'text-text-muted'}`}>
                                   {r.p_value < 0.001 ? '<.001' : r.p_value.toFixed(3)}
                                 </span>
-                                <span className={`text-xs font-semibold ${isSig ? 'text-primary' : 'text-stone-600'}`}>{significance(r.p_value)}</span>
+                                <span className={`text-xs font-semibold ${isSig ? 'text-primary' : 'text-text-muted'}`}>{significance(r.p_value)}</span>
                               </div>
                             )}
                             {r?.statistic != null && (
-                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface">
                                 <span className="text-[10px] text-text-muted">Stat</span>
                                 <span className="text-xs font-mono font-semibold text-text-main">{typeof r.statistic === 'number' ? r.statistic.toFixed(3) : r.statistic}</span>
                               </div>
                             )}
                             {es && (
-                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface">
                                 <span className="text-[10px] text-text-muted">{es.symbol}</span>
                                 <span className="text-xs font-mono font-semibold text-text-main">{es.value}</span>
                                 {r.effect_size?.interpretation && (
@@ -1659,22 +1654,22 @@ export default function Dashboard() {
                               </div>
                             )}
                             {r?.effect_size?.achieved_power != null && (
-                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface">
                                 <span className="text-[10px] text-text-muted">Poder</span>
-                                <span className={`text-xs font-mono font-semibold ${r.effect_size.achieved_power >= 0.8 ? 'text-primary' : 'text-stone-400'}`}>{(r.effect_size.achieved_power * 100).toFixed(0)}%</span>
+                                <span className={`text-xs font-mono font-semibold ${r.effect_size.achieved_power >= 0.8 ? 'text-primary' : 'text-text-muted'}`}>{(r.effect_size.achieved_power * 100).toFixed(0)}%</span>
                               </div>
                             )}
                           </div>
 
                           {/* Group stats */}
                           {r?.group_stats && r.group_stats.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/5">
+                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border-subtle">
                               {r.group_stats.map(g => (
-                                <div key={g.group} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-md border border-white/5">
+                                <div key={g.group} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-md border border-border-subtle">
                                   <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0"></span>
                                   <span className="text-[10px] font-semibold text-text-muted">{g.group}</span>
                                   <span className="text-[10px] font-mono text-text-main">N={g.n}</span>
-                                  {g.mean != null && <span className="text-[10px] font-mono text-stone-500">M={g.mean}</span>}
+                                  {g.mean != null && <span className="text-[10px] font-mono text-text-muted">M={g.mean}</span>}
                                 </div>
                               ))}
                             </div>
@@ -1682,7 +1677,7 @@ export default function Dashboard() {
 
                           {/* Interpretation */}
                           {r?.interpretation && (
-                            <p className="text-[11px] text-text-muted leading-relaxed mt-3 pt-3 border-t border-white/5">
+                            <p className="text-[11px] text-text-muted leading-relaxed mt-3 pt-3 border-t border-border-subtle">
                               {r.interpretation}
                             </p>
                           )}
@@ -1711,7 +1706,7 @@ export default function Dashboard() {
                         <div key={group.key} className={`rounded-xl border overflow-hidden transition-all ${isExpanded ? 'border-border-subtle bg-white/[0.01]' : 'border-border-subtle/50 hover:border-border-subtle'}`}>
                           <button onClick={() => toggleGroup(group.key)} className="w-full text-left px-5 py-4 flex items-center justify-between group">
                             <div className="flex items-center gap-4">
-                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isExpanded ? 'bg-primary/10 text-primary' : 'bg-white/5 text-stone-500 group-hover:text-stone-300'}`}>
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isExpanded ? 'bg-primary/10 text-primary' : 'bg-surface text-text-muted group-hover:text-text-main'}`}>
                                 <span className="material-symbols-rounded text-lg">{group.icon}</span>
                               </div>
                               <div>
@@ -1724,7 +1719,7 @@ export default function Dashboard() {
                                 </div>
                               </div>
                             </div>
-                            <motion.span className="material-symbols-rounded text-stone-500 text-lg" animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>expand_more</motion.span>
+                            <motion.span className="material-symbols-rounded text-text-muted text-lg" animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>expand_more</motion.span>
                           </button>
 
                           <AnimatePresence>
@@ -1769,15 +1764,15 @@ export default function Dashboard() {
                 <span className="material-symbols-rounded text-primary">analytics</span>
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-white italic">Insights <span className="text-primary">Premium</span></h2>
-                <p className="text-stone-500 text-[10px] font-bold tracking-wide">Análise de Redes e Detecção de Padrões Multivariados</p>
+                <h2 className="text-2xl font-semibold text-text-main italic">Insights <span className="text-primary">Premium</span></h2>
+                <p className="text-text-muted text-[10px] font-bold tracking-wide">Análise de Redes e Detecção de Padrões Multivariados</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Relatório Científico IA */}
               {premiumAnalysis.scientific_report && (
-                <div className="lg:col-span-12 p-1 rounded-xl bg-white/5 border border-white/10 mb-4">
+                <div className="lg:col-span-12 p-1 rounded-xl bg-surface border border-white/10 mb-4">
                   <div className="glass-card rounded-[2.9rem] p-10 h-full relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                       <span className="material-symbols-rounded text-8xl text-primary">history_edu</span>
@@ -1788,14 +1783,14 @@ export default function Dashboard() {
                         <span className="material-symbols-rounded text-primary">smart_toy</span>
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-white italic">Relatório Científico <span className="text-primary">IA</span></h3>
-                        <p className="text-[9px] font-semibold tracking-wide text-stone-500">Discussão acadêmica automática (Gemini 2.0 Flash)</p>
+                        <h3 className="text-lg font-semibold text-text-main italic">Relatório Científico <span className="text-primary">IA</span></h3>
+                        <p className="text-[9px] font-semibold tracking-wide text-text-muted">Discussão acadêmica automática (Gemini 2.0 Flash)</p>
                       </div>
                     </div>
 
                     <div className="prose prose-invert max-w-none">
-                      <div className="bg-white/[0.03] p-8 rounded-xl border border-white/5 shadow-inner">
-                        <div className="text-stone-300 leading-relaxed space-y-4 whitespace-pre-wrap font-medium">
+                      <div className="bg-white/[0.03] p-8 rounded-xl border border-border-subtle shadow-inner">
+                        <div className="text-text-main leading-relaxed space-y-4 whitespace-pre-wrap font-medium">
                           {premiumAnalysis.scientific_report}
                         </div>
                       </div>
@@ -1808,7 +1803,7 @@ export default function Dashboard() {
                           setApaCopied('Relatório IA')
                           setTimeout(() => setApaCopied(null), 2000)
                         }}
-                        className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-[10px] font-semibold tracking-wide text-stone-400 hover:text-white transition-all flex items-center gap-2"
+                        className="px-6 py-3 rounded-2xl bg-surface border border-white/10 hover:bg-white/10 text-[10px] font-semibold tracking-wide text-text-muted hover:text-text-main transition-all flex items-center gap-2"
                       >
                         <span className="material-symbols-rounded text-sm">content_copy</span>
                         {apaCopied === 'Relatório IA' ? 'Copiado!' : 'Copiar Discussão'}
@@ -1819,40 +1814,40 @@ export default function Dashboard() {
               )}
 
               {/* Super-Resumo Card */}
-              <div className="lg:col-span-12 p-1 rounded-xl bg-white/5 overflow-hidden">
+              <div className="lg:col-span-12 p-1 rounded-xl bg-surface overflow-hidden">
                 <div className="glass-card rounded-[2.9rem] p-10 h-full">
                   <div className="flex items-center gap-2 mb-6">
                     <span className="material-symbols-rounded text-primary text-xl">auto_awesome</span>
-                    <h3 className="text-sm font-semibold tracking-wide text-white">Super-Resumo de Evidência</h3>
+                    <h3 className="text-sm font-semibold tracking-wide text-text-main">Super-Resumo de Evidência</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                     <div className="space-y-6">
-                      <p className="text-sm leading-relaxed text-stone-300 italic">
+                      <p className="text-sm leading-relaxed text-text-main italic">
                         "{premiumAnalysis.summary?.interpretation || 'Aguardando processamento interpretativo...'}"
                       </p>
                       <div className="flex flex-wrap gap-4">
-                        <div className="px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
-                          <p className="text-[9px] font-bold text-stone-500">Total de Evidências</p>
-                          <p className="text-xl font-semibold text-white">{premiumAnalysis.results?.length || 0}</p>
+                        <div className="px-4 py-2 bg-surface rounded-2xl border border-border-subtle">
+                          <p className="text-[9px] font-bold text-text-muted">Total de Evidências</p>
+                          <p className="text-xl font-semibold text-text-main">{premiumAnalysis.results?.length || 0}</p>
                         </div>
                         <div className="px-4 py-2 bg-primary/10 rounded-2xl border border-primary/20">
                           <p className="text-[9px] font-bold text-primary">Sig. Alta</p>
-                          <p className="text-xl font-semibold text-white">
+                          <p className="text-xl font-semibold text-text-main">
                             {premiumAnalysis.results?.filter(r => r.p_value < 0.01).length || 0}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                      <h4 className="text-[10px] font-semibold tracking-wide text-stone-400 mb-4">Métricas de Confiabilidade</h4>
+                    <div className="bg-black/20 rounded-xl p-6 border border-border-subtle">
+                      <h4 className="text-[10px] font-semibold tracking-wide text-text-muted mb-4">Métricas de Confiabilidade</h4>
                       <div className="space-y-4">
                         {premiumAnalysis.summary?.evidence_strength && (
                           <div className="space-y-1">
                             <div className="flex justify-between text-[10px] font-bold">
-                              <span className="text-stone-500">Força da Evidência</span>
+                              <span className="text-text-muted">Força da Evidência</span>
                               <span className="text-primary">{Math.round(premiumAnalysis.summary.evidence_strength * 100)}%</span>
                             </div>
-                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-1.5 w-full bg-surface rounded-full overflow-hidden">
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${premiumAnalysis.summary.evidence_strength * 100}%` }}
@@ -1862,7 +1857,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                         )}
-                        <p className="text-[10px] text-stone-500 leading-relaxed">
+                        <p className="text-[10px] text-text-muted leading-relaxed">
                           A força da evidência é calculada com base na consistência dos p-valores e na magnitude dos tamanhos de efeito em todo o dataset.
                         </p>
                       </div>
@@ -1876,37 +1871,37 @@ export default function Dashboard() {
                 <div key={idx} className="lg:col-span-6 group">
                   <motion.div 
                     whileHover={{ y: -8 }}
-                    className="glass-card rounded-xl p-8 h-full border border-white/5 hover:border-primary/30 transition-all flex flex-col"
+                    className="glass-card rounded-xl p-8 h-full border border-border-subtle hover:border-primary/30 transition-all flex flex-col"
                   >
                     <div className="flex justify-between items-start mb-6">
                       <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                         <span className="material-symbols-rounded text-2xl">insights</span>
                       </div>
                       <div className="text-right">
-                        <p className={`text-xl font-semibold stat-p-value ${r.p_value < 0.05 ? 'stat-p-significant' : 'text-stone-600'}`}>
+                        <p className={`text-xl font-semibold stat-p-value ${r.p_value < 0.05 ? 'stat-p-significant' : 'text-text-muted'}`}>
                           p = {r.p_value < 0.001 ? '<.001' : r.p_value.toFixed(4)}
                         </p>
-                        <p className="text-[9px] font-semibold tracking-wide text-stone-500 mt-1">{r.label}</p>
+                        <p className="text-[9px] font-semibold tracking-wide text-text-muted mt-1">{r.label}</p>
                       </div>
                     </div>
                     
-                    <h4 className="text-white font-semibold text-lg mb-4">{r.insight_label || 'Análise de Componente'}</h4>
-                    <p className="text-xs text-stone-400 leading-relaxed mb-6 flex-1">
+                    <h4 className="text-text-main font-semibold text-lg mb-4">{r.insight_label || 'Análise de Componente'}</h4>
+                    <p className="text-xs text-text-muted leading-relaxed mb-6 flex-1">
                       {r.interpretation}
                     </p>
 
-                    <div className="pt-6 border-t border-white/5 flex items-center justify-between">
+                    <div className="pt-6 border-t border-border-subtle flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="px-3 py-1 bg-white/5 rounded-full border border-white/5">
-                          <span className="text-[9px] font-bold text-stone-500">Stat: </span>
-                          <span className="text-[9px] font-semibold text-white font-mono">{r.statistic.toFixed(2)}</span>
+                        <div className="px-3 py-1 bg-surface rounded-full border border-border-subtle">
+                          <span className="text-[9px] font-bold text-text-muted">Stat: </span>
+                          <span className="text-[9px] font-semibold text-text-main font-mono">{r.statistic.toFixed(2)}</span>
                         </div>
                         <div className="px-3 py-1 bg-primary/5 rounded-full border border-primary/20">
                           <span className="text-[9px] font-bold text-primary">Ef: </span>
-                          <span className="text-[9px] font-semibold text-white font-mono">{r.effect_size.toFixed(2)}</span>
+                          <span className="text-[9px] font-semibold text-text-main font-mono">{r.effect_size.toFixed(2)}</span>
                         </div>
                       </div>
-                      <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-stone-500 group-hover:text-primary transition-colors">
+                      <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-text-muted group-hover:text-primary transition-colors">
                         <span className="material-symbols-rounded text-sm">trending_up</span>
                       </div>
                     </div>
@@ -1955,21 +1950,21 @@ export default function Dashboard() {
                           <span className="material-symbols-rounded text-teal-300 text-2xl">science</span>
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-white">{exp.title}</h3>
-                          <p className="text-xs text-stone-500 font-medium">Guia do Teste Estatístico</p>
+                          <h3 className="text-lg font-semibold text-text-main">{exp.title}</h3>
+                          <p className="text-xs text-text-muted font-medium">Guia do Teste Estatístico</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="px-6 pb-6 space-y-4">
-                      <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                      <div className="p-4 rounded-2xl bg-surface border border-border-subtle">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="w-5 h-5 rounded-lg bg-blue-500/20 flex items-center justify-center">
                             <span className="material-symbols-rounded text-blue-400 text-xs">lightbulb</span>
                           </span>
                           <h4 className="text-xs font-bold text-blue-400 tracking-wider">O que é?</h4>
                         </div>
-                        <p className="text-sm text-stone-300 leading-relaxed">{exp.what}</p>
+                        <p className="text-sm text-text-main leading-relaxed">{exp.what}</p>
                       </div>
 
                       <div className="p-4 rounded-2xl bg-teal-400/5 border border-teal-400/10">
@@ -1979,7 +1974,7 @@ export default function Dashboard() {
                           </span>
                           <h4 className="text-xs font-bold text-teal-300 tracking-wider">Quando usar</h4>
                         </div>
-                        <p className="text-sm text-stone-300 leading-relaxed">{exp.when}</p>
+                        <p className="text-sm text-text-main leading-relaxed">{exp.when}</p>
                       </div>
 
                       <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/10">
@@ -1989,7 +1984,7 @@ export default function Dashboard() {
                           </span>
                           <h4 className="text-xs font-bold text-purple-400 tracking-wider">Exemplo</h4>
                         </div>
-                        <p className="text-sm text-stone-300 leading-relaxed">{exp.example}</p>
+                        <p className="text-sm text-text-main leading-relaxed">{exp.example}</p>
                       </div>
 
                       <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
@@ -1999,14 +1994,14 @@ export default function Dashboard() {
                           </span>
                           <h4 className="text-xs font-bold text-amber-400 tracking-wider">Pressupostos</h4>
                         </div>
-                        <p className="text-sm text-stone-400 leading-relaxed">{exp.assumption}</p>
+                        <p className="text-sm text-text-muted leading-relaxed">{exp.assumption}</p>
                       </div>
                     </div>
 
                     <div className="px-6 pb-6">
                       <button
                         onClick={() => setTestExplanationModal(null)}
-                        className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm rounded-2xl transition-all flex items-center justify-center gap-2"
+                        className="w-full py-3.5 bg-surface hover:bg-white/10 border border-white/10 text-text-main font-bold text-sm rounded-2xl transition-all flex items-center justify-center gap-2"
                       >
                         <span className="material-symbols-rounded text-lg">close</span>
                         Entendi!
@@ -2032,9 +2027,9 @@ export default function Dashboard() {
               className="glass-card max-w-2xl w-full max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10"
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">{detailModal.testLabel}</h3>
-                <button onClick={() => setDetailModal(null)} className="text-stone-500 hover:text-white transition-colors">
+              <div className="p-6 border-b border-border-subtle flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-main">{detailModal.testLabel}</h3>
+                <button onClick={() => setDetailModal(null)} className="text-text-muted hover:text-text-main transition-colors">
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
@@ -2044,41 +2039,41 @@ export default function Dashboard() {
                     <p className="text-[10px] font-semibold tracking-wider text-primary mb-2 flex items-center gap-2">
                       <span className="material-symbols-rounded text-sm">auto_awesome</span> Interpretação
                     </p>
-                    <p className="text-xs leading-relaxed text-stone-300">{detailModal.interpretation}</p>
+                    <p className="text-xs leading-relaxed text-text-main">{detailModal.interpretation}</p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-1">Estatística</p>
-                    <p className="text-lg font-semibold text-white font-mono">{detailModal.statistic != null ? detailModal.statistic : '—'}</p>
+                  <div className="p-3 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-1">Estatística</p>
+                    <p className="text-lg font-semibold text-text-main font-mono">{detailModal.statistic != null ? detailModal.statistic : '—'}</p>
                   </div>
-                  <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-1"><StatTooltip term="p-valor">P-valor</StatTooltip></p>
-                    <p className={`text-lg font-semibold font-mono ${detailModal.p_value != null && detailModal.p_value < 0.05 ? 'text-primary' : 'text-stone-400'}`}>
+                  <div className="p-3 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-1"><StatTooltip term="p-valor">P-valor</StatTooltip></p>
+                    <p className={`text-lg font-semibold font-mono ${detailModal.p_value != null && detailModal.p_value < 0.05 ? 'text-primary' : 'text-text-muted'}`}>
                       {detailModal.p_value != null ? (detailModal.p_value < 0.001 ? '<0.001' : detailModal.p_value.toFixed(4)) : '—'}
                     </p>
                   </div>
                 </div>
 
                 {detailModal.effect_size && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-2"><StatTooltip term="effect_size">Tamanho do Efeito</StatTooltip></p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-2"><StatTooltip term="effect_size">Tamanho do Efeito</StatTooltip></p>
                     <div className="space-y-1">
                       {detailModal.effect_size.cohens_d != null && (
-                        <p className="text-xs text-stone-300"><StatTooltip term="cohens_d">d de Cohen</StatTooltip>: <span className="font-bold text-white">{detailModal.effect_size.cohens_d}</span> ({detailModal.effect_size.interpretation})</p>
+                        <p className="text-xs text-text-main"><StatTooltip term="cohens_d">d de Cohen</StatTooltip>: <span className="font-bold text-text-main">{detailModal.effect_size.cohens_d}</span> ({detailModal.effect_size.interpretation})</p>
                       )}
                       {detailModal.effect_size.eta_squared != null && (
-                        <p className="text-xs text-stone-300"><StatTooltip term="eta_squared">Eta²</StatTooltip>: <span className="font-bold text-white">{detailModal.effect_size.eta_squared}</span> ({detailModal.effect_size.interpretation})</p>
+                        <p className="text-xs text-text-main"><StatTooltip term="eta_squared">Eta²</StatTooltip>: <span className="font-bold text-text-main">{detailModal.effect_size.eta_squared}</span> ({detailModal.effect_size.interpretation})</p>
                       )}
                       {detailModal.effect_size.r_squared != null && (
-                        <p className="text-xs text-stone-300"><StatTooltip term="r_squared">R²</StatTooltip>: <span className="font-bold text-white">{detailModal.effect_size.r_squared}</span> ({detailModal.effect_size.interpretation})</p>
+                        <p className="text-xs text-text-main"><StatTooltip term="r_squared">R²</StatTooltip>: <span className="font-bold text-text-main">{detailModal.effect_size.r_squared}</span> ({detailModal.effect_size.interpretation})</p>
                       )}
                       {detailModal.effect_size.cramers_v != null && (
-                        <p className="text-xs text-stone-300"><StatTooltip term="cramers_v">V de Cramer</StatTooltip>: <span className="font-bold text-white">{detailModal.effect_size.cramers_v}</span> ({detailModal.effect_size.interpretation})</p>
+                        <p className="text-xs text-text-main"><StatTooltip term="cramers_v">V de Cramer</StatTooltip>: <span className="font-bold text-text-main">{detailModal.effect_size.cramers_v}</span> ({detailModal.effect_size.interpretation})</p>
                       )}
                       {detailModal.effect_size.achieved_power != null && (
-                        <p className={`text-xs font-bold ${detailModal.effect_size.achieved_power >= 0.8 ? 'text-teal-300' : 'text-stone-400'}`}>
+                        <p className={`text-xs font-bold ${detailModal.effect_size.achieved_power >= 0.8 ? 'text-teal-300' : 'text-text-muted'}`}>
                           <StatTooltip term="power">Poder estatístico</StatTooltip>: {(detailModal.effect_size.achieved_power * 100).toFixed(0)}%
                           {detailModal.effect_size.achieved_power < 0.8 && ' ⚠ Abaixo do ideal (80%)'}
                         </p>
@@ -2088,19 +2083,19 @@ export default function Dashboard() {
                 )}
 
                 {detailModal.ci && (
-                  <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-1"><StatTooltip term="ic95">Intervalo de Confiança 95%</StatTooltip></p>
-                    <p className="text-xs text-stone-300 font-mono">[{detailModal.ci.ci_lower}, {detailModal.ci.ci_upper}] (SE={detailModal.ci.se})</p>
+                  <div className="p-3 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-1"><StatTooltip term="ic95">Intervalo de Confiança 95%</StatTooltip></p>
+                    <p className="text-xs text-text-main font-mono">[{detailModal.ci.ci_lower}, {detailModal.ci.ci_upper}] (SE={detailModal.ci.se})</p>
                   </div>
                 )}
 
                 {detailModal.odds_ratio && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-2"><StatTooltip term="odds_ratio">Odds Ratio & Risk Ratio</StatTooltip></p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-2"><StatTooltip term="odds_ratio">Odds Ratio & Risk Ratio</StatTooltip></p>
                     <div className="space-y-1">
-                      <p className="text-xs text-stone-300">OR: <span className="font-bold text-white">{detailModal.odds_ratio.odds_ratio}</span> (IC95%: {detailModal.odds_ratio.or_ci_95})</p>
+                      <p className="text-xs text-text-main">OR: <span className="font-bold text-text-main">{detailModal.odds_ratio.odds_ratio}</span> (IC95%: {detailModal.odds_ratio.or_ci_95})</p>
                       {detailModal.odds_ratio.risk_ratio != null && (
-                        <p className="text-xs text-stone-300">RR: <span className="font-bold text-white">{detailModal.odds_ratio.risk_ratio}</span> (IC95%: {detailModal.odds_ratio.rr_ci_95})</p>
+                        <p className="text-xs text-text-main">RR: <span className="font-bold text-text-main">{detailModal.odds_ratio.risk_ratio}</span> (IC95%: {detailModal.odds_ratio.rr_ci_95})</p>
                       )}
                       <p className="text-xs text-primary font-bold">{detailModal.odds_ratio.interpretation}</p>
                     </div>
@@ -2108,33 +2103,33 @@ export default function Dashboard() {
                 )}
 
                 {detailModal.logistic_regression && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-3">Regressão Logística</p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-3">Regressão Logística</p>
                     <div className="grid grid-cols-3 gap-3 mb-4">
                       <div className="p-2 bg-primary/5 rounded-lg text-center">
-                        <p className="text-[9px] text-stone-500 font-bold">Acurácia</p>
+                        <p className="text-[9px] text-text-muted font-bold">Acurácia</p>
                         <p className="text-lg font-semibold text-primary">{detailModal.logistic_regression.accuracy}%</p>
                       </div>
                       <div className="p-2 bg-primary/5 rounded-lg text-center">
-                        <p className="text-[9px] text-stone-500 font-bold">Pseudo-R²</p>
-                        <p className="text-lg font-semibold text-white">{detailModal.logistic_regression.pseudo_r2}</p>
+                        <p className="text-[9px] text-text-muted font-bold">Pseudo-R²</p>
+                        <p className="text-lg font-semibold text-text-main">{detailModal.logistic_regression.pseudo_r2}</p>
                       </div>
                       <div className="p-2 bg-primary/5 rounded-lg text-center">
-                        <p className="text-[9px] text-stone-500 font-bold">N</p>
-                        <p className="text-lg font-semibold text-white">{detailModal.logistic_regression.n_observations}</p>
+                        <p className="text-[9px] text-text-muted font-bold">N</p>
+                        <p className="text-lg font-semibold text-text-main">{detailModal.logistic_regression.n_observations}</p>
                       </div>
                     </div>
                     {detailModal.logistic_regression.predictors && detailModal.logistic_regression.predictors.length > 0 && (
                       <div>
-                        <p className="text-[9px] font-bold text-stone-500 mb-2">Preditores</p>
+                        <p className="text-[9px] font-bold text-text-muted mb-2">Preditores</p>
                         <div className="space-y-1">
                           {detailModal.logistic_regression.predictors.map((p, pi) => (
                             <div key={pi} className={`flex items-center justify-between text-xs p-2 rounded-lg ${p.significant ? 'bg-primary/10 border border-primary/20' : 'bg-white/3'}`}>
-                              <span className="text-stone-300 font-medium">{p.predictor}</span>
+                              <span className="text-text-main font-medium">{p.predictor}</span>
                               <div className="flex items-center gap-3">
-                                <span className="font-mono text-stone-400">OR={p.odds_ratio}</span>
-                                <span className="font-mono text-stone-400">p={p.p_value < 0.001 ? '<0.001' : p.p_value.toFixed(4)}</span>
-                                <span className={`text-[10px] font-semibold ${p.significant ? 'text-primary' : 'text-stone-600'}`}>{p.significant ? '✦ SIG' : 'ns'}</span>
+                                <span className="font-mono text-text-muted">OR={p.odds_ratio}</span>
+                                <span className="font-mono text-text-muted">p={p.p_value < 0.001 ? '<0.001' : p.p_value.toFixed(4)}</span>
+                                <span className={`text-[10px] font-semibold ${p.significant ? 'text-primary' : 'text-text-muted'}`}>{p.significant ? '✦ SIG' : 'ns'}</span>
                               </div>
                             </div>
                           ))}
@@ -2145,12 +2140,12 @@ export default function Dashboard() {
                 )}
 
                 {detailModal.contingency_table && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-3">Tabela de Contingência</p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-3">Tabela de Contingência</p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-[10px]">
                         <thead>
-                          <tr className="text-stone-500 border-b border-white/5">
+                          <tr className="text-text-muted border-b border-border-subtle">
                             <th className="text-left pb-2 font-semibold"></th>
                             {detailModal.contingency_table[0] && Object.keys(detailModal.contingency_table[0]).filter(k => k !== 'row_label' && k !== 'total' && k !== 'total_pct').map(k => (
                               <th key={k} className="text-right pb-2 font-semibold">{k}</th>
@@ -2160,12 +2155,12 @@ export default function Dashboard() {
                         </thead>
                         <tbody>
                           {detailModal.contingency_table.map((row, ri) => (
-                            <tr key={ri} className="border-b border-white/5">
-                              <td className="py-2 font-bold text-white">{row.row_label}</td>
+                            <tr key={ri} className="border-b border-border-subtle">
+                              <td className="py-2 font-bold text-text-main">{row.row_label}</td>
                               {Object.entries(row).filter(([k]) => k !== 'row_label' && k !== 'total' && k !== 'total_pct').map(([k, v]) => (
-                                <td key={k} className="py-2 text-right font-mono text-stone-300">{v.count} ({v.pct})</td>
+                                <td key={k} className="py-2 text-right font-mono text-text-main">{v.count} ({v.pct})</td>
                               ))}
-                              <td className="py-2 text-right font-mono text-white">{row.total} ({row.total_pct})</td>
+                              <td className="py-2 text-right font-mono text-text-main">{row.total} ({row.total_pct})</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2175,17 +2170,17 @@ export default function Dashboard() {
                 )}
 
                 {detailModal.post_hoc && detailModal.post_hoc.comparisons && detailModal.post_hoc.comparisons.length > 0 && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-2"><StatTooltip term="post_hoc">Testes Post-Hoc ({detailModal.post_hoc.method})</StatTooltip></p>
-                    <p className="text-[9px] text-stone-500 mb-2">α ajustado = {detailModal.post_hoc.alpha_adjustado} ({detailModal.post_hoc.n_comparisons} comparações)</p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-2"><StatTooltip term="post_hoc">Testes Post-Hoc ({detailModal.post_hoc.method})</StatTooltip></p>
+                    <p className="text-[9px] text-text-muted mb-2">α ajustado = {detailModal.post_hoc.alpha_adjustado} ({detailModal.post_hoc.n_comparisons} comparações)</p>
                     <div className="space-y-1">
                       {detailModal.post_hoc.comparisons.map((c, ci) => (
                         <div key={ci} className={`flex items-center justify-between text-xs p-2 rounded-lg ${c.significant ? 'bg-primary/10 border border-primary/20' : 'bg-white/3'}`}>
-                          <span className="text-stone-300 font-medium">{c.comparison}</span>
+                          <span className="text-text-main font-medium">{c.comparison}</span>
                           <div className="flex items-center gap-3">
-                            <span className="font-mono text-stone-400">p={c.p_value_bonferroni < 0.001 ? '<0.001' : c.p_value_bonferroni.toFixed(4)}</span>
-                            {c.cohens_d != null && <span className="text-[9px] text-stone-500">d={c.cohens_d}</span>}
-                            <span className={`text-[10px] font-semibold ${c.significant ? 'text-primary' : 'text-stone-600'}`}>{c.significant ? '✦ SIG' : 'ns'}</span>
+                            <span className="font-mono text-text-muted">p={c.p_value_bonferroni < 0.001 ? '<0.001' : c.p_value_bonferroni.toFixed(4)}</span>
+                            {c.cohens_d != null && <span className="text-[9px] text-text-muted">d={c.cohens_d}</span>}
+                            <span className={`text-[10px] font-semibold ${c.significant ? 'text-primary' : 'text-text-muted'}`}>{c.significant ? '✦ SIG' : 'ns'}</span>
                           </div>
                         </div>
                       ))}
@@ -2194,15 +2189,15 @@ export default function Dashboard() {
                 )}
 
                 {detailModal.assumptions && detailModal.assumptions.length > 0 && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-2">Verificação de Pressupostos</p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-2">Verificação de Pressupostos</p>
                     <div className="space-y-2">
                       {detailModal.assumptions.map((a, ai) => (
                         <div key={ai} className={`p-3 rounded-lg border ${a.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
                           <p className={`text-xs font-bold mb-1 ${a.severity === 'warning' ? 'text-amber-400' : 'text-blue-400'}`}>
                             {a.severity === 'warning' ? '⚠ Atenção' : 'ℹ Informação'}
                           </p>
-                          <p className="text-[11px] text-stone-300">{a.message}</p>
+                          <p className="text-[11px] text-text-main">{a.message}</p>
                           {a.recommendation && <p className="text-[10px] text-primary mt-1 font-bold">→ Sugestão: {a.recommendation}</p>}
                         </div>
                       ))}
@@ -2211,12 +2206,12 @@ export default function Dashboard() {
                 )}
 
                 {detailModal.group_stats && detailModal.group_stats.length > 0 && (
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-stone-500 mb-3">Estatísticas por Grupo</p>
+                  <div className="p-4 bg-surface rounded-xl border border-border-subtle">
+                    <p className="text-[9px] font-bold text-text-muted mb-3">Estatísticas por Grupo</p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-[10px]">
                         <thead>
-                          <tr className="text-stone-500 border-b border-white/5">
+                          <tr className="text-text-muted border-b border-border-subtle">
                             <th className="text-left pb-2 font-semibold">Grupo</th>
                             <th className="text-right pb-2 font-semibold">N</th>
                             <th className="text-right pb-2 font-semibold"><StatTooltip term="mediana">Mediana</StatTooltip></th>
@@ -2227,13 +2222,13 @@ export default function Dashboard() {
                         </thead>
                         <tbody>
                           {detailModal.group_stats.map((g, gi) => (
-                            <tr key={gi} className="border-b border-white/5">
-                              <td className="py-2 font-bold text-white">{g.group}</td>
-                              <td className="py-2 text-right text-stone-400">{g.n} {g.pct_of_total && <span className="text-stone-600">({g.pct_of_total})</span>}</td>
-                              <td className="py-2 text-right font-mono text-white">{g.median}</td>
-                              <td className="py-2 text-right font-mono text-stone-300">{g.mean} ± {g.std}</td>
-                              <td className="py-2 text-right font-mono text-stone-400">{g.iqr}</td>
-                              <td className="py-2 text-right font-mono text-stone-400">{g.ci_95 ? `[${g.ci_95.ci_lower}, ${g.ci_95.ci_upper}]` : '—'}</td>
+                            <tr key={gi} className="border-b border-border-subtle">
+                              <td className="py-2 font-bold text-text-main">{g.group}</td>
+                              <td className="py-2 text-right text-text-muted">{g.n} {g.pct_of_total && <span className="text-text-muted">({g.pct_of_total})</span>}</td>
+                              <td className="py-2 text-right font-mono text-text-main">{g.median}</td>
+                              <td className="py-2 text-right font-mono text-text-main">{g.mean} ± {g.std}</td>
+                              <td className="py-2 text-right font-mono text-text-muted">{g.iqr}</td>
+                              <td className="py-2 text-right font-mono text-text-muted">{g.ci_95 ? `[${g.ci_95.ci_lower}, ${g.ci_95.ci_upper}]` : '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2260,15 +2255,15 @@ export default function Dashboard() {
               className="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-2xl border border-violet-500/20"
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-violet-500/5">
+              <div className="p-6 border-b border-border-subtle flex items-center justify-between bg-violet-500/5">
                 <div className="flex items-center gap-3">
                   <span className="material-symbols-rounded text-violet-400 text-xl">help_center</span>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Como Interpretar os Resultados</h3>
-                    <p className="text-[10px] text-stone-500">Guia rápido para pesquisadores sem formação estatística</p>
+                    <h3 className="text-sm font-semibold text-text-main">Como Interpretar os Resultados</h3>
+                    <p className="text-[10px] text-text-muted">Guia rápido para pesquisadores sem formação estatística</p>
                   </div>
                 </div>
-                <button onClick={() => setHowToModal(false)} className="text-stone-500 hover:text-white transition-colors">
+                <button onClick={() => setHowToModal(false)} className="text-text-muted hover:text-text-main transition-colors">
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
@@ -2293,7 +2288,7 @@ export default function Dashboard() {
                     tip: 'IC95% que não inclui o 0 → suporta a significância do resultado'
                   },
                   {
-                    icon: 'electric_bolt', color: 'text-stone-400', bg: 'bg-stone-500/10 border-stone-500/20',
+                    icon: 'electric_bolt', color: 'text-text-muted', bg: 'bg-stone-500/10 border-stone-500/20',
                     title: 'Poder Estatístico',
                     body: 'O poder mede a capacidade do estudo de detectar um efeito real se ele existir. Estudos com poder < 80% têm alto risco de falsos negativos (não detectar diferenças que existem).',
                     tip: 'Poder ≥ 80% (verde) = adequado | Poder < 80% (vermelho) = amostra insuficiente'
@@ -2316,12 +2311,12 @@ export default function Dashboard() {
                       <span className="material-symbols-rounded text-sm">{item.icon}</span>
                       {item.title}
                     </p>
-                    <p className="text-xs text-stone-300 leading-relaxed mb-2">{item.body}</p>
-                    <p className="text-[9px] font-mono text-stone-500 bg-black/20 px-2 py-1 rounded-lg">{item.tip}</p>
+                    <p className="text-xs text-text-main leading-relaxed mb-2">{item.body}</p>
+                    <p className="text-[9px] font-mono text-text-muted bg-black/20 px-2 py-1 rounded-lg">{item.tip}</p>
                   </div>
                 ))}
-                <div className="p-4 bg-white/3 rounded-xl border border-white/5 text-center">
-                  <p className="text-[10px] text-stone-500">Dúvidas? Clique em <strong className="text-primary">Detalhes</strong> em qualquer resultado para ver a interpretação completa, pressupostos verificados e estatísticas avançadas.</p>
+                <div className="p-4 bg-white/3 rounded-xl border border-border-subtle text-center">
+                  <p className="text-[10px] text-text-muted">Dúvidas? Clique em <strong className="text-primary">Detalhes</strong> em qualquer resultado para ver a interpretação completa, pressupostos verificados e estatísticas avançadas.</p>
                 </div>
               </div>
             </motion.div>
@@ -2339,11 +2334,11 @@ export default function Dashboard() {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-white flex items-center gap-3">
+                <h2 className="text-xl font-semibold text-text-main flex items-center gap-3">
                   <span className="material-symbols-rounded text-primary">insights</span>
                   Suas Métricas
                 </h2>
-                <p className="text-stone-500 text-xs mt-1 font-medium">Atividade da sua conta na plataforma</p>
+                <p className="text-text-muted text-xs mt-1 font-medium">Atividade da sua conta na plataforma</p>
               </div>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2366,9 +2361,9 @@ export default function Dashboard() {
                       <span className="material-symbols-rounded text-lg">{stat.icon}</span>
                     </div>
                   </div>
-                  <p className="text-2xl font-semibold text-white">{stat.value}</p>
-                  <p className="text-[9px] font-bold text-stone-500 tracking-wide mt-1">{stat.label}</p>
-                  <p className="text-[9px] text-stone-600 mt-0.5">{stat.sub}</p>
+                  <p className="text-2xl font-semibold text-text-main">{stat.value}</p>
+                  <p className="text-[9px] font-bold text-text-muted tracking-wide mt-1">{stat.label}</p>
+                  <p className="text-[9px] text-text-muted mt-0.5">{stat.sub}</p>
                 </motion.div>
               ))}
             </div>
@@ -2381,11 +2376,11 @@ export default function Dashboard() {
             className="mt-2"
           >
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-text-main flex items-center gap-3">
                 <span className="material-symbols-rounded text-primary">model_training</span>
                 Capacidades Analíticas
               </h2>
-              <p className="text-stone-500 text-xs mt-1 font-medium">Faça upload de um arquivo para o sistema detectar e executar automaticamente os testes mais adequados</p>
+              <p className="text-text-muted text-xs mt-1 font-medium">Faça upload de um arquivo para o sistema detectar e executar automaticamente os testes mais adequados</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {ANALYSIS_CATEGORIES.map((cat, ci) => (
@@ -2398,9 +2393,9 @@ export default function Dashboard() {
                   whileHover={{ y: -4, scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setTestExplanationModal(cat.tests[0])}
-                  className="glass-card rounded-2xl p-5 border border-white/5 hover:border-primary/20 transition-all group cursor-pointer"
+                  className="glass-card rounded-2xl p-5 border border-border-subtle hover:border-primary/20 transition-all group cursor-pointer"
                 >
-                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-surface group-hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
                     <span className="material-symbols-rounded text-[10px] text-primary">info</span>
                   </div>
                   <div className="flex items-center gap-3 mb-3">
@@ -2410,13 +2405,13 @@ export default function Dashboard() {
                       <span className="material-symbols-rounded text-sm">{cat.icon}</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-white group-hover:text-primary transition-colors">{cat.title}</p>
+                      <p className="text-xs font-semibold text-text-main group-hover:text-primary transition-colors">{cat.title}</p>
                     </div>
                   </div>
-                  <p className="text-[10px] text-stone-500 leading-relaxed mb-3">{cat.desc}</p>
+                  <p className="text-[10px] text-text-muted leading-relaxed mb-3">{cat.desc}</p>
                   <div className="flex flex-wrap gap-1">
                     {cat.tests.map(t => (
-                      <span key={t} className="text-[9px] px-2 py-0.5 bg-white/5 border border-white/5 rounded-full text-stone-400 font-medium">{t}</span>
+                      <span key={t} className="text-[9px] px-2 py-0.5 bg-surface border border-border-subtle rounded-full text-text-muted font-medium">{t}</span>
                     ))}
                   </div>
                 </motion.div>
@@ -2432,11 +2427,11 @@ export default function Dashboard() {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-white flex items-center gap-3">
+                <h2 className="text-xl font-semibold text-text-main flex items-center gap-3">
                   <span className="material-symbols-rounded text-primary">model_training</span>
                   Análises Estatísticas Disponíveis
                 </h2>
-                <p className="text-stone-500 text-xs mt-1 font-medium">Todas as opções de testes e modelos estatísticos suportados pela plataforma</p>
+                <p className="text-text-muted text-xs mt-1 font-medium">Todas as opções de testes e modelos estatísticos suportados pela plataforma</p>
               </div>
             </div>
 
@@ -2459,7 +2454,7 @@ export default function Dashboard() {
                       onClick={() => setTestExplanationModal(test.name)}
                       className="glass-card rounded-2xl p-4 cursor-pointer group hover:border-primary/20 transition-all analysis-grid-item relative"
                     >
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-surface group-hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
                         <span className="material-symbols-rounded text-[10px] text-primary">info</span>
                       </div>
                       <div className="flex items-start gap-3">
@@ -2467,8 +2462,8 @@ export default function Dashboard() {
                           <span className="material-symbols-rounded text-sm">{test.icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-white group-hover:text-primary transition-colors truncate">{test.name}</p>
-                          <p className="text-[10px] text-stone-500 mt-0.5 leading-relaxed line-clamp-2">{test.desc}</p>
+                          <p className="text-xs font-bold text-text-main group-hover:text-primary transition-colors truncate">{test.name}</p>
+                          <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed line-clamp-2">{test.desc}</p>
                         </div>
                       </div>
                     </motion.div>

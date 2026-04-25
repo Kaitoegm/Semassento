@@ -57,21 +57,21 @@ export default function MetaAnalysis() {
   return (
     <div className="space-y-10">
       <header>
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
-            Metanálise <span className="text-primary">Avançada</span>
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-2">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text-main">
+            Metanálise Avançada
           </h1>
-          <p className="text-stone-400 max-w-2xl">Combine resultados de múltiplos estudos ou avalie poder discriminativo com Curva ROC.</p>
+          <p className="text-sm text-text-muted font-medium">Combine resultados de múltiplos estudos ou avalie poder discriminativo com Curva ROC.</p>
         </motion.div>
       </header>
 
-      <div className="flex gap-2 bg-white/5 rounded-2xl p-1.5 w-fit">
+      <div className="flex gap-2 bg-surface rounded-2xl p-1.5 w-fit">
         <button
           onClick={() => setMainTab('meta')}
           className={`px-6 py-3 rounded-xl text-[10px] font-semibold tracking-wide transition-all ${
             mainTab === 'meta'
               ? 'bg-primary/20 text-primary border border-primary/30'
-              : 'text-stone-500 hover:text-white border border-transparent'
+              : 'text-text-muted hover:text-text-main border border-transparent'
           }`}
         >
           {META_ICONS.layers} Metanálise
@@ -81,7 +81,7 @@ export default function MetaAnalysis() {
           className={`px-6 py-3 rounded-xl text-[10px] font-semibold tracking-wide transition-all ${
             mainTab === 'roc'
               ? 'bg-primary/20 text-primary border border-primary/30'
-              : 'text-stone-500 hover:text-white border border-transparent'
+              : 'text-text-muted hover:text-text-main border border-transparent'
           }`}
         >
           {META_ICONS.roc} Curva ROC
@@ -415,7 +415,7 @@ function MetaAnalysisContent({ session }) {
       'ai': { label: 'AI', cls: 'text-violet-400 bg-violet-400/10 border-violet-400/20' },
       'ai+regex': { label: 'AI+Regex', cls: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
       'regex': { label: 'Regex', cls: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
-      'manual': { label: 'Manual', cls: 'text-stone-400 bg-white/5 border-white/10' },
+      'manual': { label: 'Manual', cls: 'text-text-muted bg-surface border-border-subtle' },
       'link': { label: 'Link', cls: 'text-primary bg-primary/10 border-primary/20' },
       'pdf': { label: 'PDF', cls: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
     }
@@ -446,14 +446,14 @@ function MetaAnalysisContent({ session }) {
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-bold tracking-wider text-stone-500 block mb-2">Colar link do artigo</label>
+              <label className="text-[10px] font-bold tracking-wider text-text-muted block mb-2">Colar link do artigo</label>
               <div className="flex gap-2">
                 <input
                   type="url"
                   value={importUrl}
                   onChange={e => setImportUrl(e.target.value)}
                   placeholder="https://pubmed.ncbi.nlm.nih.gov/..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="flex-1 bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitUrl() } }}
                   disabled={pipelineRunning}
                 />
@@ -469,14 +469,14 @@ function MetaAnalysisContent({ session }) {
             </div>
 
             <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border-subtle"></div></div>
               <div className="relative flex justify-center text-[9px] font-bold text-stone-600 bg-transparent px-3">ou</div>
             </div>
 
             <button
               onClick={() => pdfInputRef.current?.click()}
               disabled={pipelineRunning}
-              className="w-full py-3.5 border border-dashed border-white/10 rounded-xl text-xs font-bold text-stone-400 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+              className="w-full py-3.5 border border-dashed border-border-subtle rounded-xl text-xs font-bold text-text-muted hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
             >
               {pipelineRunning ? <span className="animate-spin w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full"></span> : META_ICONS.upload}
               {pipelineRunning ? 'Processando pipeline...' : 'Anexar PDF do artigo'}
@@ -488,17 +488,17 @@ function MetaAnalysisContent({ session }) {
         {/* Pipeline Progress */}
         {Object.keys(pipelineSteps).length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-400 mb-5 flex items-center gap-2">
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted mb-5 flex items-center gap-2">
               <span className="material-symbols-rounded text-[18px]">timeline</span> Pipeline de Processamento
             </h3>
             <div className="space-y-1">
               {PIPELINE_STEPS.map((step, idx) => {
                 const stepState = pipelineSteps[step.key] || { status: 'pending' }
                 const statusColors = {
-                  pending: 'text-stone-600 border-white/5 bg-white/[0.02]',
+                  pending: 'text-stone-600 border-border-subtle bg-white/[0.02]',
                   running: 'text-amber-400 border-amber-400/20 bg-amber-400/5',
                   done: 'text-primary border-primary/20 bg-primary/5',
-                  failed: 'text-stone-400 border-stone-400/20 bg-stone-400/5',
+                  failed: 'text-text-muted border-stone-400/20 bg-stone-400/5',
                 }
                 const statusIcons = {
                   pending: 'radio_button_unchecked',
@@ -520,32 +520,32 @@ function MetaAnalysisContent({ session }) {
                     <span className="material-symbols-rounded text-[16px] opacity-60">{step.icon}</span>
                     <span className="text-[10px] font-bold tracking-wider flex-1">{step.label}</span>
                     {stepState.duration_ms != null && (
-                      <span className="text-[9px] font-mono text-stone-500">{stepState.duration_ms}ms</span>
+                      <span className="text-[9px] font-mono text-text-muted">{stepState.duration_ms}ms</span>
                     )}
                   </motion.div>
                 )
               })}
             </div>
             {pipelineError && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-3 bg-stone-500/10 border border-stone-500/20 rounded-xl text-stone-400 text-[10px] font-bold leading-relaxed">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-3 bg-stone-500/10 border border-stone-500/20 rounded-xl text-text-muted text-[10px] font-bold leading-relaxed">
                 {META_ICONS.warn} <span className="ml-1">{pipelineError}</span>
               </motion.div>
             )}
             {pipelineResult?.pipeline?.classifier && !pipelineResult.pipeline.classifier.passed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-4 bg-stone-500/10 border border-stone-500/20 rounded-xl space-y-2">
-                <p className="text-stone-400 text-[10px] font-semibold tracking-wider">Artigo não reconhecido como metanálise</p>
-                <p className="text-stone-400 text-[10px] leading-relaxed">
-                  Probabilidade: <span className="text-stone-400 font-bold">{pipelineResult.pipeline.classifier.probability}%</span>
+                <p className="text-text-muted text-[10px] font-semibold tracking-wider">Artigo não reconhecido como metanálise</p>
+                <p className="text-text-muted text-[10px] leading-relaxed">
+                  Probabilidade: <span className="text-text-muted font-bold">{pipelineResult.pipeline.classifier.probability}%</span>
                 </p>
                 {pipelineResult.pipeline.classifier.reason && (
-                  <p className="text-stone-500 text-[9px] leading-relaxed">{pipelineResult.pipeline.classifier.reason}</p>
+                  <p className="text-text-muted text-[9px] leading-relaxed">{pipelineResult.pipeline.classifier.reason}</p>
                 )}
               </motion.div>
             )}
             {validityScore != null && (
-              <div className="mt-4 flex items-center gap-3 px-3 py-2 bg-white/5 rounded-lg border border-white/5">
-                <span className="text-[10px] font-bold tracking-wider text-stone-500">Score de Validade</span>
-                <span className={`text-lg font-semibold ${validityScore >= 80 ? 'text-primary' : validityScore >= 50 ? 'text-amber-400' : 'text-stone-400'}`}>
+              <div className="mt-4 flex items-center gap-3 px-3 py-2 bg-surface rounded-lg border border-border-subtle">
+                <span className="text-[10px] font-bold tracking-wider text-text-muted">Score de Validade</span>
+                <span className={`text-lg font-semibold ${validityScore >= 80 ? 'text-primary' : validityScore >= 50 ? 'text-amber-400' : 'text-text-muted'}`}>
                   {validityScore}%
                 </span>
               </div>
@@ -569,7 +569,7 @@ function MetaAnalysisContent({ session }) {
             </div>
             {studies.some(s => s.warnings && s.warnings.length > 0) && (
               <div className="mt-4 space-y-2">
-                <p className="text-[9px] font-bold tracking-wider text-stone-500">Avisos por estudo</p>
+                <p className="text-[9px] font-bold tracking-wider text-text-muted">Avisos por estudo</p>
                 {studies.map((s, idx) => (s.warnings && s.warnings.length > 0) ? (
                   <div key={idx}>
                     <button
@@ -584,7 +584,7 @@ function MetaAnalysisContent({ session }) {
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                           <div className="pl-6 pt-1 space-y-1">
                             {s.warnings.map((w, wi) => (
-                              <p key={wi} className="text-[9px] text-stone-400">{w}</p>
+                              <p key={wi} className="text-[9px] text-text-muted">{w}</p>
                             ))}
                           </div>
                         </motion.div>
@@ -636,17 +636,17 @@ function MetaAnalysisContent({ session }) {
               },
             ].map(field => (
               <div key={field.key} className="space-y-2">
-                <label className="text-[10px] font-bold tracking-wider text-stone-500 block">{field.label}</label>
+                <label className="text-[10px] font-bold tracking-wider text-text-muted block">{field.label}</label>
                 <select
                   value={settings[field.key]}
                   onChange={e => setSettings(p => ({ ...p, [field.key]: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="w-full bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
                   {field.options.map(o => <option key={o.v} value={o.v} className="bg-stone-900">{o.l}</option>)}
                 </select>
                 {field.hint && <p className="text-[9px] text-stone-600">{field.hint}</p>}
                 {field.descriptions && (
-                  <p className="text-[9px] text-stone-400 bg-white/5 rounded-lg px-3 py-2 leading-relaxed">
+                  <p className="text-[9px] text-text-muted bg-surface rounded-lg px-3 py-2 leading-relaxed">
                     {field.descriptions[settings[field.key]]}
                   </p>
                 )}
@@ -667,34 +667,34 @@ function MetaAnalysisContent({ session }) {
         {/* Heterogeneity / Stats Summary (left panel, compact) */}
         {result && !result.error && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-6 border-primary/20">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-400 mb-4 flex items-center gap-2">
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted mb-4 flex items-center gap-2">
               {META_ICONS.layers} Estatísticas
             </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle">
                 <p className="text-xl font-semibold text-primary">{result.heterogeneity.i2}%</p>
-                <p className="text-[9px] font-bold text-stone-500">I-Quadrado</p>
+                <p className="text-[9px] font-bold text-text-muted">I-Quadrado</p>
               </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                <p className="text-xl font-semibold text-white">{result.heterogeneity.q}</p>
-                <p className="text-[9px] font-bold text-stone-500">Q de Cochran</p>
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle">
+                <p className="text-xl font-semibold text-text-main">{result.heterogeneity.q}</p>
+                <p className="text-[9px] font-bold text-text-muted">Q de Cochran</p>
               </div>
               {result.heterogeneity.tau2 != null && (
-                <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                  <p className="text-lg font-semibold text-white">{result.heterogeneity.tau2}</p>
-                  <p className="text-[9px] font-bold text-stone-500">Tau-quadrado</p>
+                <div className="p-3 bg-surface rounded-xl border border-border-subtle">
+                  <p className="text-lg font-semibold text-text-main">{result.heterogeneity.tau2}</p>
+                  <p className="text-[9px] font-bold text-text-muted">Tau-quadrado</p>
                 </div>
               )}
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle">
                 <p className={`text-lg font-semibold ${parseFloat(result.heterogeneity.p) < 0.05 ? 'text-amber-400' : 'text-primary'}`}>{result.heterogeneity.p}</p>
-                <p className="text-[9px] font-bold text-stone-500">P-Valor (Q)</p>
+                <p className="text-[9px] font-bold text-text-muted">P-Valor (Q)</p>
               </div>
             </div>
-            <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/5">
-              <p className="text-[9px] font-bold text-stone-500 mb-1">Efeito Combinado ({settings.model === 'random' ? 'Aleatório' : 'Fixo'})</p>
+            <div className="mt-4 p-3 bg-surface rounded-xl border border-border-subtle">
+              <p className="text-[9px] font-bold text-text-muted mb-1">Efeito Combinado ({settings.model === 'random' ? 'Aleatório' : 'Fixo'})</p>
               <p className="text-lg font-semibold text-primary">
                 {result.pooled.effect.toFixed(3)}{' '}
-                <span className="text-stone-400 text-xs font-mono">[{result.pooled.ciLow.toFixed(3)}, {result.pooled.ciHigh.toFixed(3)}]</span>
+                <span className="text-text-muted text-xs font-mono">[{result.pooled.ciLow.toFixed(3)}, {result.pooled.ciHigh.toFixed(3)}]</span>
               </p>
             </div>
           </motion.div>
@@ -711,7 +711,7 @@ function MetaAnalysisContent({ session }) {
               <h3 className="text-[10px] font-semibold tracking-wide text-amber-400 mb-4 flex items-center gap-2">
                 <span className="material-symbols-rounded text-[18px]">table_chart</span> Múltiplas Tabelas Detectadas
               </h3>
-              <p className="text-[10px] text-stone-400 mb-4">Selecione qual tabela contém os dados dos estudos para a metanálise:</p>
+              <p className="text-[10px] text-text-muted mb-4">Selecione qual tabela contém os dados dos estudos para a metanálise:</p>
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {(tableSelectModal.tables || []).map((tbl, i) => (
                   <button
@@ -733,16 +733,16 @@ function MetaAnalysisContent({ session }) {
                       }
                       setTableSelectModal(null)
                     }}
-                    className="w-full text-left p-4 bg-white/5 border border-white/10 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all"
+                    className="w-full text-left p-4 bg-surface border border-border-subtle rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all"
                   >
-                    <p className="text-xs font-bold text-white">{tbl.id || `Tabela ${i + 1}`}</p>
-                    {tbl.preview && <p className="text-[9px] text-stone-500 mt-1 truncate">{tbl.preview}</p>}
+                    <p className="text-xs font-bold text-text-main">{tbl.id || `Tabela ${i + 1}`}</p>
+                    {tbl.preview && <p className="text-[9px] text-text-muted mt-1 truncate">{tbl.preview}</p>}
                   </button>
                 ))}
               </div>
               <button
                 onClick={() => setTableSelectModal(null)}
-                className="mt-4 w-full py-2 border border-white/10 rounded-xl text-[10px] font-bold text-stone-500 hover:text-white transition-colors"
+                className="mt-4 w-full py-2 border border-border-subtle rounded-xl text-[10px] font-bold text-text-muted hover:text-text-main transition-colors"
               >
                 Ignorar e inserir manualmente
               </button>
@@ -753,18 +753,18 @@ function MetaAnalysisContent({ session }) {
         {/* Document Structure (shown on no_data) */}
         {pipelineResult?.needs_user_input?.type === 'no_data' && pipelineResult?.pipeline?.structure && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border-stone-500/20">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-400 mb-4 flex items-center gap-2">
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted mb-4 flex items-center gap-2">
               <span className="material-symbols-rounded text-[18px]">description</span> Estrutura do Documento
             </h3>
-            <p className="text-[10px] text-stone-500 mb-3">Seções encontradas no documento. Insira os estudos manualmente na tabela abaixo.</p>
+            <p className="text-[10px] text-text-muted mb-3">Seções encontradas no documento. Insira os estudos manualmente na tabela abaixo.</p>
             <div className="flex flex-wrap gap-2">
               {(pipelineResult.pipeline.structure.sections || []).map((sec, i) => (
-                <span key={i} className="text-[9px] font-bold text-stone-400 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">{sec.name}</span>
+                <span key={i} className="text-[9px] font-bold text-text-muted bg-surface px-3 py-1.5 rounded-lg border border-border-subtle">{sec.name}</span>
               ))}
             </div>
             {(pipelineResult.pipeline.structure.tables || []).length > 0 && (
               <div className="mt-3">
-                <p className="text-[9px] font-bold tracking-wider text-stone-500 mb-2">Tabelas encontradas</p>
+                <p className="text-[9px] font-bold tracking-wider text-text-muted mb-2">Tabelas encontradas</p>
                 <div className="flex flex-wrap gap-2">
                   {pipelineResult.pipeline.structure.tables.map((tbl, i) => (
                     <span key={i} className="text-[9px] font-bold text-amber-400 bg-amber-400/5 px-3 py-1.5 rounded-lg border border-amber-400/10">{tbl.id}</span>
@@ -778,7 +778,7 @@ function MetaAnalysisContent({ session }) {
         {/* Studies Table */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500 border-l-2 border-primary/30 pl-4">
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted border-l-2 border-primary/30 pl-4">
               Estudos Extraídos ({studies.length})
             </h3>
             <button
@@ -798,26 +798,26 @@ function MetaAnalysisContent({ session }) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-white/5">
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-left py-2 px-2 min-w-[140px]">Estudo</th>
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-center py-2 px-1 w-[60px]">N</th>
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-center py-2 px-1 w-[80px]">Efeito</th>
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-center py-2 px-1 w-[80px]">IC Inf</th>
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-center py-2 px-1 w-[80px]">IC Sup</th>
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-center py-2 px-1 w-[70px]">SE</th>
-                    <th className="text-[9px] font-semibold tracking-wider text-stone-500 text-center py-2 px-1 w-[60px]">Fonte</th>
+                  <tr className="border-b border-border-subtle">
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-left py-2 px-2 min-w-[140px]">Estudo</th>
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-center py-2 px-1 w-[60px]">N</th>
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-center py-2 px-1 w-[80px]">Efeito</th>
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-center py-2 px-1 w-[80px]">IC Inf</th>
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-center py-2 px-1 w-[80px]">IC Sup</th>
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-center py-2 px-1 w-[70px]">SE</th>
+                    <th className="text-[9px] font-semibold tracking-wider text-text-muted text-center py-2 px-1 w-[60px]">Fonte</th>
                     <th className="w-[30px]"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {studies.map((s, idx) => (
-                    <tr key={idx} className={`border-b border-white/5 transition-colors ${studyValidationClass(s)} rounded`}>
+                    <tr key={idx} className={`border-b border-border-subtle transition-colors ${studyValidationClass(s)} rounded`}>
                       <td className="py-1.5 px-1">
                         <input
                           placeholder="Nome do estudo"
                           value={s.name}
                           onChange={e => updateStudy(idx, 'name', e.target.value)}
-                          className="w-full bg-transparent border-0 text-xs text-white placeholder-stone-600 focus:outline-none focus:ring-0 py-1"
+                          className="w-full bg-transparent border-0 text-xs text-text-main placeholder-stone-600 focus:outline-none focus:ring-0 py-1"
                         />
                       </td>
                       <td className="py-1.5 px-1">
@@ -825,7 +825,7 @@ function MetaAnalysisContent({ session }) {
                           type="number" placeholder="N"
                           value={s.n}
                           onChange={e => updateStudy(idx, 'n', e.target.value)}
-                          className="w-full bg-transparent border-0 text-xs text-white text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                          className="w-full bg-transparent border-0 text-xs text-text-main text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
                         />
                       </td>
                       <td className="py-1.5 px-1">
@@ -833,7 +833,7 @@ function MetaAnalysisContent({ session }) {
                           type="number" step="0.01" placeholder="0.00"
                           value={s.effect}
                           onChange={e => updateStudy(idx, 'effect', e.target.value)}
-                          className="w-full bg-transparent border-0 text-xs text-white text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                          className="w-full bg-transparent border-0 text-xs text-text-main text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
                         />
                       </td>
                       <td className="py-1.5 px-1">
@@ -841,7 +841,7 @@ function MetaAnalysisContent({ session }) {
                           type="number" step="0.01" placeholder="IC-"
                           value={s.ci_lower}
                           onChange={e => updateStudy(idx, 'ci_lower', e.target.value)}
-                          className="w-full bg-transparent border-0 text-xs text-stone-400 text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                          className="w-full bg-transparent border-0 text-xs text-text-muted text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
                         />
                       </td>
                       <td className="py-1.5 px-1">
@@ -849,7 +849,7 @@ function MetaAnalysisContent({ session }) {
                           type="number" step="0.01" placeholder="IC+"
                           value={s.ci_upper}
                           onChange={e => updateStudy(idx, 'ci_upper', e.target.value)}
-                          className="w-full bg-transparent border-0 text-xs text-stone-400 text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                          className="w-full bg-transparent border-0 text-xs text-text-muted text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
                         />
                       </td>
                       <td className="py-1.5 px-1">
@@ -857,12 +857,12 @@ function MetaAnalysisContent({ session }) {
                           type="number" step="0.01" placeholder="SE"
                           value={s.se}
                           onChange={e => updateStudy(idx, 'se', e.target.value)}
-                          className="w-full bg-transparent border-0 text-xs text-white text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
+                          className="w-full bg-transparent border-0 text-xs text-text-main text-center placeholder-stone-600 focus:outline-none focus:ring-0 py-1 font-mono"
                         />
                       </td>
                       <td className="py-1.5 px-1 text-center">{sourceBadge(s.source)}</td>
                       <td className="py-1.5 px-1">
-                        <button onClick={() => removeStudy(idx)} className="text-stone-400/40 hover:text-stone-400 transition-colors">
+                        <button onClick={() => removeStudy(idx)} className="text-text-muted/40 hover:text-text-muted transition-colors">
                           {META_ICONS.delete}
                         </button>
                       </td>
@@ -877,7 +877,7 @@ function MetaAnalysisContent({ session }) {
         {/* Forest Plot */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-8 min-h-[500px] flex flex-col">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500 border-l-2 border-primary/30 pl-4">Gráfico de Floresta (Forest Plot)</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted border-l-2 border-primary/30 pl-4">Gráfico de Floresta (Forest Plot)</h3>
             {result && !result.error && (
               <button
                 onClick={exportForestPng}
@@ -890,7 +890,7 @@ function MetaAnalysisContent({ session }) {
 
           <div ref={forestRef} className="flex-1 flex items-center justify-center">
             {result?.error ? (
-              <div className="text-stone-400 text-xs font-bold">{result.error}</div>
+              <div className="text-text-muted text-xs font-bold">{result.error}</div>
             ) : !result ? (
               <div className="text-stone-600 text-xs italic text-center max-w-sm">
                 Importe estudos por link/PDF ou insira manualmente, configure os parametros e execute o modelo para gerar o grafico.
@@ -1072,30 +1072,30 @@ function MetaAnalysisContent({ session }) {
         {/* Stats Summary (below forest) */}
         {result && !result.error && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500 mb-4 border-l-2 border-primary/30 pl-4">Resumo Estatístico</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted mb-4 border-l-2 border-primary/30 pl-4">Resumo Estatístico</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
-                <p className={`text-2xl font-semibold ${parseFloat(result.heterogeneity.i2) > 50 ? 'text-amber-400' : parseFloat(result.heterogeneity.i2) > 75 ? 'text-stone-400' : 'text-primary'}`}>
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle text-center">
+                <p className={`text-2xl font-semibold ${parseFloat(result.heterogeneity.i2) > 50 ? 'text-amber-400' : parseFloat(result.heterogeneity.i2) > 75 ? 'text-text-muted' : 'text-primary'}`}>
                   {result.heterogeneity.i2}%
                 </p>
-                <p className="text-[9px] font-bold text-stone-500 mt-1">Heterogeneidade (I2)</p>
+                <p className="text-[9px] font-bold text-text-muted mt-1">Heterogeneidade (I2)</p>
                 <p className="text-[8px] text-stone-600 mt-0.5">
                   {parseFloat(result.heterogeneity.i2) < 25 ? 'Baixa' : parseFloat(result.heterogeneity.i2) < 50 ? 'Moderada' : parseFloat(result.heterogeneity.i2) < 75 ? 'Substancial' : 'Considerável'}
                 </p>
               </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle text-center">
                 <p className="text-2xl font-semibold text-primary">{result.pooled.effect.toFixed(3)}</p>
-                <p className="text-[9px] font-bold text-stone-500 mt-1">Efeito Combinado</p>
+                <p className="text-[9px] font-bold text-text-muted mt-1">Efeito Combinado</p>
                 <p className="text-[8px] text-stone-600 mt-0.5 font-mono">[{result.pooled.ciLow.toFixed(3)}, {result.pooled.ciHigh.toFixed(3)}]</p>
               </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
-                <p className="text-2xl font-semibold text-white">{result.studies.length}</p>
-                <p className="text-[9px] font-bold text-stone-500 mt-1">Estudos Incluídos</p>
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle text-center">
+                <p className="text-2xl font-semibold text-text-main">{result.studies.length}</p>
+                <p className="text-[9px] font-bold text-text-muted mt-1">Estudos Incluídos</p>
                 <p className="text-[8px] text-stone-600 mt-0.5">N total: {result.studies.reduce((sum, s) => sum + (s.n || 0), 0)}</p>
               </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
-                <p className="text-lg font-semibold text-white">{settings.model === 'random' ? 'Aleatório' : 'Fixo'}</p>
-                <p className="text-[9px] font-bold text-stone-500 mt-1">Modelo</p>
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle text-center">
+                <p className="text-lg font-semibold text-text-main">{settings.model === 'random' ? 'Aleatório' : 'Fixo'}</p>
+                <p className="text-[9px] font-bold text-text-muted mt-1">Modelo</p>
                 <p className="text-[8px] text-stone-600 mt-0.5">{settings.measure}</p>
               </div>
             </div>
@@ -1304,7 +1304,7 @@ function RocCurveContent({ session }) {
     if (auc >= 0.8) return { label: 'Bom', color: 'text-teal-300' }
     if (auc >= 0.7) return { label: 'Razoável', color: 'text-amber-400' }
     if (auc >= 0.6) return { label: 'Ruim', color: 'text-orange-400' }
-    return { label: 'Sem poder', color: 'text-stone-400' }
+    return { label: 'Sem poder', color: 'text-text-muted' }
   }
 
   return (
@@ -1315,11 +1315,11 @@ function RocCurveContent({ session }) {
             {META_ICONS.roc} Dados para Curva ROC
           </h3>
 
-          <div className="flex gap-1 mb-4 bg-white/5 rounded-xl p-1">
-            <button onClick={() => setRocTab('upload')} className={`flex-1 py-2 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${rocTab === 'upload' ? 'bg-primary/20 text-primary' : 'text-stone-500 hover:text-white'}`}>
+          <div className="flex gap-1 mb-4 bg-surface rounded-xl p-1">
+            <button onClick={() => setRocTab('upload')} className={`flex-1 py-2 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${rocTab === 'upload' ? 'bg-primary/20 text-primary' : 'text-text-muted hover:text-text-main'}`}>
               {META_ICONS.upload} Upload CSV
             </button>
-            <button onClick={() => setRocTab('manual')} className={`flex-1 py-2 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${rocTab === 'manual' ? 'bg-primary/20 text-primary' : 'text-stone-500 hover:text-white'}`}>
+            <button onClick={() => setRocTab('manual')} className={`flex-1 py-2 rounded-lg text-[10px] font-semibold tracking-wide transition-all ${rocTab === 'manual' ? 'bg-primary/20 text-primary' : 'text-text-muted hover:text-text-main'}`}>
               {META_ICONS.add} Manual
             </button>
           </div>
@@ -1328,12 +1328,12 @@ function RocCurveContent({ session }) {
             {rocTab === 'upload' ? (
               <motion.div key="roc-upload" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                 <div>
-                  <label className="text-[10px] font-bold tracking-wider text-stone-500 block mb-2">Arquivo CSV</label>
+                  <label className="text-[10px] font-bold tracking-wider text-text-muted block mb-2">Arquivo CSV</label>
                   <input
                     type="file"
                     accept=".csv"
                     onChange={handleFileSelect}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:text-[10px] file:font-semibold file:uppercase file:tracking-wide file:cursor-pointer focus:outline-none"
+                    className="w-full bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:text-[10px] file:font-semibold file:uppercase file:tracking-wide file:cursor-pointer focus:outline-none"
                   />
                   <p className="text-[9px] text-stone-600 mt-1.5">CSV com coluna de scores (contínua) e desfecho (0/1 ou 2 categorias)</p>
                 </div>
@@ -1341,21 +1341,21 @@ function RocCurveContent({ session }) {
                 {rocFile && availableCols.length > 0 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold tracking-wider text-stone-500 block">Coluna de Score (preditor)</label>
+                      <label className="text-[10px] font-bold tracking-wider text-text-muted block">Coluna de Score (preditor)</label>
                       <select
                         value={scoreCol}
                         onChange={e => setScoreCol(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        className="w-full bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50"
                       >
                         {availableCols.map(c => <option key={c} value={c} className="bg-stone-900">{c}</option>)}
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold tracking-wider text-stone-500 block">Coluna de Desfecho (0=negativo, 1=positivo)</label>
+                      <label className="text-[10px] font-bold tracking-wider text-text-muted block">Coluna de Desfecho (0=negativo, 1=positivo)</label>
                       <select
                         value={labelCol}
                         onChange={e => setLabelCol(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        className="w-full bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50"
                       >
                         {availableCols.map(c => <option key={c} value={c} className="bg-stone-900">{c}</option>)}
                       </select>
@@ -1366,23 +1366,23 @@ function RocCurveContent({ session }) {
             ) : (
               <motion.div key="roc-manual" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold tracking-wider text-stone-500 block">Scores (valores contínuos, separados por vírgula)</label>
+                  <label className="text-[10px] font-bold tracking-wider text-text-muted block">Scores (valores contínuos, separados por vírgula)</label>
                   <textarea
                     value={manualScores}
                     onChange={e => setManualScores(e.target.value)}
                     placeholder="0.85, 0.72, 0.91, 0.33, 0.67, ..."
                     rows={4}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none font-mono"
+                    className="w-full bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none font-mono"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold tracking-wider text-stone-500 block">Labels (0 ou 1, mesma quantidade)</label>
+                  <label className="text-[10px] font-bold tracking-wider text-text-muted block">Labels (0 ou 1, mesma quantidade)</label>
                   <textarea
                     value={manualLabels}
                     onChange={e => setManualLabels(e.target.value)}
                     placeholder="1, 1, 1, 0, 0, ..."
                     rows={4}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl text-xs py-3 px-4 text-white placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none font-mono"
+                    className="w-full bg-surface border border-border-subtle rounded-xl text-xs py-3 px-4 text-text-main placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none font-mono"
                   />
                 </div>
               </motion.div>
@@ -1390,7 +1390,7 @@ function RocCurveContent({ session }) {
           </AnimatePresence>
 
           {rocError && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 bg-stone-500/10 border border-stone-500/20 rounded-xl text-stone-400 text-[10px] font-bold mt-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 bg-stone-500/10 border border-stone-500/20 rounded-xl text-text-muted text-[10px] font-bold mt-4">
               {META_ICONS.warn} <span className="ml-1">{rocError}</span>
             </motion.div>
           )}
@@ -1407,27 +1407,27 @@ function RocCurveContent({ session }) {
 
         {rocResult && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-6 border-primary/20 space-y-4">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-400 flex items-center gap-2">
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted flex items-center gap-2">
               {META_ICONS.layers} Resultados
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-3 bg-surface rounded-xl border border-border-subtle">
                 <p className={`text-2xl font-semibold ${aucInterpretation(rocResult.auc).color}`}>{rocResult.auc.toFixed(4)}</p>
-                <p className="text-[9px] font-bold text-stone-500">AUC (Área sob a Curva)</p>
+                <p className="text-[9px] font-bold text-text-muted">AUC (Área sob a Curva)</p>
                 <p className={`text-[10px] font-semibold mt-0.5 ${aucInterpretation(rocResult.auc).color}`}>{aucInterpretation(rocResult.auc).label}</p>
               </div>
               <div className="grid grid-rows-3 gap-2">
-                <div className="p-2 bg-white/5 rounded-lg border border-white/5">
-                  <p className="text-sm font-semibold text-white">{rocResult.n_total}</p>
-                  <p className="text-[8px] font-bold text-stone-500">Total</p>
+                <div className="p-2 bg-surface rounded-lg border border-border-subtle">
+                  <p className="text-sm font-semibold text-text-main">{rocResult.n_total}</p>
+                  <p className="text-[8px] font-bold text-text-muted">Total</p>
                 </div>
-                <div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                <div className="p-2 bg-surface rounded-lg border border-border-subtle">
                   <p className="text-sm font-semibold text-primary">{rocResult.n_pos}</p>
-                  <p className="text-[8px] font-bold text-stone-500">Positivos</p>
+                  <p className="text-[8px] font-bold text-text-muted">Positivos</p>
                 </div>
-                <div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                <div className="p-2 bg-surface rounded-lg border border-border-subtle">
                   <p className="text-sm font-semibold text-blue-400">{rocResult.n_neg}</p>
-                  <p className="text-[8px] font-bold text-stone-500">Negativos</p>
+                  <p className="text-[8px] font-bold text-text-muted">Negativos</p>
                 </div>
               </div>
             </div>
@@ -1438,7 +1438,7 @@ function RocCurveContent({ session }) {
       <div className="lg:col-span-2 space-y-6">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-8 min-h-[500px] flex flex-col">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-500 border-l-2 border-primary/30 pl-4">Curva ROC</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted border-l-2 border-primary/30 pl-4">Curva ROC</h3>
             {rocResult && (
               <button
                 onClick={exportRocPng}
@@ -1453,7 +1453,7 @@ function RocCurveContent({ session }) {
             {!rocResult ? (
               <div className="text-stone-600 text-xs italic">Faça upload de um CSV ou insira dados manualmente para gerar a Curva ROC...</div>
             ) : (
-              <svg viewBox={`0 0 ${rocWidth} ${rocHeight}`} className="w-full h-auto text-white">
+              <svg viewBox={`0 0 ${rocWidth} ${rocHeight}`} className="w-full h-auto text-text-main">
                 <defs>
                   <filter id="glow-roc" x="-20%" y="-20%" width="140%" height="140%">
                     <feGaussianBlur stdDeviation="3" result="blur" />

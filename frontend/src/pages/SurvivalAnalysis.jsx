@@ -116,8 +116,8 @@ export default function SurvivalAnalysis() {
     <div className="space-y-12">
       <header>
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-5xl font-semibold tracking-tight text-white">Sobrevivência</h1>
-          <p className="text-stone-500 font-medium mt-2">Estimativa de Kaplan-Meier e Teste Log-Rank via lifelines.</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text-main">Sobrevivência</h1>
+          <p className="text-sm text-text-muted font-medium mt-2">Estimativa de Kaplan-Meier e Teste Log-Rank via lifelines.</p>
         </motion.div>
       </header>
 
@@ -129,13 +129,13 @@ export default function SurvivalAnalysis() {
             transition={{ delay: 0.1 }}
             className="glass-card rounded-xl p-8"
           >
-            <h3 className="text-[10px] font-semibold tracking-wide text-stone-400 mb-6">Pipeline de Métodos</h3>
+            <h3 className="text-[10px] font-semibold tracking-wide text-text-muted mb-6">Pipeline de Métodos</h3>
             <div className="space-y-3">
               {[
                 { key: 'km', label: 'Curva Kaplan-Meier', desc: 'lifelines.KaplanMeierFitter' },
                 { key: 'logrank', label: 'Teste Log-Rank', desc: 'lifelines.logrank_test' },
               ].map(m => (
-                <label key={m.key} className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${methods[m.key] ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-white/2 border-white/5 text-stone-500 hover:text-stone-300'}`}>
+                <label key={m.key} className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${methods[m.key] ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-surface border-border-subtle text-text-muted hover:text-stone-300'}`}>
                   <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${methods[m.key] ? 'bg-primary border-primary' : 'border-stone-700'}`}>
                     {methods[m.key] && <div className="w-2 h-2 rounded-full bg-background" />}
                   </div>
@@ -162,33 +162,33 @@ export default function SurvivalAnalysis() {
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="glass-card rounded-xl p-10 relative overflow-hidden"
+            className="glass-card rounded-xl p-5 sm:p-10 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-full bg-primary/2 blur-[120px] pointer-events-none"></div>
 
             <div className="flex justify-between items-center mb-10 relative z-10">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-white/5 rounded-2xl text-primary">
+                <div className="p-3 bg-surface rounded-2xl text-primary">
                   {SURVIVAL_ICONS.chart}
                 </div>
-                <h3 className="text-xl font-semibold text-white">Visualização de Coorte</h3>
+                <h3 className="text-xl font-semibold text-text-main">Visualização de Coorte</h3>
               </div>
               {result && (
-                 <div className="flex gap-4">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                 <div className="flex flex-wrap gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-surface rounded-xl border border-border-subtle">
                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                       <span className="text-[10px] font-semibold text-white">BRAÇO A</span>
+                       <span className="text-[10px] font-semibold text-text-main">BRAÇO A</span>
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-surface rounded-xl border border-border-subtle">
                        <div className="w-2 h-2 rounded-full bg-accent"></div>
-                       <span className="text-[10px] font-semibold text-white">BRAÇO B</span>
+                       <span className="text-[10px] font-semibold text-text-main">BRAÇO B</span>
                     </div>
                  </div>
               )}
             </div>
 
             {!result?.km1 ? (
-              <div className="h-[400px] flex flex-col items-center justify-center text-stone-600 bg-white/1 rounded-xl border-2 border-dashed border-white/5">
+              <div className="h-[400px] flex flex-col items-center justify-center text-stone-600 bg-white/1 rounded-xl border-2 border-dashed border-border-subtle">
                 <span className="material-symbols-outlined text-6xl mb-4 opacity-10">biotech</span>
                 <p className="text-sm font-bold tracking-wide opacity-40">Nenhum resultado processado</p>
               </div>
@@ -229,15 +229,15 @@ export default function SurvivalAnalysis() {
                   animate={{ opacity: 1, y: 0 }}
                   className="glass-card rounded-xl p-8 border-primary/10"
                 >
-                  <h4 className="text-[10px] font-semibold tracking-wide text-stone-500 mb-6">Teste Log-Rank (lifelines)</h4>
+                  <h4 className="text-[10px] font-semibold tracking-wide text-text-muted mb-6">Teste Log-Rank (lifelines)</h4>
                   <div className="flex items-end gap-6 h-full">
                      <div className="flex-1">
-                        <p className="text-[10px] font-semibold text-stone-500 mb-1">Estatística (χ²)</p>
-                        <p className="text-3xl font-semibold text-white leading-none">{result.logrank.test_statistic?.toFixed(4)}</p>
+                        <p className="text-[10px] font-semibold text-text-muted mb-1">Estatística (χ²)</p>
+                        <p className="text-3xl font-semibold text-text-main leading-none">{result.logrank.test_statistic?.toFixed(4)}</p>
                      </div>
                      <div className="flex-1">
-                        <p className="text-[10px] font-semibold text-stone-500 mb-1">Valor P</p>
-                        <p className={`text-3xl font-semibold leading-none ${result.logrank.p_value < 0.05 ? 'text-primary' : 'text-stone-500'}`}>
+                        <p className="text-[10px] font-semibold text-text-muted mb-1">Valor P</p>
+                        <p className={`text-3xl font-semibold leading-none ${result.logrank.p_value < 0.05 ? 'text-primary' : 'text-text-muted'}`}>
                           {result.logrank.p_value < 0.001 ? '< 0.001' : result.logrank.p_value.toFixed(4)}
                         </p>
                      </div>
@@ -252,15 +252,15 @@ export default function SurvivalAnalysis() {
                 animate={{ opacity: 1, y: 0 }}
                 className="glass-card rounded-xl p-8 border-accent/10"
               >
-                <h4 className="text-[10px] font-semibold tracking-wide text-stone-500 mb-4">Resumo dos Grupos</h4>
+                <h4 className="text-[10px] font-semibold tracking-wide text-text-muted mb-4">Resumo dos Grupos</h4>
                 <div className="space-y-4">
                   {[
                     { label: 'Braço A', n: result.km1.n, events: result.km1.events, censored: result.km1.censored },
                     { label: 'Braço B', n: result.km2.n, events: result.km2.events, censored: result.km2.censored },
                   ].map((row, i) => (
-                    <div key={i} className="flex justify-between items-center bg-white/2 p-3 rounded-xl border border-white/5">
-                      <span className="text-[11px] font-bold text-stone-400">{row.label}</span>
-                      <span className="text-[13px] font-semibold text-white">n={row.n} | Eventos={row.events} | Censurados={row.censored}</span>
+                    <div key={i} className="flex justify-between items-center bg-surface p-3 rounded-xl border border-border-subtle">
+                      <span className="text-[11px] font-bold text-text-muted">{row.label}</span>
+                      <span className="text-[13px] font-semibold text-text-main">n={row.n} | Eventos={row.events} | Censurados={row.censored}</span>
                     </div>
                   ))}
                 </div>

@@ -459,9 +459,9 @@ export default function Archive() {
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: -50, x: '-50%' }}
             className={`fixed top-6 left-1/2 z-[200] px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md border-2 ${
-              notification.type === 'success' ? 'bg-teal-600 border-teal-300 text-white' :
-              notification.type === 'error' ? 'bg-red-600 border-red-400 text-white' :
-              'bg-stone-800 border-stone-600 text-white'
+              notification.type === 'success' ? 'bg-teal-600 border-teal-300 text-text-main' :
+              notification.type === 'error' ? 'bg-red-600 border-red-400 text-text-main' :
+              'bg-stone-800 border-stone-600 text-text-main'
             }`}
           >
             <div className="flex items-center gap-2 font-bold">
@@ -475,11 +475,11 @@ export default function Archive() {
       </AnimatePresence>
 
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 relative z-10">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white mb-1 md:mb-2">
-            <span className="text-primary">Projetos de Pesquisa</span>
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-2">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text-main">
+            Projetos de Pesquisa
           </h1>
-          <p className="text-stone-400 text-sm md:text-base max-w-2xl">Gerencie seus estudos, visualize gráficos salvos, e gerencie anexos (PDFs, CSVs) em um só lugar.</p>
+          <p className="text-sm text-text-muted font-medium">Gerencie seus estudos, visualize gráficos salvos, e gerencie anexos em um só lugar.</p>
         </motion.div>
         
         <motion.button 
@@ -500,12 +500,12 @@ export default function Archive() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="glass-card p-5 flex items-center gap-4 animate-pulse">
-              <div className="p-3 bg-white/5 rounded-2xl">
+              <div className="p-3 bg-surface rounded-2xl">
                 <div className="w-6 h-6 bg-white/10 rounded" />
               </div>
               <div>
                 <div className="h-6 w-12 bg-white/10 rounded mb-2" />
-                <div className="h-3 w-20 bg-white/5 rounded" />
+                <div className="h-3 w-20 bg-surface rounded" />
               </div>
             </div>
           ))}
@@ -515,7 +515,7 @@ export default function Archive() {
          {[
            { label: 'Projetos', value: totalProjects, icon: 'folder', color: 'text-primary' },
            { label: 'Publicados', value: projects.filter(p => p.status === 'publicado').length, icon: 'public', color: 'text-fuchsia-400' },
-           { label: 'Anexos', value: projects.reduce((total, p) => total + (p.attachment_count || 0), 0), icon: 'attachment', color: 'text-stone-400' },
+           { label: 'Anexos', value: projects.reduce((total, p) => total + (p.attachment_count || 0), 0), icon: 'attachment', color: 'text-text-muted' },
            { label: 'Gráficos', value: projects.reduce((total, p) => total + (p.chart_count || 0), 0), icon: 'insert_chart', color: 'text-teal-300' },
          ].map((s, i) => (
           <motion.div 
@@ -528,7 +528,7 @@ export default function Archive() {
             className="glass-card p-4 md:p-5 flex items-center gap-3 md:gap-4 hover:border-primary/30 cursor-pointer"
           >
            <motion.div 
-             className={`p-3 bg-white/5 rounded-2xl ${s.color}`}
+             className={`p-3 bg-surface rounded-2xl ${s.color}`}
              whileHover={{ rotate: 5, scale: 1.1 }}
              transition={{ type: "spring", stiffness: 300 }}
            >
@@ -536,14 +536,14 @@ export default function Archive() {
            </motion.div>
            <div>
              <motion.p 
-               className="text-xl font-semibold text-white"
+               className="text-xl font-semibold text-text-main"
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                transition={{ delay: i * 0.1 + 0.2 }}
              >
                {s.value}
              </motion.p>
-             <p className="text-[9px] font-semibold tracking-wide text-stone-500">{s.label}</p>
+             <p className="text-[9px] font-semibold tracking-wide text-text-muted">{s.label}</p>
            </div>
           </motion.div>
         ))}
@@ -555,17 +555,17 @@ export default function Archive() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between bg-white/5 border border-white/10 p-3 rounded-2xl"
+        className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between bg-surface border border-border-subtle p-3 rounded-2xl"
       >
         {/* Status Pills */}
-        <div className="flex bg-white/5 p-1 rounded-xl overflow-x-auto">
+        <div className="flex bg-surface p-1 rounded-xl overflow-x-auto">
           {['todos', 'em_andamento', 'concluido', 'publicado'].map((status, i) => (
             <motion.button
               key={status}
               onClick={() => setStatusFilter(status)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${statusFilter === status ? 'bg-primary/20 text-primary shadow-sm' : 'text-stone-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${statusFilter === status ? 'bg-primary/20 text-primary shadow-sm' : 'text-text-muted hover:text-text-main hover:bg-surface'}`}
             >
               {status === 'todos' ? 'Todos' : STATUS_LABELS[status]}
             </motion.button>
@@ -573,25 +573,25 @@ export default function Archive() {
         </div>
         
         {/* Search */}
-        <div className="relative flex-1 max-w-xs lg:max-w-sm">
-          <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm">search</span>
+        <div className="relative flex-1 max-w-full sm:max-w-xs lg:max-w-sm">
+          <span className="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">search</span>
           <input
             ref={searchInputRef}
             type="text"
             placeholder="Buscar... (Ctrl+K)"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-stone-900/50 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-primary/50"
+            className="w-full bg-surface border border-border-subtle rounded-xl py-2.5 pl-10 pr-4 text-sm text-text-main placeholder-stone-500 focus:outline-none focus:border-primary/50"
           />
         </div>
         
         {/* View Mode + Tag + Sort */}
         <div className="flex flex-wrap gap-2 items-center">
           {/* View Mode Toggle */}
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+          <div className="flex bg-surface p-1 rounded-xl border border-border-subtle">
             <button 
               onClick={() => setViewMode('compacto')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'compacto' ? 'bg-primary text-secondary' : 'text-zinc-400 hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'compacto' ? 'bg-primary text-secondary' : 'text-text-muted hover:text-text-main'}`}
               title="Modo Lista"
             >
               <span className="material-symbols-rounded text-sm">view_list</span>
@@ -599,7 +599,7 @@ export default function Archive() {
             </button>
             <button 
               onClick={() => setViewMode('detalhado')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'detalhado' ? 'bg-primary text-secondary' : 'text-zinc-400 hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'detalhado' ? 'bg-primary text-secondary' : 'text-text-muted hover:text-text-main'}`}
               title="Modo Cards"
             >
               <span className="material-symbols-rounded text-sm">grid_view</span>
@@ -607,7 +607,7 @@ export default function Archive() {
             </button>
             <button 
               onClick={() => setViewMode('timeline')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'timeline' ? 'bg-primary text-secondary' : 'text-zinc-400 hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'timeline' ? 'bg-primary text-secondary' : 'text-text-muted hover:text-text-main'}`}
               title="Linha do Tempo"
             >
               <span className="material-symbols-rounded text-sm">timeline</span>
@@ -619,7 +619,7 @@ export default function Archive() {
           <select 
             value={tagFilter}
             onChange={e => setTagFilter(e.target.value)}
-            className="text-xs border border-white/20 bg-stone-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
+            className="text-xs border border-border-subtle bg-surface rounded-lg px-3 py-2 text-text-main outline-none focus:border-primary/50 appearance-none cursor-pointer"
           >
             <option value="">Tag</option>
             {availableTags.map(tag => (
@@ -631,7 +631,7 @@ export default function Archive() {
           <select 
             value={sortBy}
             onChange={e => setSortBy(e.target.value)}
-            className="text-xs border border-white/20 bg-stone-900/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary/50 appearance-none cursor-pointer"
+            className="text-xs border border-border-subtle bg-surface rounded-lg px-3 py-2 text-text-main outline-none focus:border-primary/50 appearance-none cursor-pointer"
           >
             <option value="created_at_desc">Recente</option>
             <option value="created_at_asc">Antigo</option>
@@ -648,9 +648,9 @@ export default function Archive() {
       >
         <AnimatePresence>
           {loading ? (
-            <div className="text-center py-20 animate-pulse text-zinc-500 col-span-full">Carregando projetos...</div>
+            <div className="text-center py-20 animate-pulse text-text-muted col-span-full">Carregando projetos...</div>
           ) : projects.length === 0 ? (
-            <div className="text-center py-20 text-zinc-500 col-span-full">Nenhum projeto encontrado.</div>
+            <div className="text-center py-20 text-text-muted col-span-full">Nenhum projeto encontrado.</div>
           ) : viewMode === 'detalhado' ? (
             projects.map((item) => {
               const tags = getTags(item.tags)
@@ -665,28 +665,28 @@ export default function Archive() {
                   exit={{ opacity: 0, scale: 0.95, y: -20 }}
                   transition={{ type: "spring", stiffness: 200, damping: 25 }}
                   whileHover={{ y: -4, scale: 1.01 }}
-                  className={`glass-card overflow-hidden transition-colors border ${isExpanded ? 'border-primary/30 ring-1 ring-primary/20' : 'border-white/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10'}`}
+                  className={`glass-card overflow-hidden transition-colors border ${isExpanded ? 'border-primary/30 ring-1 ring-primary/20' : 'border-border-subtle hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10'}`}
                 >
                   {/* Cabeçalho do Card */}
                   <div 
                     onClick={() => setExpandedCard(isExpanded ? null : item.id)}
-                    className="p-6 cursor-pointer flex flex-col md:flex-row gap-6 justify-between items-start md:items-center hover:bg-white/[0.02] transition-colors"
+                    className="p-4 sm:p-6 cursor-pointer flex flex-col md:flex-row gap-4 sm:gap-6 justify-between items-start md:items-center hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-semibold tracking-wider border ${STATUS_COLORS[item.status || 'em_andamento']}`}>
                           {STATUS_LABELS[item.status || 'em_andamento']}
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-medium">#{item.id}</span>
-                        <span className="text-[10px] text-zinc-500 font-medium">{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
+                        <span className="text-[10px] text-text-muted font-medium">#{item.id}</span>
+                        <span className="text-[10px] text-text-muted font-medium">{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
                       </div>
-                      <h3 className="text-xl font-bold text-white mb-1">{item.title}</h3>
-                      <p className="text-sm text-zinc-400">{item.author} {item.institution ? `• ${item.institution}` : ''}</p>
+                      <h3 className="text-xl font-bold text-text-main mb-1">{item.title}</h3>
+                      <p className="text-sm text-text-muted">{item.author} {item.institution ? `• ${item.institution}` : ''}</p>
                       
                       {tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-3">
                           {tags.map(t => (
-                            <span key={t} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[10px] text-zinc-300">
+                            <span key={t} className="px-2 py-0.5 bg-surface border border-border-subtle rounded-md text-[10px] text-text-main">
                               {t}
                             </span>
                           ))}
@@ -695,20 +695,20 @@ export default function Archive() {
                     </div>
                     
                     <div className="flex gap-4 items-center">
-                      <div className="text-center px-4 border-r border-white/10">
-                        <span className="block text-xl font-semibold text-white">{item.attachment_count || 0}</span>
-                        <span className="text-[9px] tracking-wider text-zinc-500">Arquivos</span>
+                      <div className="text-center px-4 border-r border-border-subtle">
+                        <span className="block text-xl font-semibold text-text-main">{item.attachment_count || 0}</span>
+                        <span className="text-[9px] tracking-wider text-text-muted">Arquivos</span>
                       </div>
-                      <div className="text-center px-4 border-r border-white/10">
-                        <span className="block text-xl font-semibold text-white">{item.chart_count || 0}</span>
-                        <span className="text-[9px] tracking-wider text-zinc-500">Gráficos</span>
+                      <div className="text-center px-4 border-r border-border-subtle">
+                        <span className="block text-xl font-semibold text-text-main">{item.chart_count || 0}</span>
+                        <span className="text-[9px] tracking-wider text-text-muted">Gráficos</span>
                       </div>
-                      <div className="text-center px-4 border-r border-white/10">
-                        <span className="block text-xl font-semibold text-white">{item.analysis_count || 0}</span>
-                        <span className="text-[9px] tracking-wider text-zinc-500">Análises</span>
+                      <div className="text-center px-4 border-r border-border-subtle">
+                        <span className="block text-xl font-semibold text-text-main">{item.analysis_count || 0}</span>
+                        <span className="text-[9px] tracking-wider text-text-muted">Análises</span>
                       </div>
                       
-                      <button className="p-2 ml-2 rounded-full hover:bg-white/10 text-zinc-400 transition-colors">
+                      <button className="p-2 ml-2 rounded-full hover:bg-white/10 text-text-muted transition-colors">
                         <span className="material-symbols-rounded transition-transform duration-300" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                           expand_more
                         </span>
@@ -723,10 +723,10 @@ export default function Archive() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-white/5 bg-stone-900/50"
+                        className="border-t border-border-subtle bg-surface"
                       >
                         {/* Abas */}
-                        <div className="flex border-b border-white/5 overflow-x-auto custom-scrollbar">
+                        <div className="flex border-b border-border-subtle overflow-x-auto custom-scrollbar">
                           {[
                             { id: 'detalhes', label: 'Detalhes', icon: 'info' },
                             { id: 'anexos', label: 'Anexos & Dados', icon: 'attachment' },
@@ -736,96 +736,96 @@ export default function Archive() {
                             <button
                               key={tab.id}
                               onClick={() => setActiveTabUrl(tab.id)}
-                              className={`flex items-center gap-2 px-6 py-4 text-xs font-bold tracking-wider transition-colors border-b-2 whitespace-nowrap ${
+                              className={`flex items-center gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs font-bold tracking-wider transition-colors border-b-2 whitespace-nowrap ${
                                 activeTabUrl === tab.id 
                                   ? 'border-primary text-primary bg-primary/5' 
-                                  : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                                  : 'border-transparent text-text-muted hover:text-text-main hover:bg-surface'
                               }`}
                             >
                               <span className="material-symbols-rounded text-sm">{tab.icon}</span>
-                              {tab.label}
+                              <span className="hidden sm:inline">{tab.label}</span>
                             </button>
                           ))}
                         </div>
                         
-                        <div className="p-6">
+                        <div className="p-4 sm:p-6">
                           {activeTabUrl === 'detalhes' && (
                             editingProject === item.id ? (
                               <div className="space-y-4 max-w-3xl">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Título</label>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">Título</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.title || ''} 
                                       onChange={e => setEditFormData({...editFormData, title: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-2.5 text-text-main outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">DOI / Referência</label>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">DOI / Referência</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.doi || ''} 
                                       onChange={e => setEditFormData({...editFormData, doi: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-2.5 text-text-main outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Autor / PI</label>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">Autor / PI</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.author || ''} 
                                       onChange={e => setEditFormData({...editFormData, author: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-2.5 text-text-main outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Instituição</label>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">Instituição</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.institution || ''} 
                                       onChange={e => setEditFormData({...editFormData, institution: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-2.5 text-text-main outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Tags (separadas por vírgula)</label>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">Tags (separadas por vírgula)</label>
                                     <input 
                                       type="text" 
                                       value={editFormData.tags || ''} 
                                       onChange={e => setEditFormData({...editFormData, tags: e.target.value})}
-                                      className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50" 
+                                      className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-2.5 text-text-main outline-none focus:border-primary/50" 
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Status</label>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">Status</label>
                                     <div className="relative">
                                       <select 
                                         value={editFormData.status || 'em_andamento'} 
                                         onChange={e => setEditFormData({...editFormData, status: e.target.value})}
-                                        className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-2.5 text-white outline-none focus:border-primary/50 appearance-none" 
+                                        className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-2.5 text-text-main outline-none focus:border-primary/50 appearance-none" 
                                       >
                                         <option value="em_andamento">Em Andamento</option>
                                         <option value="concluido">Concluído</option>
                                         <option value="publicado">Publicado</option>
                                       </select>
-                                      <span className="material-symbols-rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">expand_more</span>
+                                      <span className="material-symbols-rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">expand_more</span>
                                     </div>
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-bold text-zinc-500 mb-1">Anotações do Projeto</label>
+                                  <label className="block text-xs font-bold text-text-muted mb-1">Anotações do Projeto</label>
                                   <textarea 
                                     value={editFormData.notes || ''} 
                                     onChange={e => setEditFormData({...editFormData, notes: e.target.value})}
-                                    className="w-full text-sm border border-white/20 bg-stone-900/50 rounded-lg p-4 text-zinc-300 min-h-[100px] outline-none focus:border-primary/50 resize-y"
+                                    className="w-full text-sm border border-border-subtle bg-surface rounded-lg p-4 text-text-main min-h-[100px] outline-none focus:border-primary/50 resize-y"
                                   />
                                 </div>
-                                <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                                <div className="flex justify-end gap-3 pt-4 border-t border-border-subtle">
                                   <button
                                     onClick={() => setEditingProject(null)}
-                                    className="px-4 py-2 text-xs font-bold text-zinc-400 hover:bg-white/5 hover:text-white rounded-lg transition-colors"
+                                    className="px-4 py-2 text-xs font-bold text-text-muted hover:bg-surface hover:text-text-main rounded-lg transition-colors"
                                   >
                                     Cancelar
                                   </button>
@@ -841,21 +841,21 @@ export default function Archive() {
                               <div className="space-y-4 max-w-3xl">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">Título</label>
-                                    <p className="text-sm border border-white/10 bg-white/5 rounded-lg p-3 text-white">{item.title}</p>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">Título</label>
+                                    <p className="text-sm border border-border-subtle bg-surface rounded-lg p-3 text-text-main">{item.title}</p>
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-bold text-zinc-500 mb-1">DOI / Referência</label>
-                                    <p className="text-sm border border-white/10 bg-white/5 rounded-lg p-3 text-white">{item.doi || 'Não especificado'}</p>
+                                    <label className="block text-xs font-bold text-text-muted mb-1">DOI / Referência</label>
+                                    <p className="text-sm border border-border-subtle bg-surface rounded-lg p-3 text-text-main">{item.doi || 'Não especificado'}</p>
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-bold text-zinc-500 mb-1">Anotações do Projeto</label>
-                                  <div className="text-sm border border-white/10 bg-white/5 rounded-lg p-4 text-zinc-300 min-h-[100px] whitespace-pre-wrap">
+                                  <label className="block text-xs font-bold text-text-muted mb-1">Anotações do Projeto</label>
+                                  <div className="text-sm border border-border-subtle bg-surface rounded-lg p-4 text-text-main min-h-[100px] whitespace-pre-wrap">
                                     {item.notes || 'Nenhuma anotação inserida para este projeto.'}
                                   </div>
                                 </div>
-                                <div className="flex justify-between items-center pt-4 border-t border-white/10">
+                                <div className="flex justify-between items-center pt-4 border-t border-border-subtle">
                                   <button
                                     onClick={() => {
                                       let tagsStr = '';
@@ -920,7 +920,7 @@ export default function Archive() {
                             {activeTabUrl === 'analises' && (
                               <div className="space-y-4">
                                 <div className="flex justify-between items-center mb-4">
-                                  <h3 className="text-xl font-bold text-white">Análises Vinculadas</h3>
+                                  <h3 className="text-xl font-bold text-text-main">Análises Vinculadas</h3>
                                   <button 
                                     onClick={() => {
                                       fetchFullHistory()
@@ -934,11 +934,11 @@ export default function Archive() {
                                {analyses.length > 0 ? (
                                  <div className="space-y-3">
                                    {analyses.map(analysis => (
-                                     <div key={analysis.id} className="border border-white/10 rounded-lg p-4 bg-stone-900/50">
+                                     <div key={analysis.id} className="border border-border-subtle rounded-lg p-4 bg-surface">
                                        <div className="flex justify-between items-start">
                                          <div>
-                                           <h4 className="font-bold text-white">{analysis.filename}</h4>
-                                           <p className="text-zinc-400 text-sm">
+                                           <h4 className="font-bold text-text-main">{analysis.filename}</h4>
+                                           <p className="text-text-muted text-sm">
                                              {analysis.outcome} • {new Date(analysis.created_at).toLocaleDateString('pt-BR')}
                                            </p>
                                          </div>
@@ -957,9 +957,9 @@ export default function Archive() {
                                    ))}
                                  </div>
                                ) : (
-                                 <div className="py-10 text-center border-2 border-dashed border-white/10 rounded-2xl">
+                                 <div className="py-10 text-center border-2 border-dashed border-border-subtle rounded-2xl">
                                    <span className="material-symbols-rounded text-4xl text-zinc-600 mb-2">dataset</span>
-                                   <p className="text-zinc-500 text-sm">Nenhuma análise vinculada a este projeto</p>
+                                   <p className="text-text-muted text-sm">Nenhuma análise vinculada a este projeto</p>
                                  </div>
                                )}
                              </div>
@@ -978,10 +978,10 @@ export default function Archive() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="glass-card p-6 border border-white/10"
+                className="glass-card p-6 border border-border-subtle"
               >
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xs font-semibold tracking-wide text-zinc-500">Linha do Tempo de Projetos</h3>
+                  <h3 className="text-xs font-semibold tracking-wide text-text-muted">Linha do Tempo de Projetos</h3>
                   <span className="material-symbols-rounded text-primary/50">timeline</span>
                 </div>
                 
@@ -1191,11 +1191,11 @@ export default function Archive() {
                               transform: 'translateX(-50%)'
                             }}
                           >
-                            <div className="bg-stone-800/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-3 min-w-[180px]">
+                            <div className="bg-stone-800/90 backdrop-blur-md border border-border-subtle rounded-lg shadow-xl p-3 min-w-[180px]">
                               {/* Seta do tooltip */}
-                              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-stone-800/90 border-r border-b border-white/10 rotate-45" />
+                              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-stone-800/90 border-r border-b border-border-subtle rotate-45" />
                               
-                              <p className="text-white font-bold text-sm mb-1 truncate">{tooltipData.title}</p>
+                              <p className="text-text-main font-bold text-sm mb-1 truncate">{tooltipData.title}</p>
                               <div className="flex items-center gap-2 mb-1">
                                 <span 
                                   className="px-2 py-0.5 rounded text-[10px] font-bold"
@@ -1208,7 +1208,7 @@ export default function Archive() {
                                   {tooltipData.statusLabel}
                                 </span>
                               </div>
-                              <p className="text-zinc-400 text-xs">{tooltipData.dateStr}</p>
+                              <p className="text-text-muted text-xs">{tooltipData.dateStr}</p>
                             </div>
                           </motion.div>
                         )}
@@ -1218,7 +1218,7 @@ export default function Archive() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 1 }}
-                        className="text-xs text-zinc-500 text-center mt-2"
+                        className="text-xs text-text-muted text-center mt-2"
                       >
                         Passe o cursor ou clique nos pontos para ver os detalhes do projeto
                       </motion.p>
@@ -1228,7 +1228,7 @@ export default function Archive() {
               </motion.div>
               
               {/* Lista de projetos no modo timeline */}
-              <div className="relative border-l-2 border-white/10 ml-6 md:ml-20 py-8 space-y-8">
+              <div className="relative border-l-2 border-border-subtle ml-6 md:ml-20 py-8 space-y-8">
                 {projects.map((item, index) => {
                   return (
                     <motion.div 
@@ -1244,12 +1244,12 @@ export default function Archive() {
                         className={`absolute left-[-5px] md:left-[-11px] top-6 w-4 h-4 md:w-5 md:h-5 rounded-full border-4 border-stone-900 z-10 transition-all group-hover:scale-125 ${item.status === 'publicado' ? 'bg-fuchsia-500' : item.status === 'concluido' ? 'bg-teal-400' : 'bg-amber-500'}`}
                       />
                       
-                      <div className="md:absolute top-5 md:left-[-150px] text-xs font-bold text-zinc-500 mb-2 md:mb-0 w-32 md:text-right mt-1">
+                      <div className="md:absolute top-5 md:left-[-150px] text-xs font-bold text-text-muted mb-2 md:mb-0 w-32 md:text-right mt-1">
                         {new Date(item.created_at).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric', day: 'numeric'})}
                       </div>
 
                       <motion.div 
-                        className="glass-card p-5 border border-white/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 transition-all cursor-pointer w-full md:ml-12 max-w-3xl"
+                        className="glass-card p-5 border border-border-subtle hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 transition-all cursor-pointer w-full md:ml-12 max-w-3xl"
                         onClick={() => handleOpenProjectDetail(item)}
                         whileHover={{ y: -2 }}
                       >
@@ -1259,8 +1259,8 @@ export default function Archive() {
                               {STATUS_LABELS[item.status || 'em_andamento']}
                               </span>
                           </div>
-                          <h3 className="text-xl font-bold text-white leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
-                          <p className="text-sm text-zinc-400">{item.author}</p>
+                          <h3 className="text-xl font-bold text-text-main leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
+                          <p className="text-sm text-text-muted">{item.author}</p>
                         </div>
                       </motion.div>
                     </motion.div>
@@ -1273,10 +1273,10 @@ export default function Archive() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-stone-900 border border-white/10 rounded-2xl overflow-hidden shadow-xl"
+              className="bg-stone-900 border border-border-subtle rounded-2xl overflow-hidden shadow-xl"
             >
               <table className="w-full text-left text-sm text-stone-300">
-                <thead className="bg-stone-950/50 text-xs text-zinc-500 font-semibold border-b border-white/10">
+                <thead className="bg-stone-950/50 text-xs text-text-muted font-semibold border-b border-border-subtle">
                   <tr>
                     <th className="px-6 py-4">Projeto</th>
                     <th className="px-6 py-4 hidden sm:table-cell">Status</th>
@@ -1295,9 +1295,9 @@ export default function Archive() {
                       className="cursor-pointer"
                       onClick={() => handleOpenProjectDetail(item)}
                     >
-                      <td className="px-6 py-4 font-bold text-white">
+                      <td className="px-6 py-4 font-bold text-text-main">
                         {item.title}
-                        <div className="text-xs text-zinc-500 font-normal mt-0.5">{item.author || 'Sem autor'} • {getTags(item.tags).length} tags</div>
+                        <div className="text-xs text-text-muted font-normal mt-0.5">{item.author || 'Sem autor'} • {getTags(item.tags).length} tags</div>
                       </td>
                       <td className="px-6 py-4 hidden sm:table-cell">
                         <span className={`px-2 py-1 rounded-md text-[10px] font-semibold tracking-wider border ${STATUS_COLORS[item.status]}`}>
@@ -1305,12 +1305,12 @@ export default function Archive() {
                         </span>
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <div className="flex gap-3 text-xs text-zinc-400">
+                        <div className="flex gap-3 text-xs text-text-muted">
                           <span className="flex items-center gap-1" title="Anexos"><span className="material-symbols-rounded text-sm">attach_file</span>{item.attach_count || 0}</span>
                           <span className="flex items-center gap-1" title="Gráficos"><span className="material-symbols-rounded text-sm">bar_chart</span>{item.chart_count || 0}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right text-zinc-500">
+                      <td className="px-6 py-4 text-right text-text-muted">
                         {new Date(item.created_at).toLocaleDateString('pt-BR')}
                       </td>
                     </motion.tr>
@@ -1327,10 +1327,10 @@ export default function Archive() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row justify-between items-center mt-8 bg-white/5 border border-white/10 p-4 rounded-2xl gap-4"
+          className="flex flex-col sm:flex-row justify-between items-center mt-8 bg-surface border border-border-subtle p-4 rounded-2xl gap-4"
         >
-          <div className="text-xs text-zinc-500">
-            Mostrando <span className="font-bold text-white">{(page - 1) * limit + 1}</span> a <span className="font-bold text-white">{Math.min(page * limit, totalProjects)}</span> de <span className="font-bold text-white">{totalProjects}</span> projetos
+          <div className="text-xs text-text-muted">
+            Mostrando <span className="font-bold text-text-main">{(page - 1) * limit + 1}</span> a <span className="font-bold text-text-main">{Math.min(page * limit, totalProjects)}</span> de <span className="font-bold text-text-main">{totalProjects}</span> projetos
           </div>
           <div className="flex gap-2">
             <motion.button 
@@ -1338,7 +1338,7 @@ export default function Archive() {
               onClick={() => setPage(page - 1)}
               whileHover={{ scale: page > 1 ? 1.05 : 1 }}
               whileTap={{ scale: page > 1 ? 0.95 : 1 }}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors"
+              className="px-4 py-2 bg-surface hover:bg-white/10 disabled:opacity-50 text-text-main rounded-lg text-xs font-bold transition-colors"
             >
               Anterior
             </motion.button>
@@ -1349,7 +1349,7 @@ export default function Archive() {
                   onClick={() => setPage(i + 1)}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${page === i + 1 ? 'bg-primary text-secondary' : 'bg-transparent text-zinc-400 hover:bg-white/10 hover:text-white'}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${page === i + 1 ? 'bg-primary text-secondary' : 'bg-transparent text-text-muted hover:bg-white/10 hover:text-text-main'}`}
                 >
                   {i + 1}
                 </motion.button>
@@ -1360,7 +1360,7 @@ export default function Archive() {
               onClick={() => setPage(page + 1)}
               whileHover={{ scale: page < totalPages ? 1.05 : 1 }}
               whileTap={{ scale: page < totalPages ? 0.95 : 1 }}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors"
+              className="px-4 py-2 bg-surface hover:bg-white/10 disabled:opacity-50 text-text-main rounded-lg text-xs font-bold transition-colors"
             >
               Próxima
             </motion.button>
@@ -1381,49 +1381,49 @@ export default function Archive() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card relative z-10 w-full max-w-lg md:max-w-xl lg:max-w-2xl overflow-hidden border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="glass-card relative z-10 w-full max-w-lg md:max-w-xl lg:max-w-2xl overflow-hidden border border-border-subtle shadow-2xl max-h-[90vh] overflow-y-auto"
             >
-              <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
-                <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+              <div className="p-4 md:p-6 border-b border-border-subtle flex justify-between items-center bg-surface shrink-0">
+                <h2 className="text-lg md:text-xl font-bold text-text-main flex items-center gap-2">
                   <span className="material-symbols-rounded text-primary">add_box</span>
                   Criar Novo Projeto
                 </h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-1">
+                <button onClick={() => setIsModalOpen(false)} className="text-text-muted hover:text-text-main transition-colors p-1">
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
               
               <form onSubmit={handleCreateProject} className="p-4 md:p-6 space-y-4 md:space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Título do Projeto *</label>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Título do Projeto *</label>
                   <input
                     required
                     type="text"
                     value={newProject.title}
                     onChange={e => setNewProject({...newProject, title: e.target.value})}
-                    className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50"
                     placeholder="Ex: Ensaio Clínico Randomizado FASE III..."
                   />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 mb-1">Autor / PI</label>
+                    <label className="block text-xs font-bold text-text-muted mb-1">Autor / PI</label>
                     <input
                       type="text"
                       value={newProject.author}
                       onChange={e => setNewProject({...newProject, author: e.target.value})}
-                      className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                      className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50"
                       placeholder="Dr. João Silva"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 mb-1">Instituição</label>
+                    <label className="block text-xs font-bold text-text-muted mb-1">Instituição</label>
                     <input
                       type="text"
                       value={newProject.institution}
                       onChange={e => setNewProject({...newProject, institution: e.target.value})}
-                      className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                      className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50"
                       placeholder="HCFMUSP"
                     />
                   </div>
@@ -1431,58 +1431,58 @@ export default function Archive() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 mb-1">DOI (opcional)</label>
+                    <label className="block text-xs font-bold text-text-muted mb-1">DOI (opcional)</label>
                     <input
                       type="text"
                       value={newProject.doi}
                       onChange={e => setNewProject({...newProject, doi: e.target.value})}
-                      className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                      className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50"
                       placeholder="10.1038/s41591..."
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 mb-1">Status</label>
+                    <label className="block text-xs font-bold text-text-muted mb-1">Status</label>
                     <div className="relative">
                       <select 
                         value={newProject.status}
                         onChange={e => setNewProject({...newProject, status: e.target.value})}
-                        className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 appearance-none"
+                        className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50 appearance-none"
                       >
                         <option value="em_andamento">Em Andamento</option>
                         <option value="concluido">Concluído</option>
                         <option value="publicado">Publicado</option>
                       </select>
-                      <span className="material-symbols-rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">expand_more</span>
+                      <span className="material-symbols-rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">expand_more</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Tags (separadas por vírgula)</label>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Tags (separadas por vírgula)</label>
                   <input
                     type="text"
                     value={newProject.tags}
                     onChange={e => setNewProject({...newProject, tags: e.target.value})}
-                    className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50"
                     placeholder="Pediatria, RCT, Placebo..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Anotações</label>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Anotações</label>
                   <textarea
                     value={newProject.notes}
                     onChange={e => setNewProject({...newProject, notes: e.target.value})}
-                    className="w-full bg-stone-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 min-h-[100px] resize-y"
+                    className="w-full bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary/50 min-h-[100px] resize-y"
                     placeholder="Detalhes adicionais, hipóteses, resumos..."
                   />
                 </div>
                 
-                <div className="flex justify-end gap-3 pt-4 border-t border-white/10 mt-6 !mb-2 text-right">
+                <div className="flex justify-end gap-3 pt-4 border-t border-border-subtle mt-6 !mb-2 text-right">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:bg-white/5 hover:text-white transition-colors"
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-text-muted hover:bg-surface hover:text-text-main transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1523,7 +1523,7 @@ export default function Archive() {
               exit={{ opacity: 0, y: 20 }}
               className="relative z-10 w-full h-full flex flex-col pointer-events-none"
             >
-              <div className="flex justify-between items-center bg-stone-900 border border-white/10 p-4 rounded-xl shadow-2xl mb-4 pointer-events-auto">
+              <div className="flex justify-between items-center bg-stone-900 border border-border-subtle p-4 rounded-xl shadow-2xl mb-4 pointer-events-auto">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-primary/10 text-primary rounded-lg">
                     <span className="material-symbols-rounded text-xl">
@@ -1531,15 +1531,15 @@ export default function Archive() {
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-white font-bold">{previewFile.original_name}</h3>
-                    <p className="text-xs text-zinc-500 tracking-wide">{previewFile.file_type} • Upload em {new Date(previewFile.created_at).toLocaleDateString('pt-BR')}</p>
+                    <h3 className="text-text-main font-bold">{previewFile.original_name}</h3>
+                    <p className="text-xs text-text-muted tracking-wide">{previewFile.file_type} • Upload em {new Date(previewFile.created_at).toLocaleDateString('pt-BR')}</p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
                   <a 
                     href={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.token}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-surface hover:bg-white/10 text-text-main rounded-lg text-xs font-bold transition-colors"
                     download
                     target="_blank"
                     rel="noreferrer"
@@ -1549,7 +1549,7 @@ export default function Archive() {
                   </a>
                   <button 
                     onClick={() => setPreviewFile(null)} 
-                    className="p-2 ml-2 text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                    className="p-2 ml-2 text-text-muted hover:text-text-main bg-surface hover:bg-white/10 rounded-lg transition-colors"
                   >
                     <span className="material-symbols-rounded text-[18px]">close</span>
                   </button>
@@ -1562,10 +1562,10 @@ export default function Archive() {
                 ) : previewFile.file_type === 'csv' ? (
                   <CSVPreview url={`${API_URL}/api/attachments/${previewFile.id}/file?token=${session?.token}`} />
                 ) : (
-                  <div className="flex items-center justify-center h-full bg-stone-900 border border-white/10 rounded-xl">
+                  <div className="flex items-center justify-center h-full bg-stone-900 border border-border-subtle rounded-xl">
                     <div className="text-center">
                       <span className="material-symbols-rounded text-6xl text-zinc-600 mb-4 block">insert_drive_file</span>
-                      <p className="text-zinc-500 text-sm">Pré-visualização indisponível para este tipo de arquivo.<br/>Use o botão Baixar para abrir o arquivo localmente.</p>
+                      <p className="text-text-muted text-sm">Pré-visualização indisponível para este tipo de arquivo.<br/>Use o botão Baixar para abrir o arquivo localmente.</p>
                     </div>
                   </div>
                 )}
@@ -1588,20 +1588,20 @@ export default function Archive() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="glass-card relative z-10 w-full max-w-xl overflow-hidden border border-white/10 shadow-2xl flex flex-col max-h-[80vh]"
+              className="glass-card relative z-10 w-full max-w-xl overflow-hidden border border-border-subtle shadow-2xl flex flex-col max-h-[80vh]"
             >
-              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <div className="p-6 border-b border-border-subtle flex justify-between items-center bg-surface">
+                <h2 className="text-xl font-bold text-text-main flex items-center gap-2">
                   <span className="material-symbols-rounded text-primary">add_link</span>
                   Vincular Análise do Histórico
                 </h2>
-                <button onClick={() => setIsLinkingModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <button onClick={() => setIsLinkingModalOpen(false)} className="text-text-muted hover:text-text-main transition-colors">
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
               
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-                <p className="text-sm text-zinc-400 mb-4">Selecione uma análise estatística realizada anteriormente para vincular a este projeto.</p>
+                <p className="text-sm text-text-muted mb-4">Selecione uma análise estatística realizada anteriormente para vincular a este projeto.</p>
                 
                 {fullHistory.filter(h => !analyses.some(a => a.id === h.id)).length > 0 ? (
                   <div className="space-y-2">
@@ -1610,12 +1610,12 @@ export default function Archive() {
                       .map(h => (
                         <div 
                           key={h.id} 
-                          className="flex justify-between items-center p-4 rounded-xl border border-white/5 bg-white/5 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
+                          className="flex justify-between items-center p-4 rounded-xl border border-border-subtle bg-surface hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
                           onClick={() => linkAnalysis(expandedCard, h.id)}
                         >
                           <div>
-                            <p className="font-bold text-white group-hover:text-primary transition-colors">{h.filename}</p>
-                            <p className="text-xs text-zinc-500">{h.outcome} • {new Date(h.created_at).toLocaleDateString('pt-BR')}</p>
+                            <p className="font-bold text-text-main group-hover:text-primary transition-colors">{h.filename}</p>
+                            <p className="text-xs text-text-muted">{h.outcome} • {new Date(h.created_at).toLocaleDateString('pt-BR')}</p>
                           </div>
                           <span className="material-symbols-rounded text-zinc-600 group-hover:text-primary transition-colors">link</span>
                         </div>
@@ -1625,7 +1625,7 @@ export default function Archive() {
                 ) : (
                   <div className="py-20 text-center">
                     <span className="material-symbols-rounded text-4xl text-zinc-700 mb-2">history</span>
-                    <p className="text-zinc-500">Nenhuma análise disponível para vincular.</p>
+                    <p className="text-text-muted">Nenhuma análise disponível para vincular.</p>
                   </div>
                 )}
               </div>
@@ -1648,10 +1648,10 @@ export default function Archive() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="glass-card relative z-10 w-full max-w-2xl lg:max-w-3xl max-h-[85vh] overflow-hidden border border-white/10 shadow-2xl"
+              className="glass-card relative z-10 w-full max-w-2xl lg:max-w-3xl max-h-[85vh] overflow-hidden border border-border-subtle shadow-2xl"
             >
               {/* Header com Glassmorphism Premium */}
-              <div className="relative p-4 md:p-6 border-b border-white/10 overflow-hidden">
+              <div className="relative p-4 md:p-6 border-b border-border-subtle overflow-hidden">
                 {/* Background gradient effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50" />
                 
@@ -1669,8 +1669,8 @@ export default function Archive() {
                       >
                         {STATUS_LABELS[projectDetailModal.status || 'em_andamento']}
                       </motion.span>
-                      <span className="text-[10px] text-zinc-500 font-medium bg-white/5 px-2 py-1 rounded-md">#{projectDetailModal.id}</span>
-                      <span className="text-[10px] text-zinc-500 font-medium flex items-center gap-1 bg-white/5 px-2 py-1 rounded-md">
+                      <span className="text-[10px] text-text-muted font-medium bg-surface px-2 py-1 rounded-md">#{projectDetailModal.id}</span>
+                      <span className="text-[10px] text-text-muted font-medium flex items-center gap-1 bg-surface px-2 py-1 rounded-md">
                         <span className="material-symbols-rounded text-[12px]">calendar_today</span>
                         {new Date(projectDetailModal.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
@@ -1679,7 +1679,7 @@ export default function Archive() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.15 }}
-                      className="text-xl md:text-2xl font-bold text-white leading-tight"
+                      className="text-xl md:text-2xl font-bold text-text-main leading-tight"
                     >
                       {projectDetailModal.title}
                     </motion.h2>
@@ -1688,14 +1688,14 @@ export default function Archive() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.2 }}
-                        className="text-sm text-zinc-400 mt-2 flex items-center gap-2"
+                        className="text-sm text-text-muted mt-2 flex items-center gap-2"
                       >
                         <span className="material-symbols-rounded text-[16px] text-primary/70">person</span>
                         {projectDetailModal.author}
                         {projectDetailModal.institution && (
                           <>
                             <span className="text-zinc-600">•</span>
-                            <span className="text-zinc-500">{projectDetailModal.institution}</span>
+                            <span className="text-text-muted">{projectDetailModal.institution}</span>
                           </>
                         )}
                       </motion.p>
@@ -1719,7 +1719,7 @@ export default function Archive() {
                     whileHover={{ scale: 1.1, rotate: 90 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setProjectDetailModal(null)} 
-                    className="text-zinc-500 hover:text-white transition-colors p-2 shrink-0 bg-white/5 hover:bg-white/10 rounded-lg"
+                    className="text-text-muted hover:text-text-main transition-colors p-2 shrink-0 bg-surface hover:bg-white/10 rounded-lg"
                   >
                     <span className="material-symbols-rounded text-xl">close</span>
                   </motion.button>
@@ -1747,7 +1747,7 @@ export default function Archive() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
                       >
-                        <h4 className="text-xs font-bold text-zinc-500 tracking-wider mb-3 flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-text-muted tracking-wider mb-3 flex items-center gap-2">
                           <span className="material-symbols-rounded text-sm">sell</span>
                           Tags
                         </h4>
@@ -1759,7 +1759,7 @@ export default function Archive() {
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ delay: 0.35 + i * 0.05 }}
                               whileHover={{ scale: 1.05 }}
-                              className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs text-zinc-300 hover:border-primary/30 hover:text-primary transition-all cursor-default"
+                              className="px-3 py-1.5 bg-surface border border-border-subtle rounded-full text-xs text-text-main hover:border-primary/30 hover:text-primary transition-all cursor-default"
                             >
                               #{t}
                             </motion.span>
@@ -1775,13 +1775,13 @@ export default function Archive() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
                       >
-                        <h4 className="text-xs font-bold text-zinc-500 tracking-wider mb-3 flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-text-muted tracking-wider mb-3 flex items-center gap-2">
                           <span className="material-symbols-rounded text-sm">notes</span>
                           Notas
                         </h4>
                         <motion.div 
                           whileHover={{ borderColor: 'rgba(255,255,255,0.2)' }}
-                          className="p-4 bg-white/5 border border-white/10 rounded-xl text-sm text-zinc-300 transition-colors"
+                          className="p-4 bg-surface border border-border-subtle rounded-xl text-sm text-text-main transition-colors"
                         >
                           {projectDetailData.notes}
                         </motion.div>
@@ -1794,14 +1794,14 @@ export default function Archive() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.45 }}
                     >
-                      <h4 className="text-xs font-bold text-zinc-500 tracking-wider mb-3 flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-text-muted tracking-wider mb-3 flex items-center gap-2">
                         <span className="material-symbols-rounded text-sm">analytics</span>
                         Estatísticas
                       </h4>
                       <div className="grid grid-cols-3 gap-3">
                         <motion.div 
                           whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
-                          className="glass-card p-4 text-center border border-white/5 hover:border-primary/30 transition-all cursor-default"
+                          className="glass-card p-4 text-center border border-border-subtle hover:border-primary/30 transition-all cursor-default"
                         >
                           <div className="flex justify-center mb-2">
                             <div className="p-2 bg-primary/10 rounded-lg">
@@ -1809,11 +1809,11 @@ export default function Archive() {
                             </div>
                           </div>
                           <p className="text-2xl font-semibold text-primary">{projectDetailData.attachment_count || 0}</p>
-                          <p className="text-[10px] font-bold text-zinc-500 mt-1">Anexos</p>
+                          <p className="text-[10px] font-bold text-text-muted mt-1">Anexos</p>
                         </motion.div>
                         <motion.div 
                           whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
-                          className="glass-card p-4 text-center border border-white/5 hover:border-teal-300/30 transition-all cursor-default"
+                          className="glass-card p-4 text-center border border-border-subtle hover:border-teal-300/30 transition-all cursor-default"
                         >
                           <div className="flex justify-center mb-2">
                             <div className="p-2 bg-teal-400/10 rounded-lg">
@@ -1821,11 +1821,11 @@ export default function Archive() {
                             </div>
                           </div>
                           <p className="text-2xl font-semibold text-teal-300">{projectDetailData.chart_count || 0}</p>
-                          <p className="text-[10px] font-bold text-zinc-500 mt-1">Gráficos</p>
+                          <p className="text-[10px] font-bold text-text-muted mt-1">Gráficos</p>
                         </motion.div>
                         <motion.div 
                           whileHover={{ y: -4, borderColor: 'rgba(34, 197, 94, 0.3)' }}
-                          className="glass-card p-4 text-center border border-white/5 hover:border-fuchsia-400/30 transition-all cursor-default"
+                          className="glass-card p-4 text-center border border-border-subtle hover:border-fuchsia-400/30 transition-all cursor-default"
                         >
                           <div className="flex justify-center mb-2">
                             <div className="p-2 bg-fuchsia-500/10 rounded-lg">
@@ -1833,7 +1833,7 @@ export default function Archive() {
                             </div>
                           </div>
                           <p className="text-2xl font-semibold text-fuchsia-400">{projectDetailData.analysis_count || 0}</p>
-                          <p className="text-[10px] font-bold text-zinc-500 mt-1">Análises</p>
+                          <p className="text-[10px] font-bold text-text-muted mt-1">Análises</p>
                         </motion.div>
                       </div>
                     </motion.div>
@@ -1843,7 +1843,7 @@ export default function Archive() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 }}
-                      className="flex flex-wrap gap-3 pt-4 border-t border-white/10"
+                      className="flex flex-wrap gap-3 pt-4 border-t border-border-subtle"
                     >
                       <motion.button
                         whileHover={{ scale: 1.02 }}
@@ -1890,7 +1890,7 @@ export default function Archive() {
                     className="text-center py-12"
                   >
                     <span className="material-symbols-rounded text-5xl text-zinc-700 mb-4 block">error</span>
-                    <p className="text-zinc-500">Não foi possível carregar os detalhes.</p>
+                    <p className="text-text-muted">Não foi possível carregar os detalhes.</p>
                   </motion.div>
                 )}
               </div>
