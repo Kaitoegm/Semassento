@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import DataQualityBanner from './DataQualityBanner'
+import DatasetEditorModal from './DatasetEditorModal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const isDesfecho = (rationale = '') => rationale.includes('[DESFECHO]')
@@ -191,8 +193,32 @@ const VariableDrawer = ({ groupName, items, onOptionChange, onToggleSelection, i
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome, onOutcomeChange, outcomeOptions, onToggleSelection }) => {
+const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome, onOutcomeChange, outcomeOptions, onToggleSelection, dataQuality, pendingFile, onDatasetCorrected }) => {
   const [expandedGroup, setExpandedGroup] = useState(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorFocusCol, setEditorFocusCol] = useState(null)
+
+  const hasQualityIssues = !!(dataQuality && dataQuality.summary?.overall_status !== 'ok')
+  const totalIssues = (dataQuality?.summary?.cols_critical ?? 0) + (dataQuality?.summary?.cols_warning ?? 0)
+
+  const handleConfirmClick = () => {
+    if (hasQualityIssues && pendingFile) {
+      // Open the editor instead of running analysis
+      handleEditRequest(null)
+      return
+    }
+    onConfirm()
+  }
+
+  const handleEditRequest = (focusCol) => {
+    setEditorFocusCol(focusCol || null)
+    setEditorOpen(true)
+  }
+
+  const handleEditorSave = (correctedFile, newQuality) => {
+    setEditorOpen(false)
+    if (onDatasetCorrected) onDatasetCorrected(correctedFile, newQuality)
+  }
 
   const selectedCount = useMemo(() => protocol?.filter(v => v.is_selected).length ?? 0, [protocol])
   const optionalCount = useMemo(() => protocol?.filter(v => !v.is_selected).length ?? 0, [protocol])
@@ -276,15 +302,65 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
         </div>
 
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onConfirm}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={handleConfirmClick}
+          style={hasQualityIssues ? {
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            boxShadow: '0 0 28px rgba(245,158,11,0.35)',
+            color: '#000',
+          } : {}}
           className="bg-primary text-background font-semibold text-xs tracking-wide px-14 py-7 rounded-xl transition-all flex items-center gap-5 group shrink-0"
         >
-          Iniciar Análise Full
-          <span className="material-symbols-rounded text-xl group-hover:rotate-12 transition-transform">rocket_launch</span>
+          {hasQualityIssues ? (
+            <>
+              <span className="material-symbols-rounded text-xl" style={{ animation: 'pulse 2s ease-in-out infinite' }}>edit_note</span>
+              Corrigir dados ({totalIssues} coluna{totalIssues !== 1 ? 's' : ''})
+            </>
+          ) : (
+            <>
+              Iniciar Análise Full
+              <span className="material-symbols-rounded text-xl group-hover:rotate-12 transition-transform">rocket_launch</span>
+            </>
+          )}
         </motion.button>
       </div>
+
+      {/* Banner de qualidade de dados */}
+      {dataQuality && (
+        <div className="mb-10 relative z-10">
+          <DataQualityBanner
+            dataQuality={dataQuality}
+            onEditRequest={pendingFile ? handleEditRequest : undefined}
+          />
+        </div>
+      )}
+
+      {/* Editor modal */}
+      <DatasetEditorModal
+        isOpen={editorOpen}
+        pendingFile={pendingFile}
+        dataQuality={dataQuality}
+        focusColumn={editorFocusCol}
+        onSave={handleEditorSave}
+        onClose={() => setEditorOpen(false)}
+      />
+
+      {/* Amber guidance note when quality issues exist */}
+      {hasQualityIssues && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 relative z-10"
+        >
+          <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#f59e0b', flexShrink: 0 }}>info</span>
+            <p style={{ margin: 0, fontSize: 11, color: '#d97706', fontWeight: 500 }}>
+              Corrija as inconsistências no editor antes de executar a análise. Após salvar as correções, o botão voltará ao normal.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Grouped protocol */}
       <div className="space-y-4">

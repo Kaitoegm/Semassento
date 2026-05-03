@@ -38,6 +38,7 @@ from clinical_transforms import (
     calc_imc,
     calc_pulse_pressure,
 )
+from assistants import SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_REPORT
 
 # ============================================================
 # Configuração de Diretórios de Upload (Fase 1 — Histórico)
@@ -76,16 +77,21 @@ else:
 
 import time
 
-def ask_gpt(prompt: str, max_retries: int = 2) -> str:
+def ask_gpt(prompt: str, system_prompt: str = None, max_retries: int = 2) -> str:
     """Chama OpenAI GPT com retry automático em caso de rate limit."""
     if not openai_client:
         raise HTTPException(status_code=503, detail="Serviço de IA não configurado.")
 
     for attempt in range(max_retries + 1):
         try:
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 temperature=0.7,
             )
             return response.choices[0].message.content
@@ -95,6 +101,48 @@ def ask_gpt(prompt: str, max_retries: int = 2) -> str:
                 if attempt < max_retries:
                     wait = 5 * (attempt + 1)
                     print(f"GPT: Rate limit. Tentativa {attempt+1}/{max_retries+1}. Esperando {wait}s...")
+                    time.sleep(wait)
+                    continue
+                raise HTTPException(status_code=429, detail="Limite de uso da API OpenAI excedido. Aguarde alguns minutos.")
+            raise HTTPException(status_code=500, detail=f"Erro na IA: {err_str[:200]}")
+
+def ask_assistant(prompt: str, assistant_id: str, max_retries: int = 2) -> str:
+    """Chama OpenAI Assistants API com retry automático."""
+    if not openai_client:
+        raise HTTPException(status_code=503, detail="Serviço de IA não configurado.")
+
+    for attempt in range(max_retries + 1):
+        try:
+            thread = openai_client.beta.threads.create()
+            openai_client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=prompt
+            )
+            run = openai_client.beta.threads.runs.create(
+                thread_id=thread.id,
+                assistant_id=assistant_id
+            )
+            
+            while run.status in ["queued", "in_progress"]:
+                time.sleep(2)
+                run = openai_client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+                
+            if run.status == "completed":
+                messages = openai_client.beta.threads.messages.list(thread_id=thread.id)
+                for msg in messages.data:
+                    if msg.role == "assistant":
+                        return msg.content[0].text.value
+                return "Não foi possível recuperar a resposta."
+            else:
+                raise Exception(f"Run falhou com status: {run.status}")
+                
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
+                if attempt < max_retries:
+                    wait = 5 * (attempt + 1)
+                    print(f"Assistant: Rate limit. Tentativa {attempt+1}/{max_retries+1}. Esperando {wait}s...")
                     time.sleep(wait)
                     continue
                 raise HTTPException(status_code=429, detail="Limite de uso da API OpenAI excedido. Aguarde alguns minutos.")
@@ -1052,6 +1100,109 @@ def _apply_clinical_transforms(df: pd.DataFrame, outcome_col: str = None, domain
     return df
 
 
+# ============================================================
+# Qualidade de Dados — Semáforo por Coluna
+# Retorna status ok | warning | critical por coluna,
+# outliers (z-score > 3), variância zero, e um resumo geral.
+# ============================================================
+def compute_data_quality(df: pd.DataFrame) -> dict:
+    """Gera métricas de qualidade por coluna para o semáforo visual do frontend."""
+    total_rows = len(df)
+    if total_rows == 0:
+        return {"columns": [], "summary": {"overall_status": "ok", "total_rows": 0, "rows_with_issues": 0, "cols_critical": 0, "cols_warning": 0}}
+
+    col_results = []
+    # Detecção de linhas duplicadas (globalmente)
+    try:
+        duplicate_mask = df.duplicated(keep=False)
+        n_duplicate_rows = int(duplicate_mask.sum())
+    except Exception:
+        n_duplicate_rows = 0
+
+    for col in df.columns:
+        n_missing = int(df[col].isna().sum())
+        pct_missing = round(n_missing / total_rows * 100, 1)
+
+        # Tentar tratar como numérico
+        col_num = pd.to_numeric(df[col], errors='coerce')
+        non_null_num = col_num.dropna()
+        is_numeric = len(non_null_num) >= 3  # mínimo para z-score
+
+        # Tipo da coluna
+        if is_numeric:
+            col_type = "contínua"
+        else:
+            unique_count = df[col].dropna().nunique()
+            if unique_count == 2:
+                col_type = "binária"
+            elif unique_count > total_rows * 0.9 and df[col].dtype == object:
+                col_type = "identificador"
+            else:
+                col_type = "categórica"
+
+        # Outliers via z-score (apenas numérico)
+        outlier_pct = 0.0
+        outlier_count = 0
+        zero_variance = False
+        if is_numeric and len(non_null_num) >= 3:
+            std_val = float(non_null_num.std())
+            mean_val = float(non_null_num.mean())
+            zero_variance = std_val < 1e-9
+            if not zero_variance:
+                z_scores = np.abs((non_null_num - mean_val) / std_val)
+                outlier_count = int((z_scores > 3).sum())
+                outlier_pct = round(outlier_count / len(non_null_num) * 100, 1)
+
+        # Determinar status da coluna
+        if pct_missing > 30 or (is_numeric and zero_variance and total_rows > 5) or outlier_pct > 15:
+            status = "critical"
+        elif pct_missing > 10 or outlier_pct > 5:
+            status = "warning"
+        else:
+            status = "ok"
+
+        col_results.append({
+            "name": col,
+            "status": status,
+            "type": col_type,
+            "pct_missing": pct_missing,
+            "n_missing": n_missing,
+            "pct_valid": round(100 - pct_missing, 1),
+            "outlier_pct": outlier_pct,
+            "outlier_count": outlier_count,
+            "zero_variance": zero_variance,
+        })
+
+    cols_critical = sum(1 for c in col_results if c["status"] == "critical")
+    cols_warning  = sum(1 for c in col_results if c["status"] == "warning")
+
+    if cols_critical > 0:
+        overall = "critical"
+    elif cols_warning > 0:
+        overall = "warning"
+    else:
+        overall = "ok"
+
+    # Linhas estimadas com pelo menos 1 problema
+    try:
+        rows_with_missing = int(df.isna().any(axis=1).sum())
+    except Exception:
+        rows_with_missing = 0
+
+    return {
+        "columns": col_results,
+        "summary": {
+            "overall_status": overall,
+            "total_rows": total_rows,
+            "rows_with_issues": rows_with_missing,
+            "duplicate_rows": n_duplicate_rows,
+            "cols_critical": cols_critical,
+            "cols_warning": cols_warning,
+            "cols_ok": len(col_results) - cols_critical - cols_warning,
+        }
+    }
+
+
 @app.post("/api/data/upload")
 async def upload_file_v6(file: UploadFile = File(...), outcome: Optional[str] = Form(None), domain_transformations: Optional[str] = Form(None), user_id: str = Depends(get_current_user)):
     contents = await file.read()
@@ -1135,6 +1286,13 @@ async def upload_file_v6(file: UploadFile = File(...), outcome: Optional[str] = 
         
         missing_summary = compute_missing_data_summary(df)
         
+        # ── Métricas de qualidade para o semáforo visual ──────────────────
+        try:
+            data_quality = compute_data_quality(df)
+        except Exception as e_dq:
+            print(f"WARN compute_data_quality: {e_dq}")
+            data_quality = None
+
         return clean_dict_values({
             "filename": file.filename, 
             "warnings": warnings,
@@ -1143,7 +1301,8 @@ async def upload_file_v6(file: UploadFile = File(...), outcome: Optional[str] = 
             "summary": summary, 
             "data_preview": preview,
             "descriptive_stats": descriptive,
-            "missing_data": missing_summary
+            "missing_data": missing_summary,
+            "data_quality": data_quality,
         })
     except HTTPException: raise
     except Exception as e:
@@ -5245,70 +5404,6 @@ async def compute_roc(
         print(f"ERR: ROC -> {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-SYSTEM_PROMPT = """Você é o Paper Metrics, um assistente amigável e especializado em bioestatística e análise de dados clínicos, integrado à plataforma Paper Metrics.
-
-TOM E ESTILO DE RESPOSTA:
-- Seja **conversacional, acolhedor e didático** — como um colega sênior que adora ensinar
-- Use **negrito** para destacar conceitos importantes, nomes de testes e valores-chave
-- Use *itálico* para ênfase suave
-- Use listas com marcadores para organizar informações
-- Use blocos de código inline (`assim`) para fórmulas, valores numéricos ou termos técnicos
-- Evite respostas secas ou excessivamente formais — explique como se estivesse conversando
-- Sempre que possível, dê **exemplos práticos** do cotidiano de pesquisa clínica
-- Use emojis com moderação para tornar a leitura mais agradável (📊, 🧬, 📈, ✅, ⚠️)
-- **NUNCA** use os marcadores de markdown como asteriscos soltos — o sistema renderiza markdown corretamente, então use **negrito** e *itálico* normalmente
-
-CONHECIMENTO COMPLETO DA PLATAFORMA PAPER METRICS:
-
-O Paper Metrics é uma plataforma completa de análise estatística para pesquisadores. Você conhece cada ferramenta e sabe orientar o usuário sobre a melhor opção para cada cenário:
-
-📊 **Dashboard** (/) — O ponto de partida. O usuário faz upload de um dataset (CSV ou Excel), o sistema detecta automaticamente os tipos de variáveis, sugere o protocolo de análise ideal e executa os testes. É a ferramenta principal para quem tem dados e quer respostas rápidas.
-
-🧪 **Ensaios Clínicos** (/clinical-trials) — Para gerenciar estudos clínicos do planejamento à publicação. Controle de recrutamento, fases (I-IV), status e acompanhamento de pacientes. Ideal para pesquisadores que estão conduzindo trials.
-
-📈 **Análise de Sobrevivência** (/survival-analysis) — Curvas de Kaplan-Meier e teste Log-Rank. Use quando o usuário tem dados de tempo até um evento (morte, recidiva, alta hospitalar) com censura.
-
-🔬 **Metanálise** (/meta-analysis) — Combine resultados de múltiplos estudos para obter uma estimativa pooled do efeito. Use forest plots e modelos de efeitos fixos ou aleatórios.
-
-📉 **Visualizações** (/visualizations) — Gráficos interativos, correlações visuais e exploração de dados. Perfeito para entender padrões antes de rodar testes formais.
-
-🎯 **Cálculo de Poder** (/power-calculator) — Calcule o tamanho amostral necessário antes de começar o estudo. Evite underpowered studies!
-
-📁 **Arquivo Histórico** (/archive) — Todas as análises anteriores ficam salvas aqui para consulta e replicação.
-
-TESTES ESTATÍSTICOS DISPONÍVEIS E QUANDO USAR:
-
-- **Teste T Independente** — Comparar médias de 2 grupos independentes (dados normais)
-- **Teste T Pareado** — Comparar antes/depois no mesmo grupo
-- **ANOVA One-Way** — Comparar 3+ grupos independentes (dados normais)
-- **Mann-Whitney U** — Versão não-paramétrica do Teste T (2 grupos, dados não-normais)
-- **Wilcoxon** — Versão não-paramétrica do Teste T Pareado
-- **Kruskal-Wallis** — Versão não-paramétrica da ANOVA (3+ grupos)
-- **Qui-Quadrado (χ²)** — Associação entre variáveis categóricas
-- **Teste Exato de Fisher** — Para tabelas 2×2 com amostras pequenas
-- **Correlação de Pearson** — Relação linear entre 2 variáveis contínuas normais
-- **Correlação de Spearman** — Relação monotônica (dados não-normais ou ordinais)
-- **Regressão Linear** — Predizer variável contínua a partir de preditores
-- **Regressão Logística** — Predizer outcome binário (sim/não, sucesso/fracasso)
-- **Shapiro-Wilk** — Testar normalidade dos dados
-- **Kaplan-Meier + Log-Rank** — Análise de sobrevivência com censura
-
-CORES DOS TESTES NA INTERFACE (use tags especiais quando citar testes):
-- Descritiva → `[[DESCRITIVA]]`
-- Correlação → `[[CORRELAÇÃO]]`
-- Regressão → `[[REGRESSÃO]]`
-- Comparação de Grupos → `[[COMPARAÇÃO]]`
-- Pareado (antes/depois) → `[[PAREADO]]`
-- Normalidade → `[[NORMALIDADE]]`
-
-REGRAS:
-1. Quando o usuário pedir para analisar um arquivo ou mencionar ter um dataset, DIRETAMENTE sugira que anexe o arquivo no chat (use a tag [SUGGEST_UPLOAD]).
-2. Sempre que mencionar um tipo de teste ou análise, envolva-o na tag de cor correspondente (ex: `[[COMPARAÇÃO]]Teste T Independente[[/COMPARAÇÃO]]`).
-3. Seja **conversacional e didático** — nunca seco ou robótico.
-4. Responda em português brasileiro.
-5. Quando sugerir um teste, explique brevemente POR QUÊ.
-6. Se tiver acesso ao contexto de ensaios clínicos ou histórico do usuário, personalize a resposta.
-7. Oriente o usuário sobre qual ferramenta do Paper Metrics usar para cada necessidade."""
 
 
 @app.post("/api/stats/premium-analysis")
@@ -5321,47 +5416,38 @@ async def premium_analysis(target_col: str = Form(...), group_col: Optional[str]
         df = sanitize_df(df)
         
         analysis_results = premium_engine.run_comprehensive_analysis(df, target_col, group_col)
-        
-        # Gerar Relatório Científico com IA
-        if openai_client:
-            try:
-                # Criar um resumo conciso para o prompt
-                test_summaries = []
-                for t in analysis_results.get("tests", []):
-                    test_summaries.append(f"- {t['test_name']}: stat={t['stat_value']}, p={t['p_value']}, interpretacao={t['interpretation']}")
-                
-                desc = analysis_results.get("descriptive", {})
-                desc_summary = f"Média={desc.get('mean')}, Mediana={desc.get('median')}, DP={desc.get('std')}"
-                
-                prompt = f"""
-                Como um sênior PhD em Bioestatística Clínica, interprete estes resultados para um artigo científico de alto impacto.
-                
-                VARIAVEL ALVO: {target_col}
-                GRUPO (se houver): {group_col or 'Nenhum'}
-                ESTATISTICAS DESCRITIVAS: {desc_summary}
-                TESTES EXECUTADOS:
-                {chr(10).join(test_summaries)}
-                
-                Gere um relatório estruturado em:
-                1. 📝 RESULTADOS (Redação técnica dos achados, mencionando p-valores e magnitudes)
-                2. 🔬 DISCUSSÃO (Interpretação clínica, limitações e impacto)
-                3. 🚀 CONCLUSÃO (Ponto central e sugestão de próximos passos)
-                
-                Use Português Brasileiro. Estilo acadêmico formal. Use Markdown.
-                """
-                
-                ai_text = ask_gpt(prompt)
-                analysis_results["scientific_report"] = ai_text
-            except Exception as e:
-                print(f"ERR: AI Report -> {e}")
-                analysis_results["scientific_report"] = "Relatório científico indisponível temporariamente."
-        else:
-            analysis_results["scientific_report"] = "Configure a chave da API OpenAI para gerar relatórios automáticos."
-
         return clean_dict_values(analysis_results)
     except Exception as e:
         print(f"ERR: Premium Analysis -> {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/ai/report")
+async def generate_scientific_report(
+    target_col: str = Form(...),
+    group_col: Optional[str] = Form(None),
+    test_summaries: str = Form(...),
+    desc_summary: str = Form(...),
+    user_id: str = Depends(get_current_user)
+):
+    """Gera um relatório científico usando GPT diretamente com um system prompt restrito."""
+    if not openai_client:
+        raise HTTPException(status_code=503, detail="Serviço de IA não configurado.")
+    try:
+        prompt = f"""
+        Aqui estão os resultados estatísticos que você deve interpretar:
+        
+        VARIAVEL ALVO: {target_col}
+        GRUPO (se houver): {group_col or 'Nenhum'}
+        ESTATISTICAS DESCRITIVAS: {desc_summary}
+        TESTES EXECUTADOS:
+        {test_summaries}
+        """
+        
+        ai_text = ask_gpt(prompt, system_prompt=SYSTEM_PROMPT_REPORT)
+        return {"scientific_report": ai_text}
+    except Exception as e:
+        print(f"ERR: AI Report -> {e}")
+        raise HTTPException(status_code=500, detail="Erro ao gerar relatório científico.")
 
 @app.post("/api/ai/chat")
 async def ai_chat(
@@ -5412,7 +5498,7 @@ Primeiras 3 linhas: {json_safe_df(df.head(3)).to_dict(orient='records')}
             })
 
         # Tentar GPT com retry
-        context_parts = [SYSTEM_PROMPT]
+        context_parts = [SYSTEM_PROMPT_CHAT]
         if page:
             context_parts.append(f"\nPÁGINA ATUAL DO USUÁRIO: {page}")
         if trials_summary:

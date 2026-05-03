@@ -342,6 +342,7 @@ export default function Dashboard() {
   }
   const [fileData, setFileData] = useState(null)
   const [descriptiveData, setDescriptiveData] = useState(null)
+  const [dataQuality, setDataQuality] = useState(null)
   const [groupedSummary, setGroupedSummary] = useState(null)
   const [analysisProtocol, setAnalysisProtocol] = useState(null)
   const [showReview, setShowReview] = useState(false)
@@ -918,9 +919,43 @@ export default function Dashboard() {
         } catch (e) { console.warn('[Draft] save failed:', e) }
       }
 
+      // Construir e guardar o formData para uso posterior por runProtocol
       const pendingFormData = new FormData()
       pendingFormData.append('file', pendingFile)
       setFileData({ filename: pendingFile.name, formData: pendingFormData })
+
+      // ── Validação de qualidade imediata ──────────────────────────────────
+      // Dispara upload + summary AGORA (antes do setLoading(false)) para que
+      // o semáforo já apareça no estado correto quando o Review abrir.
+      // Usa o formData local (não o state fileData que só existe no próximo render).
+      try {
+        const API_URL = import.meta.env.VITE_API_BASE_URL
+        const previewFormData = new FormData()
+        previewFormData.append('file', pendingFile)
+        previewFormData.append('outcome', protocolData.outcome || '')
+        previewFormData.append('group_by', protocolData.outcome || '')
+        if (confirmedTransformations && confirmedTransformations.length > 0) {
+          previewFormData.append('domain_transformations', JSON.stringify(confirmedTransformations))
+        }
+        if (protocolData.protocol) {
+          const selectedItems = (protocolData.protocol || []).filter(item => item.is_selected !== false)
+          previewFormData.append('protocol', JSON.stringify(selectedItems))
+        }
+
+        const descRes = await fetch(`${API_URL}/api/data/upload`, { method: 'POST', body: previewFormData, headers })
+        if (descRes.ok) {
+          const descJson = await descRes.json()
+          setDescriptiveData(descJson)
+          if (descJson.data_quality) setDataQuality(descJson.data_quality)
+        }
+
+        const groupRes = await fetch(`${API_URL}/api/data/summary-grouped`, { method: 'POST', body: previewFormData, headers })
+        if (groupRes.ok) setGroupedSummary(await groupRes.json())
+      } catch (previewErr) {
+        // Falha na pré-validação não deve bloquear a abertura do Review
+        console.warn('[validateAndPreview] Pré-validação falhou:', previewErr)
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
     } catch (err) {
       console.error("Erro no analyze-protocol:", err);
@@ -932,6 +967,17 @@ export default function Dashboard() {
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); }
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); }
+
+  const handleDatasetCorrected = (correctedFile, newDataQuality) => {
+    setPendingFile(correctedFile)
+    setDataQuality(newDataQuality)
+    // Rebuild fileData.formData so runProtocol sends the corrected file
+    if (fileData) {
+      const newFormData = new FormData()
+      newFormData.append('file', correctedFile)
+      setFileData(prev => ({ ...prev, filename: correctedFile.name, formData: newFormData }))
+    }
+  }
   const handleDrop = (e) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e); }
 
   const handleProtocolOptionChange = (idx, newTest) => {
@@ -954,7 +1000,14 @@ export default function Dashboard() {
     setAnalysisProtocol(prev => ({ ...prev, outcome: newOutcome }))
   }
 
-  const confirmProtocolAndRun = async () => {
+  // ── PASSO 1 de 2: Valida qualidade do dado e exibe semáforo ─────────────────
+  // Chamada logo após o usuário confirmar o protocolo no OutcomeSelector.
+  // NÃO executa o protocolo estatístico — apenas busca descritiva + summary
+  // e atualiza dataQuality para que o semáforo fique âmbar/verde ANTES de
+  // qualquer execução. O usuário pode então corrigir dados ou clicar em
+  // "Executar análise" para chamar runProtocol().
+  const validateAndPreview = async () => {
+    if (!fileData) return
     setLoading(true)
     const headers = { 'Authorization': `Bearer ${session?.token}` }
     const API_URL = import.meta.env.VITE_API_BASE_URL
@@ -967,16 +1020,48 @@ export default function Dashboard() {
         formData.set('outcome', analysisProtocol.outcome)
         formData.set('group_by', analysisProtocol.outcome)
       }
-      // Garantir que transformações clínicas (Snellen→LogMAR, etc.) sejam aplicadas em todos os endpoints
       if (confirmedTransformations && confirmedTransformations.length > 0) {
         formData.set('domain_transformations', JSON.stringify(confirmedTransformations))
       }
 
+      // Só busca descritiva + quality — NÃO chama execute-protocol
       const descRes = await fetch(`${API_URL}/api/data/upload`, { method: 'POST', body: formData, headers })
-      if (descRes.ok) setDescriptiveData(await descRes.json());
+      if (descRes.ok) {
+        const descJson = await descRes.json()
+        setDescriptiveData(descJson)
+        if (descJson.data_quality) setDataQuality(descJson.data_quality)
+      }
 
       const groupRes = await fetch(`${API_URL}/api/data/summary-grouped`, { method: 'POST', body: formData, headers })
-      if (groupRes.ok) setGroupedSummary(await groupRes.json());
+      if (groupRes.ok) setGroupedSummary(await groupRes.json())
+
+      // Permanece em showReview=true para que o usuário veja o semáforo
+    } catch (err) {
+      alert(`Falha na pré-validação: ${err.message}`)
+    }
+    setLoading(false)
+  }
+
+  // ── PASSO 2 de 2: Executa o protocolo estatístico ────────────────────────────
+  // Só deve ser chamada após o usuário clicar explicitamente em
+  // "Executar análise" no AnalysisReviewPlan (quando semáforo está verde).
+  const runProtocol = async () => {
+    if (!fileData) return
+    setLoading(true)
+    const headers = { 'Authorization': `Bearer ${session?.token}` }
+    const API_URL = import.meta.env.VITE_API_BASE_URL
+
+    try {
+      const formData = fileData.formData
+      const selectedItems = analysisProtocol.items.filter(item => item.is_selected !== false);
+      formData.set('protocol', JSON.stringify(selectedItems))
+      if (analysisProtocol?.outcome) {
+        formData.set('outcome', analysisProtocol.outcome)
+        formData.set('group_by', analysisProtocol.outcome)
+      }
+      if (confirmedTransformations && confirmedTransformations.length > 0) {
+        formData.set('domain_transformations', JSON.stringify(confirmedTransformations))
+      }
 
       const execRes = await fetch(`${API_URL}/api/data/execute-protocol`, { method: 'POST', body: formData, headers })
       if (execRes.ok) {
@@ -989,9 +1074,12 @@ export default function Dashboard() {
         setShowReview(false)
         clearDraft()
         refresh()
+      } else {
+        const errData = await execRes.json().catch(() => ({}))
+        alert(`Falha na execução: ${errData.detail || execRes.status}`)
       }
     } catch (err) {
-      alert(`Falha: ${err.message}`);
+      alert(`Falha: ${err.message}`)
     }
     setLoading(false)
   }
@@ -1256,7 +1344,10 @@ export default function Dashboard() {
                 onOptionChange={handleProtocolOptionChange}
                 onToggleSelection={toggleProtocolSelection}
                 onOutcomeChange={handleOutcomeChange}
-                onConfirm={confirmProtocolAndRun}
+                onConfirm={runProtocol}
+                dataQuality={dataQuality}
+                pendingFile={pendingFile}
+                onDatasetCorrected={handleDatasetCorrected}
               />
           </section>
         )}

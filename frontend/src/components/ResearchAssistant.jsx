@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -27,6 +27,36 @@ const TEST_COLORS = {
   NORMALIDADE: { bg: 'bg-stone-500/15', text: 'text-stone-400', border: 'border-stone-500/30', badge: 'bg-stone-500/20 text-stone-300' },
 }
 
+// ─── Action block icons ────────────────────────────────────────────────────────
+const ACTION_ICONS = {
+  navigate: 'open_in_new',
+  open_analysis: 'analytics',
+  export: 'download',
+}
+
+// ─── Action block parser ───────────────────────────────────────────────────────
+/**
+ * Extracts and removes <action>{...}</action> blocks from a response string.
+ * Returns { text: string, action: object|null }
+ */
+function parseActionBlock(raw) {
+  if (!raw) return { text: raw, action: null }
+  const regex = /<action>([\s\S]*?)<\/action>/i
+  const match = raw.match(regex)
+  if (!match) return { text: raw, action: null }
+
+  let action = null
+  try {
+    action = JSON.parse(match[1].trim())
+  } catch {
+    action = null
+  }
+
+  const text = raw.replace(regex, '').trim()
+  return { text, action }
+}
+
+// ─── Markdown helpers ──────────────────────────────────────────────────────────
 function parseColoredTags(text) {
   if (!text) return text
   const tagRegex = /\[\[(DESCRITIVA|CORRELAÇÃO|REGRESSÃO|COMPARAÇÃO|PAREADO|NORMALIDADE)\]\](.*?)\[\[\/\1\]\]/g
@@ -50,29 +80,6 @@ function parseColoredTags(text) {
   }
 
   return parts.length > 0 ? parts : [{ type: 'text', content: text }]
-}
-
-function ColoredText({ parts }) {
-  if (!Array.isArray(parts)) {
-    return <span>{parts}</span>
-  }
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.type === 'colored') {
-          return (
-            <span
-              key={i}
-              className={`inline-block px-1.5 py-0.5 rounded-md text-[11px] font-bold ${part.colors.badge} mx-0.5`}
-            >
-              {part.content}
-            </span>
-          )
-        }
-        return <span key={i}>{part.content}</span>
-      })}
-    </>
-  )
 }
 
 function cleanMarkdown(text) {
@@ -145,15 +152,40 @@ function MarkdownContent({ content }) {
   )
 }
 
-export default function ResearchAssistant({ isOpen, setIsOpen }) {
-  const { trials, history, notifications } = useSciStat()
+// ─── Action button component ───────────────────────────────────────────────────
+function ActionButton({ action, onAction }) {
+  if (!action || !action.type) return null
+  const icon = ACTION_ICONS[action.type] || 'play_arrow'
+  const label = action.label || action.type
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      onClick={() => onAction(action)}
+      className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/15 border border-primary/25
+                 text-primary text-[11px] font-semibold hover:bg-primary/25 active:scale-95 transition-all w-full"
+    >
+      <span className="material-symbols-rounded text-[16px]">{icon}</span>
+      {label}
+    </motion.button>
+  )
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+export default function ResearchAssistant({ isOpen, setIsOpen, onExport }) {
+  const { trials, history, projects, activeProjectId } = useSciStat()
   const { session } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Olá! 👋 Sou o **Paper Metrics**, seu assistente pessoal de bioestatística.\n\nPosso te ajudar a:\n- Escolher o **teste estatístico** ideal para seus dados\n- **Interpretar resultados** de análises\n- Sugerir o melhor caminho na plataforma\n- Explicar conceitos de forma simples\n\nComo posso ajudar hoje?',
-      needsUpload: false
+      content: 'Olá! 👋 Sou o **Kai**, seu assistente pessoal de bioestatística.\n\nPosso te ajudar a:\n- Escolher o **teste estatístico** ideal para seus dados\n- **Interpretar resultados** de análises\n- Sugerir o melhor caminho na plataforma\n- Explicar conceitos de forma simples\n\nComo posso ajudar hoje?',
+      needsUpload: false,
+      action: null,
     }
   ])
   const [input, setInput] = useState('')
@@ -164,8 +196,33 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
   const inputRef = useRef(null)
 
   const currentPage = PAGE_NAMES[location.pathname] || location.pathname
+  const currentRoute = location.pathname
 
-  const buildContext = () => {
+  // ── Build system context ──────────────────────────────────────────────────
+  const buildSystemContext = useCallback(() => {
+    // Active project details
+    const activeProject = projects?.find(p => String(p.id) === String(activeProjectId))
+    const activeProjectLabel = activeProject
+      ? `"${activeProject.title || activeProject.name}" (id: ${activeProject.id})`
+      : 'Nenhum projeto ativo'
+
+    // Last analysis
+    const lastEntry = history?.[0]
+    const lastAnalysisLabel = lastEntry
+      ? `${lastEntry.test_name || lastEntry.outcome || 'Análise'} executado em ${new Date(lastEntry.created_at).toLocaleDateString('pt-BR')}, status: ${lastEntry.status || 'sem resultado'}`
+      : 'Nenhuma análise recente'
+
+    return [
+      '[CONTEXTO DO SISTEMA]',
+      `current_page: ${currentRoute}`,
+      `active_project: ${activeProjectLabel}`,
+      `last_analysis: ${lastAnalysisLabel}`,
+      '[FIM DO CONTEXTO]',
+    ].join('\n')
+  }, [currentRoute, activeProjectId, projects, history])
+
+  // ── Legacy context for sidebar fields ────────────────────────────────────
+  const buildLegacyContext = useCallback(() => {
     const trialsSummary = trials.length > 0
       ? trials.slice(0, 5).map(t => `- "${t.title}" (Fase ${t.phase}, ${t.status}, ${t.n_actual}/${t.n_target} pacientes)`).join('\n')
       : 'Nenhum ensaio clínico cadastrado.'
@@ -175,8 +232,35 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
       : 'Nenhuma análise realizada ainda.'
 
     return { trialsSummary, historySummary }
-  }
+  }, [trials, history])
 
+  // ── Action handler ────────────────────────────────────────────────────────
+  const handleAction = useCallback((action) => {
+    if (!action) return
+    switch (action.type) {
+      case 'navigate':
+        if (action.route) {
+          navigate(action.route)
+          setIsOpen(false)
+        }
+        break
+      case 'open_analysis':
+        if (action.id) {
+          navigate(`/archive?open=${action.id}`)
+          setIsOpen(false)
+        }
+        break
+      case 'export':
+        if (typeof onExport === 'function') {
+          onExport(action)
+        }
+        break
+      default:
+        console.warn('[Kai] Ação desconhecida:', action.type)
+    }
+  }, [navigate, setIsOpen, onExport])
+
+  // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = async () => {
     if (!input.trim() && !attachedFile) return
     const userMsg = input.trim()
@@ -187,17 +271,22 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
     const userMessage = {
       role: 'user',
       content: userMsg || (file ? `📎 ${file.name}` : ''),
-      fileName: file?.name || null
+      fileName: file?.name || null,
+      action: null,
     }
     setMessages(prev => [...prev, userMessage])
     setLoading(true)
 
     try {
-      const { trialsSummary, historySummary } = buildContext()
+      const systemContext = buildSystemContext()
+      const { trialsSummary, historySummary } = buildLegacyContext()
       const convHistory = messages.map(m => ({ role: m.role, content: m.content }))
 
+      // Prepend invisible system context to the user message
+      const enrichedMessage = `${systemContext}\n\n${userMsg || `Analise o arquivo anexado: ${file?.name}`}`
+
       const formData = new FormData()
-      formData.append('message', userMsg || `Analise o arquivo anexado: ${file?.name}`)
+      formData.append('message', enrichedMessage)
       formData.append('page', currentPage)
       formData.append('trials_summary', trialsSummary)
       formData.append('history_summary', historySummary)
@@ -219,16 +308,23 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
       }
 
       const data = await response.json()
+      const rawContent = data.response || 'Não consegui processar sua pergunta.'
+
+      // Extract action block before rendering
+      const { text: displayContent, action } = parseActionBlock(rawContent)
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.response || 'Não consegui processar sua pergunta.',
-        needsUpload: data.needs_upload || false
+        content: displayContent,
+        needsUpload: data.needs_upload || false,
+        action,
       }])
     } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: `Erro: ${error.message}. Verifique se o servidor está rodando e tente novamente.`,
-        needsUpload: false
+        needsUpload: false,
+        action: null,
       }])
     } finally {
       setLoading(false)
@@ -237,9 +333,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
 
   const handleFileAttach = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      setAttachedFile(file)
-    }
+    if (file) setAttachedFile(file)
     e.target.value = ''
   }
 
@@ -285,11 +379,12 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="fixed bottom-0 right-0 sm:bottom-8 sm:right-8 w-full sm:w-[420px] h-[100dvh] sm:h-[650px] z-[100] glass-card sm:rounded-xl border-primary/20 flex flex-col overflow-hidden"
           >
+            {/* Header */}
             <div className="bg-primary/10 px-8 py-5 border-b border-white/5 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>
                 <div>
-                  <span className="text-[11px] font-semibold text-primary tracking-wide">Paper Metrics</span>
+                  <span className="text-[11px] font-semibold text-primary tracking-wide">Kai</span>
                   <span className="text-[9px] text-stone-500 ml-2">{currentPage}</span>
                 </div>
               </div>
@@ -309,6 +404,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
 
             <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileAttach} className="hidden" />
 
+            {/* Message list */}
             <div ref={chatRef} className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
               {messages.map((msg, i) => (
                 <motion.div
@@ -328,11 +424,14 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                         <span className="text-[10px] font-bold truncate">{msg.fileName}</span>
                       </div>
                     )}
+
                     {msg.role === 'user' ? (
                       <div className="whitespace-pre-wrap">{msg.content}</div>
                     ) : (
                       <MarkdownContent content={msg.content} />
                     )}
+
+                    {/* Upload prompt */}
                     {msg.needsUpload && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
@@ -345,6 +444,11 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
                         <span className="material-symbols-rounded text-[14px] mr-1 align-middle">upload_file</span>
                         Anexar Arquivo
                       </button>
+                    )}
+
+                    {/* Contextual action button */}
+                    {msg.role === 'assistant' && msg.action && (
+                      <ActionButton action={msg.action} onAction={handleAction} />
                     )}
                   </div>
                 </motion.div>
@@ -378,6 +482,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
               )}
             </div>
 
+            {/* Attached file preview */}
             {attachedFile && (
               <div className="px-6 py-2 border-t border-white/5 bg-primary/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -391,6 +496,7 @@ export default function ResearchAssistant({ isOpen, setIsOpen }) {
               </div>
             )}
 
+            {/* Input area */}
             <div className="p-4 border-t border-white/5 bg-white/2">
               <form
                 onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
