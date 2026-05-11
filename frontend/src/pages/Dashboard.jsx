@@ -9,6 +9,8 @@ import ChartGeneratorModal from '../components/ChartGeneratorModal'
 import StatTooltip from '../components/StatTooltip'
 import OutcomeSelector from '../components/OutcomeSelector'
 import ColumnDomainReview from '../components/ColumnDomainReview'
+import PipelineStepper from '../components/PipelineStepper'
+import { useAnalysisNotifier } from '../hooks/useAnalysisNotifier'
 
 const TEST_EXPLANATIONS = {
   'Teste Qui-Quadrado (χ²)': {
@@ -327,8 +329,11 @@ function isPvalNA(testLabel) {
 
 export default function Dashboard() {
   const { session, isAuthenticated } = useAuth()
-  const { history, trials, projects, refresh, loading: dataLoading } = useSciStat()
+  const { history, trials, projects, refresh, loading: dataLoading, addLocalNotification } = useSciStat()
+  const { requestPermission, notifyDone } = useAnalysisNotifier()
   const [loading, setLoading] = useState(false)
+  // loadingPhase: contextualiza o spinner para cada etapa do pipeline
+  const [loadingPhase, setLoadingPhase] = useState('reading') // 'reading' | 'domains' | 'protocol' | 'running'
   const [results, setResults] = useState([])
   const [selectedTests, setSelectedTests] = useState({})
   const [validationReport, setValidationReport] = useState(null)
@@ -379,6 +384,22 @@ export default function Dashboard() {
   const [savedToProject, setSavedToProject] = useState(null)
   const [draftBanner, setDraftBanner] = useState(null)
 
+  // ── Pipeline Stepper — progresso persistente (sem modal) ──
+  const PIPELINE_STEPS = [
+    { label: 'Upload',    icon: 'cloud_upload' },
+    { label: 'Domínio',  icon: 'biotech'       },
+    { label: 'Desfecho', icon: 'target'         },
+    { label: 'Protocolo',icon: 'checklist'      },
+    { label: 'Análise',  icon: 'analytics'      },
+  ]
+  const [currentStep, setCurrentStep] = useState(0)
+
+  // Helper: avança o step e executa callback imediatamente (sem timeout)
+  const fireStepTransition = useCallback((stepIndex, onDone) => {
+    setCurrentStep(stepIndex)
+    if (onDone) onDone()
+  }, [])
+
   // ── Draft System: salvar/restaurar estado da análise ──
   const DRAFT_KEY = 'pm_analysis_draft'
 
@@ -425,11 +446,27 @@ export default function Dashboard() {
     if (draft.derivedCandidates) setDerivedCandidates(draft.derivedCandidates)
     if (draft.analysisProtocol) {
       setAnalysisProtocol(draft.analysisProtocol)
-      if (draft.step === 'protocol_review') setShowReview(true)
+      if (draft.step === 'protocol_review') {
+        fireStepTransition(3, () => setShowReview(true))
+      }
     }
-    if (draft.step === 'outcome_selection') setShowOutcomeSelector(true)
+    if (draft.step === 'outcome_selection') fireStepTransition(2, () => setShowOutcomeSelector(true))
+    if (draft.step === 'domain_review') fireStepTransition(1, () => setShowDomainReview(true))
     setDraftBanner(null)
-  }, [])
+  }, [fireStepTransition])
+
+  useEffect(() => {
+    const handleOpenDraft = () => {
+      const stored = localStorage.getItem(DRAFT_KEY)
+      if (stored) {
+        try {
+          resumeDraft(JSON.parse(stored))
+        } catch(e) {}
+      }
+    }
+    window.addEventListener('open-draft', handleOpenDraft)
+    return () => window.removeEventListener('open-draft', handleOpenDraft)
+  }, [resumeDraft])
 
   // beforeunload guard
   useEffect(() => {
@@ -502,6 +539,7 @@ export default function Dashboard() {
     setShowProjectPicker(false)
     setSavedToProject(null)
     clearDraft()
+    setCurrentStep(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -591,6 +629,7 @@ export default function Dashboard() {
             evidence_strength: normalizedResults.filter(r => r.p_value != null && r.p_value < 0.05).length / Math.max(normalizedResults.length, 1)
           }
         })
+        notifyDone('Análise Premium concluída', 'Resultados avançados e interpretações geradas com sucesso.')
       } else {
         let errMsg = 'Erro desconhecido'
         try { const errData = await res.json(); errMsg = errData.detail || errData.error || errMsg } catch {}
@@ -609,6 +648,7 @@ export default function Dashboard() {
   // Em seguida, resolve domínios especializados (Passo 0.5)
   // ============================================================
   const handleFileUpload = async (e) => {
+    requestPermission()
     let file;
     if (e.target && e.target.files) {
       file = e.target.files[0];
@@ -623,6 +663,7 @@ export default function Dashboard() {
     setAnalysisProtocol(null)
     setShowReview(false)
     setLoading(true)
+    setLoadingPhase('reading')
     setIsDragging(false)
     setDomainResolutions([])
     setBilateralWarnings([])
@@ -675,6 +716,9 @@ export default function Dashboard() {
             setDomainResolutions(resolveData.resolutions || [])
             setBilateralWarnings(resolveData.bilateral_warnings || [])
             setLoading(false)
+            setLoadingPhase('reading')
+            notifyDone('Upload concluído', 'Por favor, revise as variáveis detectadas.')
+            setCurrentStep(1)
             setShowDomainReview(true)
             return
           }
@@ -682,16 +726,17 @@ export default function Dashboard() {
       } catch (resolveErr) {
         console.warn('[DomainReview] resolve falhou, prosseguindo sem revisao:', resolveErr)
       }
-      // ─────────────────────────────────────────────────────────────
 
       // Sem domínios especiais → ir direto ao OutcomeSelector
-      // Ainda assim, garantir que variáveis derivadas (ex: Acuidade visual LogMAR) apareçam
       if (colData.derived_candidates?.length) {
         setColumnOptions(prev => addDerivedCandidatesToColumns(prev, colData.derived_candidates))
       }
+      notifyDone('Upload concluído', 'Por favor, selecione o desfecho do seu estudo.')
+      setCurrentStep(2)
       setShowOutcomeSelector(true)
+
     } catch (err) {
-      alert(`Erro no upload: ${err.message}`);
+      alert(`Erro no upload: ${err.message}`)
     }
     setLoading(false)
   }
@@ -795,8 +840,11 @@ export default function Dashboard() {
     setColumnOptions(updatedColumns)
     
     setShowDomainReview(false)
-    setShowOutcomeSelector(true)
-    saveDraft('outcome_selection')
+    // Modal de transição → step 2 (Desfecho)
+    fireStepTransition(2, () => {
+      setShowOutcomeSelector(true)
+      saveDraft('outcome_selection')
+    })
   }, [columnOptions, applyDomainTransformations, saveDraft])
 
   const handleDomainReviewSkip = useCallback(() => {
@@ -805,8 +853,11 @@ export default function Dashboard() {
       setColumnOptions(prev => addDerivedCandidatesToColumns(prev, derivedCandidates))
     }
     setShowDomainReview(false)
-    setShowOutcomeSelector(true)
-    saveDraft('outcome_selection')
+    // Modal de transição → step 2 (Desfecho) via skip
+    fireStepTransition(2, () => {
+      setShowOutcomeSelector(true)
+      saveDraft('outcome_selection')
+    })
   }, [derivedCandidates, addDerivedCandidatesToColumns, saveDraft])
 
   const handleTeachDomain = useCallback(async (payload) => {
@@ -830,9 +881,14 @@ export default function Dashboard() {
     setShowOutcomeSelector(false)
     if (!pendingFile) return
 
+    // Abre o modal de transição → step 3 (Protocolo)
+    // NÃO passa callback — vamos fechar manualmente quando o protocolo carregar
+    setCurrentStep(3)
+
     const headers = { 'Authorization': `Bearer ${session?.token}` }
     const API_URL = import.meta.env.VITE_API_BASE_URL
     setLoading(true)
+    setLoadingPhase('protocol')
 
     const formData = new FormData()
     formData.append('file', pendingFile)
@@ -903,6 +959,9 @@ export default function Dashboard() {
           meta: protocolData.meta || null
         })
         setShowReview(true)
+        // Fechar o modal de transição — protocolo chegou, hora de mostrar o Review
+        setCurrentStep(3)   // permanece em Protocolo até runProtocol completar
+        notifyDone('Protocolo gerado', 'A revisão do protocolo estatístico está pronta para avaliação.', '/favicon.ico', false)
         // Save draft with protocol ready
         try {
           localStorage.setItem(DRAFT_KEY, JSON.stringify({
@@ -957,12 +1016,10 @@ export default function Dashboard() {
       }
       // ─────────────────────────────────────────────────────────────────────
 
-    } catch (err) {
-      console.error("Erro no analyze-protocol:", err);
-      alert(`Erro na análise: ${err.message}`);
-    } finally {
-      setLoading(false)
-    }
+} catch (err) {
+        console.error("Erro no analyze-protocol:", err);
+        alert(`Erro na análise: ${err.message}`);
+      }
   }
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); }
@@ -1074,6 +1131,8 @@ export default function Dashboard() {
         setShowReview(false)
         clearDraft()
         refresh()
+        setCurrentStep(4)
+        notifyDone('Análise concluída', 'Os resultados dos testes estatísticos estão prontos.', '/favicon.ico', true)
       } else {
         const errData = await execRes.json().catch(() => ({}))
         alert(`Falha na execução: ${errData.detail || execRes.status}`)
@@ -1311,8 +1370,111 @@ export default function Dashboard() {
     }, 1000)
   }
 
+  // ── Componente de Loading premium com mensagens contextualizadas ─────────
+  // Animações inspiradas em Design Spells: orb pulsante + texto narrativo
+  function LoadingOrb({ phase }) {
+    const PHASES = {
+      reading: {
+        icon: 'table_view',
+        headline: 'Lendo seu arquivo...',
+        sub: 'Identificando colunas e tipos de dados',
+      },
+      domains: {
+        icon: 'biotech',
+        headline: 'Detectando domínios clínicos...',
+        sub: 'Verificando Snellen, PIO e variáveis bilaterais',
+      },
+      protocol: {
+        icon: 'labs',
+        headline: 'Gerando protocolo estatístico...',
+        sub: 'Selecionando os testes mais adequados aos seus dados',
+      },
+      running: {
+        icon: 'analytics',
+        headline: 'Executando os testes...',
+        sub: 'Shapiro-Wilk · t de Student · ANOVA · Qui-Quadrado',
+      },
+    }
+
+    const current = PHASES[phase] || PHASES.reading
+
+    return (
+      <div className="flex flex-col items-center justify-center py-14 select-none">
+        {/* Orb principal com anéis orbitais */}
+        <div className="relative w-24 h-24 mb-8">
+          {/* Anel externo pulsante */}
+          <motion.div
+            className="absolute inset-0 rounded-full"
+            style={{ border: '1px solid rgba(94,234,212,0.15)' }}
+            animate={{ scale: [1, 1.6, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+          />
+          {/* Anel médio rotacionando */}
+          <motion.div
+            className="absolute inset-2 rounded-full"
+            style={{ border: '1px dashed rgba(94,234,212,0.25)' }}
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
+          />
+          {/* Core */}
+          <motion.div
+            className="absolute inset-4 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(94,234,212,0.1)', border: '1px solid rgba(94,234,212,0.3)' }}
+            animate={{ scale: [1, 1.08, 1], boxShadow: ['0 0 20px rgba(94,234,212,0.1)', '0 0 40px rgba(94,234,212,0.25)', '0 0 20px rgba(94,234,212,0.1)'] }}
+            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={phase}
+                className="material-symbols-rounded"
+                style={{ fontSize: '22px', color: 'var(--color-primary, #5eead4)' }}
+                initial={{ scale: 0.4, opacity: 0, rotate: -20 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                exit={{ scale: 0.4, opacity: 0, rotate: 20 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              >
+                {current.icon}
+              </motion.span>
+            </AnimatePresence>
+          </motion.div>
+        </div>
+
+        {/* Texto narrativo com transição suave */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={phase}
+            className="flex flex-col items-center gap-1.5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          >
+            <p className="text-sm font-semibold text-text-main text-center">{current.headline}</p>
+            <p className="text-xs text-center max-w-[240px]" style={{ color: 'var(--text-muted, #a8a29e)' }}>
+              {current.sub}
+            </p>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Dots com stagger estilo design-spells */}
+        <motion.div className="flex gap-1.5 mt-6">
+          {[0, 1, 2, 3].map(i => (
+            <motion.div
+              key={i}
+              className="rounded-full"
+              style={{ background: 'var(--color-primary, #5eead4)', width: i === 1 || i === 2 ? '8px' : '5px', height: i === 1 || i === 2 ? '8px' : '5px' }}
+              animate={{ y: [0, -10, 0], opacity: [0.2, 1, 0.2] }}
+              transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15, ease: 'easeInOut' }}
+            />
+          ))}
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-12 pb-20">
+
       {/* Passo 0.5 — Revisão de Domínios Especializados */}
       <ColumnDomainReview
         isOpen={showDomainReview}
@@ -1333,60 +1495,55 @@ export default function Dashboard() {
         />
       )}
 
-      <AnimatePresence>
-        {showReview && (
-          <section className="mb-12">
-              <AnalysisReviewPlan 
-                protocol={analysisProtocol?.items || []} 
-                meta={analysisProtocol?.meta || null}
-                outcome={analysisProtocol?.outcome || 'Resultado'} 
-                outcomeOptions={outcomeOptions}
-                onOptionChange={handleProtocolOptionChange}
-                onToggleSelection={toggleProtocolSelection}
-                onOutcomeChange={handleOutcomeChange}
-                onConfirm={runProtocol}
-                dataQuality={dataQuality}
-                pendingFile={pendingFile}
-                onDatasetCorrected={handleDatasetCorrected}
-              />
-          </section>
-        )}
-      </AnimatePresence>
-
-
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl sm:text-3xl font-semibold text-text-main">Painel de Análise</h1>
         <p className="text-sm text-text-muted font-medium">Envie seus dados e receba análises estatísticas completas com interpretação automática.</p>
       </header>
 
-      {/* Step Indicator */}
-      {(pendingFile || fileData || showDomainReview || showOutcomeSelector || showReview || results.length > 0) && (
-        <div className="flex items-center justify-center gap-0 py-2">
-          {[
-            { label: 'Upload', icon: 'cloud_upload', done: !!pendingFile || !!fileData, active: !showDomainReview && !showOutcomeSelector && !showReview && results.length === 0 },
-            { label: 'Dominio', icon: 'category', done: !!confirmedTransformations.length || showOutcomeSelector || showReview || results.length > 0, active: showDomainReview },
-            { label: 'Desfecho', icon: 'target', done: !!analysisProtocol?.outcome, active: showOutcomeSelector },
-            { label: 'Protocolo', icon: 'checklist', done: results.length > 0, active: showReview },
-            { label: 'Resultados', icon: 'analytics', done: false, active: results.length > 0 },
-          ].map((step, i, arr) => (
-            <div key={step.label} className="flex items-center">
-              <div className="flex flex-col items-center gap-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                  step.active ? 'bg-primary text-white shadow-lg shadow-primary/30' :
-                  step.done ? 'bg-primary/20 text-primary' :
-                  'bg-surface border border-border-subtle text-text-muted'
-                }`}>
-                  <span className="material-symbols-rounded text-sm">{step.done && !step.active ? 'check' : step.icon}</span>
-                </div>
-                <span className={`text-[8px] font-semibold tracking-wide ${step.active ? 'text-primary' : step.done ? 'text-text-muted' : 'text-text-muted/50'}`}>{step.label}</span>
-              </div>
-              {i < arr.length - 1 && (
-                <div className={`w-8 sm:w-12 h-px mx-1 mb-4 ${step.done ? 'bg-primary/40' : 'bg-border-subtle'}`} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* PipelineStepper + Review — substitui o conteúdo de upload quando ativo */}
+      <AnimatePresence mode="wait">
+        {showReview ? (
+          <motion.div
+            key="review"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <PipelineStepper
+              currentStep={currentStep}
+              steps={PIPELINE_STEPS}
+              sticky
+            />
+            <AnalysisReviewPlan
+              protocol={analysisProtocol?.items || []}
+              meta={analysisProtocol?.meta || null}
+              outcome={analysisProtocol?.outcome || 'Resultado'}
+              outcomeOptions={outcomeOptions}
+              onOptionChange={handleProtocolOptionChange}
+              onToggleSelection={toggleProtocolSelection}
+              onOutcomeChange={handleOutcomeChange}
+              onConfirm={runProtocol}
+              dataQuality={dataQuality}
+              pendingFile={pendingFile}
+              onDatasetCorrected={handleDatasetCorrected}
+            />
+          </motion.div>
+        ) : (pendingFile || showOutcomeSelector || showDomainReview || loading) && results.length === 0 ? (
+          <motion.div
+            key="stepper-only"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <PipelineStepper
+              currentStep={currentStep}
+              steps={PIPELINE_STEPS}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       
       {/* Draft Resume Banner */}
       {draftBanner && !fileData && !pendingFile && results.length === 0 && (
@@ -1468,18 +1625,7 @@ export default function Dashboard() {
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-10">
-                  <motion.div animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mb-4 relative">
-                    <motion.div className="absolute inset-0 rounded-full border-2 border-primary/30" animate={{ scale: [1, 1.5], opacity: [0.5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} />
-                    <span className="material-symbols-rounded text-primary text-3xl">analytics</span>
-                  </motion.div>
-                  <p className="text-text-main font-medium">A Máquina está analisando o seu protocolo...</p>
-                  <motion.div className="flex gap-1 mt-4">
-                    {[0, 1, 2].map(i => (
-                      <motion.div key={i} className="w-2 h-2 bg-primary rounded-full" animate={{ y: [0, -8, 0], opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }} />
-                    ))}
-                  </motion.div>
-                </div>
+                <LoadingOrb phase={loadingPhase} />
             ) : !fileData ? (
               <>
                 <motion.h3

@@ -40,3 +40,53 @@ export async function submitDomainSuggestion(payload) {
   if (!res.ok) throw new Error(`Erro ao enviar sugestão: ${res.status}`);
   return res.json();
 }
+
+// ── Survival Analysis API ────────────────────────────────────
+
+/**
+ * Detecta automaticamente colunas de sobrevivência no arquivo enviado.
+ */
+export async function survivalDetectConfig(file) {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/api/data/survival-config`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Erro na detecção: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Executa análise completa de sobrevivência (Kaplan-Meier + Log-Rank + Cox + NNT).
+ */
+export async function survivalAnalyze({ file, timeCol, eventCol, groupCol, covariates, refLevels, endpointType, endpointLabel }) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('time_col', timeCol);
+  form.append('event_col', eventCol);
+  if (groupCol) form.append('group_col', groupCol);
+  if (covariates && covariates.length) form.append('covariates', JSON.stringify(covariates));
+  if (refLevels && Object.keys(refLevels).length) form.append('ref_levels', JSON.stringify(refLevels));
+  form.append('endpoint_type', endpointType || 'os');
+  form.append('endpoint_label', endpointLabel || 'Overall Survival');
+
+  const res = await fetch(`${API_BASE}/api/data/survival-analysis`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Erro na análise: ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Carrega dataset de exemplo para sobrevivência.
+ */
+export async function loadSampleSurvivalData(type = 'clinical_trial') {
+  const res = await fetch(`${API_BASE}/api/data/sample/survival?dataset=${type}`);
+  if (!res.ok) throw new Error(`Erro ao carregar exemplo: ${res.status}`);
+  return res.json();
+}

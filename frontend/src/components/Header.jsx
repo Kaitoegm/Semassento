@@ -166,7 +166,21 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
                         <p className="text-[12px] text-text-muted text-center py-6">Nenhum alerta recente</p>
                       )}
                       {notifications.map(n => (
-                        <div key={n.id} className="p-3 hover:bg-primary/5 rounded-lg transition-colors">
+                        <button 
+                          key={n.id} 
+                          className="w-full text-left p-3 hover:bg-primary/5 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (n.action === 'OPEN_DRAFT') {
+                              window.dispatchEvent(new CustomEvent('open-draft'))
+                              if (window.location.pathname !== '/dashboard') {
+                                navigate('/dashboard')
+                              }
+                            } else if (n.link) {
+                              navigate(n.link)
+                            }
+                            setIsNotificationsOpen(false)
+                          }}
+                        >
                           <div className="flex gap-3">
                             <span className="material-symbols-rounded text-primary text-[18px]">{getIcon(n.type)}</span>
                             <div className="flex-1">
@@ -177,7 +191,7 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
                               {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </motion.div>
@@ -222,7 +236,21 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
                         <p className="text-[12px] text-text-muted text-center py-6">Nenhum alerta recente</p>
                       )}
                       {notifications.map(n => (
-                        <div key={n.id} className="p-3 hover:bg-primary/5 rounded-lg transition-colors">
+                        <button 
+                          key={n.id} 
+                          className="w-full text-left p-3 hover:bg-primary/5 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (n.action === 'OPEN_DRAFT') {
+                              window.dispatchEvent(new CustomEvent('open-draft'))
+                              if (window.location.pathname !== '/dashboard') {
+                                navigate('/dashboard')
+                              }
+                            } else if (n.link) {
+                              navigate(n.link)
+                            }
+                            setIsNotificationsOpen(false)
+                          }}
+                        >
                           <div className="flex gap-3">
                             <span className="material-symbols-rounded text-primary text-[18px] shrink-0">{getIcon(n.type)}</span>
                             <div className="flex-1 min-w-0">
@@ -230,7 +258,7 @@ export default function Header({ dark, setDark, setIsAssistantOpen }) {
                               <p className="text-[11px] text-text-muted leading-tight">{n.message}</p>
                             </div>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </motion.div>

@@ -1,0 +1,221 @@
+# Dashboard.jsx — Patch de Implementação do PipelineStepper
+# Aplique as substituições abaixo em ordem. Cada bloco indica o texto
+# EXATO a localizar e pelo que substituir.
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 1 — Trocar import do StepTransitionModal pelo PipelineStepper
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR (linha 12):
+  import StepTransitionModal from '../components/StepTransitionModal'
+
+SUBSTITUIR POR:
+  import PipelineStepper from '../components/PipelineStepper'
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 2 — Substituir bloco de stepModal + fireStepTransition
+#           pelo currentStep state + helper setStep
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR (linhas 387–407):
+  // ── Step Transition Modal — estado para o popup central de progresso ──
+  const PIPELINE_STEPS = [
+    { label: 'Upload',    icon: 'cloud_upload', sublabel: 'Lendo colunas e tipos de dados' },
+    { label: 'Domínio',  icon: 'biotech',      sublabel: 'Verificando domínios clínicos especializados' },
+    { label: 'Desfecho', icon: 'target',        sublabel: 'Selecionando variável de desfecho principal' },
+    { label: 'Protocolo',icon: 'checklist',     sublabel: 'Gerando protocolo estatístico personalizado' },
+    { label: 'Análise',  icon: 'analytics',     sublabel: 'Executando os testes estatísticos' },
+  ]
+  const [stepModal, setStepModal] = useState({ open: false, stepIndex: 0 })
+
+  // Helper: abre o modal de transição e executa callback após animação
+  const fireStepTransition = useCallback((stepIndex, onDone) => {
+    setStepModal({ open: true, stepIndex })
+    // onDone será chamado pelo modal via prop após autoClose
+    if (onDone) {
+      setTimeout(() => {
+        setStepModal(s => ({ ...s, open: false }))
+        onDone()
+      }, 1600)
+    }
+  }, [])
+
+SUBSTITUIR POR:
+  // ── Pipeline Stepper — progresso persistente (sem modal) ──
+  const PIPELINE_STEPS = [
+    { label: 'Upload',    icon: 'cloud_upload' },
+    { label: 'Domínio',  icon: 'biotech'       },
+    { label: 'Desfecho', icon: 'target'         },
+    { label: 'Protocolo',icon: 'checklist'      },
+    { label: 'Análise',  icon: 'analytics'      },
+  ]
+  const [currentStep, setCurrentStep] = useState(0)
+
+  // Helper: avança o step e executa callback imediatamente (sem timeout)
+  const fireStepTransition = useCallback((stepIndex, onDone) => {
+    setCurrentStep(stepIndex)
+    if (onDone) onDone()
+  }, [])
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 3 — Substituir setStepModal diretos que não passam por fireStepTransition
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR (linha ~729, dentro do catch de resolve-columns):
+  setStepModal(s => ({ ...s, open: false }))
+
+SUBSTITUIR POR:
+  // (linha removida — stepper não precisa fechar)
+
+
+LOCALIZAR (linha ~877, dentro de handleOutcomeConfirmed):
+  setStepModal({ open: true, stepIndex: 3 })
+
+SUBSTITUIR POR:
+  setCurrentStep(3)
+
+
+LOCALIZAR (linha ~954, após receber protocolo com sucesso):
+  setStepModal({ open: false, stepIndex: 3 })
+
+SUBSTITUIR POR:
+  setCurrentStep(3)   // permanece em Protocolo até runProtocol completar
+
+
+LOCALIZAR (linha ~1013, no catch de handleOutcomeConfirmed):
+  setStepModal(s => ({ ...s, open: false }))
+
+SUBSTITUIR POR:
+  // (linha removida)
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 4 — Ao completar runProtocol (resultados prontos),
+#           avançar para o step 4
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR dentro de runProtocol, após setResults(...):
+  setResults(resultsData.results || [])
+  setValidationReport(resultsData.validation || null)
+  setCurrentAnalysisId(resultsData.analysis_id || null)
+  setAnalysisTitle('')
+
+SUBSTITUIR POR:
+  setResults(resultsData.results || [])
+  setValidationReport(resultsData.validation || null)
+  setCurrentAnalysisId(resultsData.analysis_id || null)
+  setAnalysisTitle('')
+  setCurrentStep(4)
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 5 — Ao resetar análise (handleNewAnalysis), voltar step para 0
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR dentro de handleNewAnalysis (após clearDraft()):
+  clearDraft()
+  if (fileInputRef.current) fileInputRef.current.value = ''
+
+SUBSTITUIR POR:
+  clearDraft()
+  setCurrentStep(0)
+  if (fileInputRef.current) fileInputRef.current.value = ''
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 6 — Substituir o bloco JSX do StepTransitionModal +
+#           envolver o AnalysisReviewPlan com o PipelineStepper sticky
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR (linhas ~1492–1519):
+      <AnimatePresence>
+        {showReview && (
+          <section className="mb-12">
+              <AnalysisReviewPlan 
+                protocol={analysisProtocol?.items || []} 
+                meta={analysisProtocol?.meta || null}
+                outcome={analysisProtocol?.outcome || 'Resultado'} 
+                outcomeOptions={outcomeOptions}
+                onOptionChange={handleProtocolOptionChange}
+                onToggleSelection={toggleProtocolSelection}
+                onOutcomeChange={handleOutcomeChange}
+                onConfirm={runProtocol}
+                dataQuality={dataQuality}
+                pendingFile={pendingFile}
+                onDatasetCorrected={handleDatasetCorrected}
+              />
+          </section>
+        )}
+      </AnimatePresence>
+
+      {/* ── STEP TRANSITION MODAL — popup central de progresso de step ── */}
+      <StepTransitionModal
+        open={stepModal.open}
+        stepIndex={stepModal.stepIndex}
+        steps={PIPELINE_STEPS}
+        autoClose={0}
+        onDone={() => setStepModal(s => ({ ...s, open: false }))}
+      />
+
+SUBSTITUIR POR:
+      <AnimatePresence>
+        {showReview && (
+          <motion.section
+            className="mb-12"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {/* Stepper sticky no topo — visível durante toda a revisão */}
+            <PipelineStepper
+              currentStep={currentStep}
+              steps={PIPELINE_STEPS}
+              sticky
+            />
+            <AnalysisReviewPlan 
+              protocol={analysisProtocol?.items || []} 
+              meta={analysisProtocol?.meta || null}
+              outcome={analysisProtocol?.outcome || 'Resultado'} 
+              outcomeOptions={outcomeOptions}
+              onOptionChange={handleProtocolOptionChange}
+              onToggleSelection={toggleProtocolSelection}
+              onOutcomeChange={handleOutcomeChange}
+              onConfirm={runProtocol}
+              dataQuality={dataQuality}
+              pendingFile={pendingFile}
+              onDatasetCorrected={handleDatasetCorrected}
+            />
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCH 7 — Adicionar PipelineStepper discreto acima do header
+#           (visível durante upload / domain review / outcome selector)
+# ─────────────────────────────────────────────────────────────
+
+LOCALIZAR (linha ~1521):
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-text-main">Painel de Análise</h1>
+        <p className="text-sm text-text-muted font-medium">Envie seus dados e receba análises estatísticas completas com interpretação automática.</p>
+      </header>
+
+      {/* Step Indicator removido — foi substituído pelo Pipeline Stepper acima */}
+
+SUBSTITUIR POR:
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-text-main">Painel de Análise</h1>
+        <p className="text-sm text-text-muted font-medium">Envie seus dados e receba análises estatísticas completas com interpretação automática.</p>
+      </header>
+
+      {/* PipelineStepper — aparece durante upload / domain / outcome */}
+      {!showReview && results.length === 0 && (pendingFile || showOutcomeSelector || showDomainReview || loading) && (
+        <PipelineStepper
+          currentStep={currentStep}
+          steps={PIPELINE_STEPS}
+        />
+      )}

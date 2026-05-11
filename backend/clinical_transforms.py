@@ -13,7 +13,7 @@ import re
 import logging
 import pandas as pd
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 
 logger = logging.getLogger("clinical_transforms")
 
@@ -708,3 +708,314 @@ def detect_all_candidates(df: pd.DataFrame, domain_dict_path: str = None) -> lis
             all_cands.append(cand)
 
     return all_cands
+
+
+# ============================================================
+# SOBREVIVÊNCIA — DETECÇÃO, VALIDAÇÃO E PREPROCESSAMENTO
+# ============================================================
+
+# Padrões de nomes para detecção automática de colunas de sobrevivência
+_SURVIVAL_TIME_PATTERNS = {
+    "time":    {"tempo", "time", "duracao", "duration", "seguimento", "follow", "follow-up",
+               "followup", "follow_up", "prazo", "periodo", "period", "meses", "months",
+               "dias", "days", "semanas", "weeks", "anos", "years"},
+    "event":   {"evento", "event", "status", "censura", "censor", "death", "morte",
+               "obito", "óbito", "falha", "failure", "evento_obito", "event_type",
+               "relapse", "recidiva", "progression", "progressao", "outcome"},
+    "endpoint": {"os", "pfs", "dfs", "dss", "overall_survival", "progression_free",
+                 "disease_free", "disease_specific"},
+}
+
+
+def detect_survival_columns(df: pd.DataFrame) -> dict:
+    """
+    Detecta automaticamente colunas de tempo, evento e grupo para análise de sobrevivência.
+    Retorna dicionário com sugestões e nível de confiança.
+    """
+    result = {
+        "time_col": None,
+        "event_col": None,
+        "group_col": None,
+        "confidence": "low",
+        "candidates": [],
+        "warnings": [],
+    }
+
+    cols_lower = {c: c.lower().strip().replace(" ", "_").replace("-", "_")
+                  for c in df.columns}
+
+    # ── Detecção da coluna de TEMPO ──────────────────────────────
+    for col, col_lower in cols_lower.items():
+        # Nome da coluna
+        if any(p in col_lower for p in _SURVIVAL_TIME_PATTERNS["time"]):
+            result["time_col"] = col
+            result["candidates"].append({"role": "time", "col": col,
+                                         "reason": "Nome sugere tempo de seguimento"})
+            break
+
+    if not result["time_col"]:
+        # Tentativa por tipo de dado: coluna numérica com valores positivos
+        for col in df.columns:
+            series = pd.to_numeric(df[col], errors='coerce').dropna()
+            if len(series) > 0 and series.min() >= 0 and series.median() > 1:
+                if result["time_col"] is None or len(series) > len(pd.to_numeric(df[result["time_col"]], errors='coerce').dropna()):
+                    result["time_col"] = col
+                    result["candidates"].append({
+                        "role": "time", "col": col,
+                        "reason": "Coluna numérica com valores positivos (candidata a tempo)"
+                    })
+
+    # ── Detecção da coluna de EVENTO ─────────────────────────────
+    for col, col_lower in cols_lower.items():
+        if any(p in col_lower for p in _SURVIVAL_TIME_PATTERNS["event"]):
+            result["event_col"] = col
+            result["candidates"].append({"role": "event", "col": col,
+                                         "reason": "Nome sugere indicador de evento"})
+            break
+
+    if not result["event_col"]:
+        # Tentativa: coluna binária (0/1) não detectada como tempo
+        for col in df.columns:
+            if col == result["time_col"]:
+                continue
+            series = df[col].dropna()
+            unique_vals = set(str(v).strip().lower() for v in series.unique())
+            # Verifica se é binária (0/1, sim/não, etc.)
+            if len(unique_vals) == 2:
+                numeric_vals = pd.to_numeric(series, errors='coerce').dropna()
+                if len(numeric_vals) > 0 and set(numeric_vals.unique()).issubset({0, 1, 0.0, 1.0}):
+                    result["event_col"] = col
+                    result["candidates"].append({
+                        "role": "event", "col": col,
+                        "reason": "Coluna binária (0/1) candidata a indicador de evento"
+                    })
+                    break
+
+    # ── Detecção da coluna de GRUPO ──────────────────────────────
+    for col in df.columns:
+        if col in (result["time_col"], result["event_col"]):
+            continue
+        series = df[col].dropna()
+        unique_count = series.nunique()
+        # Coluna categórica com 2-10 valores únicos
+        if 2 <= unique_count <= 10 and series.dtype == 'object':
+            result["group_col"] = col
+            result["candidates"].append({
+                "role": "group", "col": col,
+                "reason": f"Coluna categórica com {unique_count} valores únicos"
+            })
+            break
+
+    if not result["group_col"]:
+        # Tentativa por padrão de nome
+        for col, col_lower in cols_lower.items():
+            if col in (result["time_col"], result["event_col"]):
+                continue
+            if any(kw in col_lower for kw in ["grupo", "group", "tratamento", "treatment",
+                                                "arm", "sexo", "sex", "genero", "gender",
+                                                "categoria", "category"]):
+                result["group_col"] = col
+                result["candidates"].append({
+                    "role": "group", "col": col,
+                    "reason": "Nome sugere variável de agrupamento"
+                })
+                break
+
+    # ── Avaliação de confiança ───────────────────────────────────
+    found = sum(1 for k in ["time_col", "event_col", "group_col"] if result[k])
+    if found == 3:
+        result["confidence"] = "high"
+    elif found == 2:
+        result["confidence"] = "medium"
+    else:
+        result["confidence"] = "low"
+
+    # Warnings úteis
+    if not result["time_col"]:
+        result["warnings"].append("Não foi possível identificar coluna de tempo.")
+    if not result["event_col"]:
+        result["warnings"].append("Não foi possível identificar coluna de evento (desfecho binário).")
+    if not result["group_col"]:
+        result["warnings"].append("Coluna de grupo não identificada. Análise será feita sem agrupamento.")
+
+    return result
+
+
+def validate_survival_data(df: pd.DataFrame, time_col: str, event_col: str) -> dict:
+    """
+    Valida dados de sobrevivência antes da análise.
+    Retorna dicionário com status, warnings e erros.
+    """
+    issues = []
+    warnings = []
+
+    # Verificar se colunas existem
+    if time_col not in df.columns:
+        issues.append(f"Coluna de tempo '{time_col}' não encontrada.")
+    if event_col not in df.columns:
+        issues.append(f"Coluna de evento '{event_col}' não encontrada.")
+
+    if issues:
+        return {"valid": False, "issues": issues, "warnings": warnings}
+
+    # Converter para numérico
+    time_series = pd.to_numeric(df[time_col], errors='coerce')
+    event_series = pd.to_numeric(df[event_col], errors='coerce')
+
+    # Verificar valores negativos no tempo
+    neg_time = (time_series < 0).sum()
+    if neg_time > 0:
+        issues.append(f"Encontrados {neg_time} valores negativos na coluna de tempo.")
+
+    # Verificar NaN/missing
+    n_time_missing = time_series.isna().sum()
+    n_event_missing = event_series.isna().sum()
+    if n_time_missing > 0:
+        warnings.append(f"Coluna de tempo: {n_time_missing} valores faltantes serão ignorados.")
+    if n_event_missing > 0:
+        warnings.append(f"Coluna de evento: {n_event_missing} valores faltantes serão ignorados.")
+
+    # Verificar valores do evento
+    valid_event_values = {0, 1, 0.0, 1.0}
+    event_non_null = event_series.dropna()
+    invalid_events = event_non_null[~event_non_null.isin(valid_event_values)]
+    if len(invalid_events) > 0:
+        unique_invalid = invalid_events.unique()[:5]
+        issues.append(
+            f"Coluna de evento contém valores inválidos: {list(unique_invalid)}. "
+            f"Esperado 0/1 (censurado/evento)."
+        )
+
+    # Verificar tamanho amostral mínimo
+    n_valid = len(time_series.dropna().dropna())
+    if n_valid < 5:
+        issues.append(f"Amostra muito pequena (n={n_valid}). Mínimo recomendado: 5.")
+
+    # Verificar variância zero no tempo
+    if time_series.std() == 0:
+        issues.append("Coluna de tempo com variância zero (todos os valores iguais).")
+
+    # Verificar censura mínima
+    n_events = int(event_series.sum())
+    n_censored = int((event_series == 0).sum())
+    if n_events == 0:
+        issues.append("Nenhum evento observado (todos censurados).")
+    if n_censored == 0:
+        warnings.append("Nenhum dado censurado — curvas KM serão degraus sem censura.")
+
+    # Verificar proporção de censura excessiva
+    if n_valid > 0:
+        censoring_rate = n_censored / n_valid
+        if censoring_rate > 0.9:
+            warnings.append(
+                f"Alta taxa de censura ({round(censoring_rate * 100, 1)}%). "
+                f"Resultados podem ser imprecisos."
+            )
+
+    valid = len(issues) == 0
+    return {
+        "valid": valid,
+        "issues": issues,
+        "warnings": warnings,
+        "n_valid": n_valid,
+        "n_events": n_events,
+        "n_censored": n_censored,
+    }
+
+
+def preprocess_survival(df: pd.DataFrame, time_col: str, event_col: str,
+                        group_col: Optional[str] = None) -> dict:
+    """
+    Preprocessa dados de sobrevivência: limpa, converte tipos, aplica log-transform.
+    Retorna DataFrame processado e metadados.
+    """
+    df = df.copy()
+
+    # Converter colunas numéricas
+    df[time_col] = pd.to_numeric(df[time_col], errors='coerce')
+    df[event_col] = pd.to_numeric(df[event_col], errors='coerce')
+
+    # Remover linhas com tempo ou evento faltante
+    valid_mask = df[time_col].notna() & df[event_col].notna()
+    n_removed = (~valid_mask).sum()
+    df_clean = df[valid_mask].copy()
+
+    # Remover tempos negativos
+    neg_mask = df_clean[time_col] < 0
+    if neg_mask.any():
+        n_neg = neg_mask.sum()
+        df_clean = df_clean[~neg_mask]
+    else:
+        n_neg = 0
+
+    warnings = []
+
+    # Log-transform do tempo se distribuição muito assimétrica (skew > 2)
+    skewness = float(df_clean[time_col].skew())
+    log_applied = False
+    if abs(skewness) > 2:
+        # Somente se todos os valores > 0
+        if (df_clean[time_col] > 0).all():
+            df_clean[f"{time_col}_log"] = np.log(df_clean[time_col])
+            log_applied = True
+            warnings.append(f"Log-transform aplicada (skew={skewness:.2f}).")
+        else:
+            warnings.append(f"Distribuição assimétrica (skew={skewness:.2f}), mas valores ≤ impedem log-transform.")
+
+    # Garantir que evento é 0/1
+    df_clean[event_col] = df_clean[event_col].clip(0, 1).astype(int)
+
+    # Forçar tempo para float
+    df_clean[time_col] = df_clean[time_col].astype(float)
+
+    # Garantir que não há duplicatas de paciente (manter primeiro)
+    # Nota: se houver coluna de ID, remover duplicatas — mas por segurança
+    # mantemos todas as linhas por padrão
+
+    metadata = {
+        "n_original": len(df),
+        "n_clean": len(df_clean),
+        "n_removed_missing": int(n_removed),
+        "n_removed_negative": int(n_neg),
+        "skewness": round(skewness, 4),
+        "log_applied": log_applied,
+        "time_range": [float(df_clean[time_col].min()), float(df_clean[time_col].max())],
+    }
+
+    return {"dataframe": df_clean, "metadata": metadata}
+
+
+def compute_nnt(surv1: 'SurvivalFunction', surv2: 'SurvivalFunction',
+                times: List[float]) -> dict:
+    """
+    Calcula Number Needed to Treat a partir de duas curvas de sobrevivência.
+    NNT(t) = 1 / [S_controle(t) - S_tratamento(t)]
+    """
+    nnt_results = {}
+    for t in times:
+        try:
+            s1 = float(surv1(t))
+            s2 = float(surv2(t))
+            diff = s1 - s2
+            if abs(diff) > 1e-10:
+                nnt_val = round(1.0 / diff, 1)
+                nnt_results[f"T={t}"] = {
+                    "s_control": round(s1, 4),
+                    "s_treatment": round(s2, 4),
+                    "abs_diff": round(diff, 4),
+                    "nnt": nnt_val,
+                    "interpretation": f"NNT={nnt_val} pacientes tratados por {t} meses para prevenir 1 evento."
+                }
+            else:
+                nnt_results[f"T={t}"] = {
+                    "s_control": round(s1, 4),
+                    "s_treatment": round(s2, 4),
+                    "abs_diff": round(diff, 4),
+                    "nnt": None,
+                    "interpretation": "Diferença de sobrevivência ≈ 0 — NNT não calculável."
+                }
+        except Exception:
+            nnt_results[f"T={t}"] = {
+                "interpretation": f"Não foi possível calcular NNT em T={t}."
+            }
+    return nnt_results

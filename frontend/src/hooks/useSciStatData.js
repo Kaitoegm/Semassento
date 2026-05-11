@@ -70,6 +70,16 @@ export function useSciStatData() {
     }
   }, [isAuthenticated, fetchData])
 
+  const addLocalNotification = useCallback((notif) => {
+    const newNotif = {
+      id: Date.now() + Math.random(),
+      created_at: new Date().toISOString(),
+      isLocal: true,
+      ...notif
+    }
+    setNotifications(prev => [newNotif, ...prev])
+  }, [])
+
   return { 
     notifications, 
     history, 
@@ -80,6 +90,7 @@ export function useSciStatData() {
     loading, 
     error, 
     refresh: fetchData, 
-    clearNotifications 
+    clearNotifications,
+    addLocalNotification
   }
 }

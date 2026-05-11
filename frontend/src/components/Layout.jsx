@@ -23,17 +23,7 @@ export default function Layout({ children, dark, setDark }) {
       <div className="flex">
         <Sidebar />
         <main className="lg:ml-24 xl:ml-64 w-full p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10 space-y-6 sm:space-y-10 max-w-[1600px] mx-auto z-10 relative overflow-x-hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {children}
         </main>
       </div>
 

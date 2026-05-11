@@ -26,7 +26,20 @@ from statsmodels.api import Logit, add_constant
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 from bs4 import BeautifulSoup
-from stats_engine import engine as premium_engine, clean_dataframe, choose_and_run_group_comparison, calculate_power_and_required_n
+from stats_engine import SurvivalEngine, engine as premium_engine, clean_dataframe, choose_and_run_group_comparison, calculate_power_and_required_n
+from clinical_transforms import (
+    detect_survival_columns,
+    validate_survival_data,
+    preprocess_survival,
+    detect_derived_candidates,
+    apply_all_transforms,
+    apply_derived_candidate,
+    snellen_to_logmar,
+    snellen_to_decimal,
+    best_eye_logmar,
+    calc_imc,
+    calc_pulse_pressure,
+)
 from meta_pipeline import run_pipeline
 from clinical_transforms import (
     detect_derived_candidates,
@@ -4973,6 +4986,312 @@ async def logrank_analysis(req: LogRankRequest):
         return {"p_value": float(results.p_value), "test_statistic": float(results.test_statistic)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class SurvivalConfigRequest(BaseModel):
+    file: UploadFile = File(...)
+    user_id: str = ""
+
+
+class SurvivalAnalysisRequest(BaseModel):
+    file: UploadFile = File(...)
+    time_col: str
+    event_col: str
+    group_col: Optional[str] = None
+    covariates: Optional[List[str]] = None
+    ref_levels: Optional[Dict[str, str]] = None
+    endpoint_type: Optional[str] = "os"
+    endpoint_label: Optional[str] = "Overall Survival"
+
+
+class SampleSurvivalRequest(BaseModel):
+    dataset: str = "clinical_trial"  # clinical_trial, oncology, observational
+
+
+@app.post("/api/data/survival-config")
+async def survival_config_endpoint(req: SurvivalConfigRequest, user_id: str = Depends(get_current_user)):
+    """
+    Detecta automaticamente colunas de sobrevivência no arquivo enviado.
+    Retorna sugestões de configuração (tempo, evento, grupo).
+    """
+    try:
+        contents = await req.file.read()
+        if req.file.filename.endswith('.csv'):
+            df = robust_read_csv(contents)
+        else:
+            df = robust_read_excel(contents)
+        df = sanitize_df(df)
+
+        # Tentar detectar colunas automaticamente
+        result = detect_survival_columns(df)
+
+        # Calcular estatísticas descritivas básicas
+        stats_result = {}
+        if result["time_col"]:
+            stats_result["time_col"] = {
+                "name": result["time_col"],
+                "min": float(df[result["time_col"]].min()) if pd.to_numeric(df[result["time_col"]], errors='coerce').notna().any() else None,
+                "max": float(df[result["time_col"]].max()) if pd.to_numeric(df[result["time_col"]], errors='coerce').notna().any() else None,
+            }
+        if result["event_col"]:
+            vc = df[result["event_col"]].value_counts()
+            stats_result["event_col"] = {
+                "name": result["event_col"],
+                "distribution": {str(k): int(v) for k, v in vc.items()},
+            }
+        if result["group_col"]:
+            vc = df[result["group_col"]].value_counts()
+            stats_result["group_col"] = {
+                "name": result["group_col"],
+                "groups": list(vc.index.astype(str)),
+                "distribution": {str(k): int(v) for k, v in vc.items()},
+            }
+
+        return clean_dict_values({
+            "detection_result": {
+                "time_col": result["time_col"],
+                "event_col": result["event_col"],
+                "group_col": result["group_col"],
+                "confidence": result["confidence"],
+                "warnings": result["warnings"],
+            },
+            "descriptive": stats_result,
+            "columns_available": df.columns.tolist(),
+            "n_rows": len(df),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERR: survival-config -> {e}")
+        raise HTTPException(status_code=400, detail=f"Erro na detecção de colunas: {str(e)}")
+
+
+@app.post("/api/data/survival-analysis")
+async def survival_analysis_endpoint(req: SurvivalAnalysisRequest, user_id: str = Depends(get_current_user)):
+    """
+    Executa análise completa de sobrevivência (Kaplan-Meier + Log-Rank + Cox + PH + NNT).
+    """
+    try:
+        contents = await req.file.read()
+        if req.file.filename.endswith('.csv'):
+            df = robust_read_csv(contents)
+        else:
+            df = robust_read_excel(contents)
+        df = sanitize_df(df)
+        df, warnings = clean_dataframe(df)
+
+        # Validar dados de sobrevivência
+        validation = validate_survival_data(df, req.time_col, req.event_col)
+        if not validation["valid"]:
+            raise HTTPException(status_code=400, detail=f"Dados inválidos: {'; '.join(validation['issues'])}")
+
+        # Preprocessar
+        preprocessed = preprocess_survival(df, req.time_col, req.event_col, req.group_col)
+        df_clean = preprocessed["dataframe"]
+
+        # Aplicar transformações clínicas se necessário (derivadas como LogMAR)
+        df_clean = _apply_clinical_transforms(df_clean, outcome_col=req.event_col)
+
+        # Inicializar motor de sobrevivência
+        surv_engine = SurvivalEngine()
+
+        # 1. Estatísticas descritivas
+        descriptive = surv_engine.survival_descriptive(df_clean, req.time_col, req.event_col)
+
+        # 2. Curvas KM
+        km_result = surv_engine.kaplan_meier(df_clean, req.time_col, req.event_col, req.group_col)
+
+        # 3. Teste Log-Rank
+        logrank_result = None
+        if req.group_col and req.group_col in df_clean.columns:
+            logrank_result = surv_engine.logrank_test(df_clean, req.time_col, req.event_col, req.group_col)
+
+        # 4. Modelo de Cox (com covariáveis ou auto-detect)
+        cox_result = None
+        if req.covariates:
+            cox_result = surv_engine.cox_regression(
+                df_clean, req.time_col, req.event_col,
+                covariates=req.covariates,
+                ref_levels=req.ref_levels
+            )
+        else:
+            # Auto-detectar covariáveis numéricas
+            exclude = {req.time_col, req.event_col, req.group_col}
+            auto_covs = [c for c in df_clean.select_dtypes(include=[np.number]).columns
+                        if c not in exclude and not c.lower().startswith("unnamed")]
+            if auto_covs and req.group_col:
+                cox_result = surv_engine.cox_regression(
+                    df_clean, req.time_col, req.event_col,
+                    covariates=auto_covs, ref_levels=req.ref_levels
+                )
+
+        # 5. NNT (se tem grupos)
+        nnt_result = None
+        if req.group_col:
+            nnt_result = surv_engine.number_needed_to_treat(
+                df_clean, req.time_col, req.event_col, req.group_col,
+                times=[6, 12, 18, 24, 36]
+            )
+
+        # 6. Incidência cumulativa
+        cuminc_result = surv_engine.cumulative_incidence(df_clean, req.time_col, req.event_col, req.group_col)
+
+        # Montar resposta final
+        response = clean_dict_values({
+            "analysis_id": str(uuid.uuid4())[:12],
+            "endpoint_type": req.endpoint_type,
+            "endpoint_label": req.endpoint_label,
+            "descriptive": descriptive,
+            "km_curves": km_result,
+            "logrank": logrank_result,
+            "cox_model": cox_result,
+            "nnt": nnt_result,
+            "cumulative_incidence": cuminc_result,
+            "preprocessing": {
+                "n_original": preprocessed["metadata"]["n_original"],
+                "n_clean": preprocessed["metadata"]["n_clean"],
+                "n_removed_missing": preprocessed["metadata"]["n_removed_missing"],
+                "skewness": preprocessed["metadata"]["skewness"],
+            },
+            "warnings": warnings + validation["warnings"],
+            "validation": {
+                "valid": validation["valid"],
+                "n_valid": validation["n_valid"],
+                "n_events": validation["n_events"],
+                "n_censored": validation["n_censored"],
+            },
+        })
+
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERR: survival-analysis -> {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=f"Erro na análise de sobrevivência: {str(e)}")
+
+
+@app.get("/api/data/sample/survival")
+async def sample_survival_data(req: SampleSurvivalRequest = Depends()):
+    """
+    Retorna datasets sintéticos de sobrevivência para demonstração.
+    """
+    try:
+        np.random.seed(req.seed if hasattr(req, 'seed') else 42)
+
+        if req.dataset == "clinical_trial":
+            # Ensaio clínico com 2 braços (Tratamento vs Controle)
+            n = 120
+            groups = np.random.choice(["Tratamento", "Controle"], n, p=[0.5, 0.5])
+            # Tempo: exponencial com diferentes taxas
+            times_treatment = np.random.exponential(24, n // 2)
+            times_control = np.random.exponential(16, n // 2)
+            times = np.concatenate([times_treatment, times_control])
+            # Eventos: mais eventos no grupo controle
+            events_treatment = np.random.binomial(1, 0.55, n // 2)
+            events_control = np.random.binomial(1, 0.75, n // 2)
+            events = np.concatenate([events_treatment, events_control])
+
+            df = pd.DataFrame({
+                "Paciente": [f"P{i+1}" for i in range(n)],
+                "Grupo": groups,
+                "Idade": np.clip(np.random.normal(58, 12, n).astype(int), 25, 85),
+                "Sexo": np.random.choice(["M", "F"], n),
+                "Tempo_Seguimento_Meses": np.round(times, 1),
+                "Evento_Obito": events,
+            })
+            return {
+                "filename": "ensaio_clinico_sobrevivencia.csv",
+                "csv_data": df.to_csv(index=False),
+                "columns": list(df.columns),
+                "description": "Ensaio clínico randomizado com 2 braços (OS)",
+                "suggested_config": {
+                    "time_col": "Tempo_Seguimento_Meses",
+                    "event_col": "Evento_Obito",
+                    "group_col": "Grupo",
+                }
+            }
+
+        elif req.dataset == "oncology":
+            # Dados oncológicos com múltiplos desfechos
+            n = 150
+            stages = np.random.choice(["I", "II", "III", "IV"], n, p=[0.2, 0.3, 0.3, 0.2])
+            times_pfs = np.where(
+                stages[:, None] == np.array(["I", "II", "III", "IV"]),
+                np.random.exponential([30, 18, 10, 5], n),
+                np.random.exponential(15, n)
+            ).diagonal() if False else np.random.exponential(15, n)
+
+            # Simplificar: gerar diretamente
+            np.random.seed(42)
+            times_pfs = np.random.exponential(15, n)
+            events_pfs = np.random.binomial(1, 0.6, n)
+            times_os = times_pfs * np.random.uniform(0.5, 2.0, n)
+            events_os = np.random.binomial(1, 0.45, n)
+
+            df = pd.DataFrame({
+                "Paciente_ID": range(1, n + 1),
+                "Estagio": stages,
+                "PFS_Tempo_Meses": np.round(times_pfs, 1),
+                "PFS_Evento": events_pfs,
+                "OS_Tempo_Meses": np.round(times_os, 1),
+                "OS_Evento": events_os,
+                "Idade": np.clip(np.random.normal(62, 10, n).astype(int), 30, 85),
+                "Sexo": np.random.choice(["M", "F"], n),
+            })
+            return {
+                "filename": "dados_oncologicos.csv",
+                "csv_data": df.to_csv(index=False),
+                "columns": list(df.columns),
+                "description": "Cohorte oncológica com PFS e OS por estágio",
+                "suggested_config": {
+                    "time_col": "OS_Tempo_Meses",
+                    "event_col": "OS_Evento",
+                    "group_col": "Estagio",
+                }
+            }
+
+        else:  # observational
+            # Estudo observacional com covariáveis
+            n = 200
+            treatment = np.random.choice(["Medicamento_A", "Medicamento_B", "Sem_Tratamento"], n, p=[0.35, 0.35, 0.30])
+            ages = np.clip(np.random.normal(65, 14, n).astype(int), 30, 95)
+            sex = np.random.choice(["M", "F"], n)
+
+            # Tempo depende do tratamento
+            base_times = np.where(
+                treatment == "Medicamento_A", np.random.exponential(30, n),
+                np.where(treatment == "Medicamento_B", np.random.exponential(25, n),
+                         np.random.exponential(15, n))
+            )
+            events = np.random.binomial(1, 0.55, n)
+
+            df = pd.DataFrame({
+                "ID_Paciente": range(1, n + 1),
+                "Grupo_Tratamento": treatment,
+                "Idade": ages,
+                "Sexo": sex,
+                "Tempo_Seguimento_Semanas": np.round(base_times, 1),
+                "Evento": events,
+                "PAS": np.random.normal(130, 18, n).round(1),
+                "Creatinina": np.clip(np.random.normal(1.0, 0.3, n), 0.3, 5.0).round(2),
+            })
+            return {
+                "filename": "estudo_observacional.csv",
+                "csv_data": df.to_csv(index=False),
+                "columns": list(df.columns),
+                "description": "Estudo observacional com 3 braços de tratamento",
+                "suggested_config": {
+                    "time_col": "Tempo_Seguimento_Semanas",
+                    "event_col": "Evento",
+                    "group_col": "Grupo_Tratamento",
+                }
+            }
+    except Exception as e:
+        print(f"ERR: sample/survival -> {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 class GenerateRequest(BaseModel):
     distribution: str = "normal"

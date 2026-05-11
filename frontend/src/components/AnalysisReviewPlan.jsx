@@ -5,8 +5,21 @@ import DatasetEditorModal from './DatasetEditorModal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const isDesfecho = (rationale = '') => rationale.includes('[DESFECHO]')
-
 const cleanRationale = (rationale = '') => rationale.replace('⭐ [DESFECHO] ', '')
+
+// ─── Tooltip de Rationale ────────────────────────────────────────────────────
+const RationaleTooltip = ({ text, isDesfecho: desfecho }) => (
+  <div className="arv-tooltip-wrap">
+    <span
+      className={`material-symbols-rounded arv-info-icon ${desfecho ? 'arv-info-desfecho' : 'arv-info-default'}`}
+    >
+      info
+    </span>
+    <div className="arv-tooltip">
+      <p>{text}</p>
+    </div>
+  </div>
+)
 
 // ─── Item inside a Drawer ────────────────────────────────────────────────────
 const AnalysisItem = ({ item, onOptionChange, onToggleSelection }) => {
@@ -14,79 +27,53 @@ const AnalysisItem = ({ item, onOptionChange, onToggleSelection }) => {
   const selected = item.is_selected
 
   return (
-    <div className={`flex flex-col lg:flex-row gap-6 p-6 rounded-2xl border transition-all group/item relative
-      ${selected
-        ? desfecho
-          ? 'bg-amber-500/[0.04] border-amber-500/20 hover:border-amber-500/30'
-          : 'bg-primary/[0.03] border-primary/15 hover:border-primary/25'
-        : 'bg-white/[0.01] border-white/5 hover:bg-white/[0.02]'
-      }`}
-    >
+    <div className={`arv-item ${selected ? (desfecho ? 'arv-item--desfecho' : 'arv-item--selected') : 'arv-item--optional'}`}>
       {/* Priority stripe */}
-      {selected && (
-        <div className={`absolute left-0 top-4 bottom-4 w-0.5 rounded-full ${desfecho ? 'bg-amber-400/60' : 'bg-primary/40'}`} />
-      )}
+      {selected && <div className={`arv-stripe ${desfecho ? 'arv-stripe--desfecho' : 'arv-stripe--default'}`} />}
 
-      <div className="flex items-start gap-4 flex-1 pl-2">
+      {/* Linha principal */}
+      <div className="arv-item-row">
         {/* Checkbox */}
         <button
           onClick={() => onToggleSelection(item.originalIdx)}
-          className={`mt-1 w-6 h-6 rounded-lg border-2 shrink-0 flex items-center justify-center transition-all
-            ${selected
-              ? desfecho ? 'bg-amber-400 border-amber-400 text-black' : 'bg-primary border-primary text-background'
-              : 'bg-transparent border-white/10 hover:border-primary/40'
-            }`}
+          className={`arv-checkbox ${selected
+            ? desfecho ? 'arv-checkbox--desfecho' : 'arv-checkbox--selected'
+            : 'arv-checkbox--empty'
+          }`}
         >
-          {selected && <span className="material-symbols-rounded text-base">check</span>}
+          {selected && <span className="material-symbols-rounded" style={{ fontSize: 14 }}>check</span>}
         </button>
 
-        <div className="flex-1 min-w-0">
-          {/* Name + badges */}
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="text-sm font-semibold text-white truncate">{item.name}</span>
-
+        {/* Nome + badges */}
+        <div className="arv-item-meta">
+          <span className="arv-item-name">{item.name}</span>
+          <div className="arv-badges">
             {desfecho && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[9px] font-semibold text-amber-400 tracking-wide shrink-0">
-                ⭐ DESFECHO
-              </span>
+              <span className="arv-badge arv-badge--desfecho">⭐ DESFECHO</span>
             )}
-
-            <span className="px-2 py-0.5 rounded-md bg-white/5 text-[9px] font-semibold text-stone-500 border border-white/5 tracking-tighter shrink-0">
-              {item.type}
-            </span>
-
-            {!selected && (
-              <span className="px-2 py-0.5 rounded-full bg-white/5 text-[9px] font-semibold text-stone-600 border border-white/5 tracking-wide shrink-0">
-                opcional
-              </span>
-            )}
-          </div>
-
-          {/* Rationale */}
-          <div className="flex items-start gap-2 text-[11px] text-stone-400 bg-black/20 p-3 rounded-xl border border-white/5">
-            <span className={`material-symbols-rounded text-xs mt-0.5 ${desfecho ? 'text-amber-400/60' : 'text-primary/60'}`}>info</span>
-            <p>{cleanRationale(item.rationale)}</p>
+            <span className="arv-badge arv-badge--type">{item.type}</span>
+            {!selected && <span className="arv-badge arv-badge--optional">opcional</span>}
           </div>
         </div>
-      </div>
 
-      {/* Test selector */}
-      <div className="w-full lg:w-64 space-y-3 shrink-0">
-        <div className="relative">
+        {/* Rationale tooltip */}
+        <RationaleTooltip text={cleanRationale(item.rationale)} isDesfecho={desfecho} />
+
+        {/* Seletor de teste */}
+        <div className="arv-select-wrap">
           <select
             disabled={!selected}
             value={item.recommended_test}
             onChange={(e) => onOptionChange(item.originalIdx, e.target.value)}
-            className={`appearance-none w-full bg-stone-950 border text-white text-[10px] font-semibold tracking-wide py-3 px-4 pr-10 rounded-xl focus:outline-none transition-all cursor-pointer
-              ${!selected ? 'opacity-25 pointer-events-none border-white/5' : desfecho ? 'border-amber-500/20 hover:border-amber-500/40 focus:border-amber-400' : 'border-white/10 hover:border-primary/40 focus:border-primary'}`}
+            className={`arv-select ${!selected ? 'arv-select--disabled' : desfecho ? 'arv-select--desfecho' : 'arv-select--default'}`}
           >
             {item.test_options.map(opt => (
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
-          <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none transition-opacity ${!selected ? 'opacity-10' : desfecho ? 'text-amber-400' : 'text-primary'}`}>
-            <span className="material-symbols-rounded text-lg">stat_minus_1</span>
-          </div>
+          <span className={`material-symbols-rounded arv-select-icon ${!selected ? 'opacity-20' : desfecho ? 'arv-icon-desfecho' : 'arv-icon-default'}`}>
+            stat_minus_1
+          </span>
         </div>
       </div>
     </div>
@@ -100,60 +87,55 @@ const VariableDrawer = ({ groupName, items, onOptionChange, onToggleSelection, i
   const hasDesfecho = items.some(i => isDesfecho(i.rationale))
 
   return (
-    <div className={`mb-4 rounded-xl border transition-all duration-500 overflow-hidden
-      ${isOpen
-        ? hasDesfecho
-          ? 'bg-amber-500/[0.02] border-amber-500/20'
-          : 'bg-white/[0.03] border-primary/30'
-        : 'bg-white/[0.01] border-white/5 hover:border-white/10'
-      }`}
-    >
-      <button onClick={onToggleGroup} className="w-full text-left px-8 py-6 flex items-center justify-between group">
-        <div className="flex items-center gap-6">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-500
-            ${isOpen
-              ? hasDesfecho ? 'bg-amber-400 text-black border-amber-400' : 'bg-primary text-background border-primary'
-              : 'bg-white/5 text-stone-400 border-white/10 group-hover:border-primary/40'
-            }`}
-          >
-            <span className="material-symbols-rounded text-2xl">
-              {hasDesfecho ? 'target' : relevance > 80 ? 'star' : relevance > 60 ? 'trending_up' : 'analytics'}
+    <div className={`arv-drawer ${isOpen
+      ? hasDesfecho ? 'arv-drawer--desfecho-open' : 'arv-drawer--open'
+      : 'arv-drawer--closed'
+    }`}>
+      <button onClick={onToggleGroup} className="arv-drawer-header">
+        {/* Ícone de grupo */}
+        <div className={`arv-drawer-icon ${isOpen
+          ? hasDesfecho ? 'arv-drawer-icon--desfecho' : 'arv-drawer-icon--active'
+          : 'arv-drawer-icon--idle'
+        }`}>
+          <span className="material-symbols-rounded" style={{ fontSize: 18 }}>
+            {hasDesfecho ? 'target' : relevance > 80 ? 'star' : relevance > 60 ? 'trending_up' : 'analytics'}
+          </span>
+        </div>
+
+        {/* Título e info */}
+        <div className="arv-drawer-title-wrap">
+          <div className="arv-drawer-title-row">
+            <h3 className={`arv-drawer-title ${isOpen ? (hasDesfecho ? 'arv-title--desfecho' : 'arv-title--active') : 'arv-title--idle'}`}>
+              {groupName}
+            </h3>
+            {hasDesfecho && (
+              <span className="arv-badge arv-badge--desfecho">⭐ Desfecho</span>
+            )}
+            <span className="arv-count-badge">
+              <span className="arv-count-dot" />
+              {items.length} testes
             </span>
           </div>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h3 className={`text-lg font-semibold transition-colors ${isOpen ? (hasDesfecho ? 'text-amber-400' : 'text-primary') : 'text-white'}`}>
-                {groupName}
-              </h3>
-              {hasDesfecho && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/20 text-[9px] font-semibold text-amber-400 tracking-wide">
-                  ⭐ Desfecho
-                </span>
-              )}
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
-                <div className="w-1 h-1 rounded-full bg-primary/60"></div>
-                <span className="text-[9px] font-semibold tracking-wide text-stone-500">{items.length} Testes</span>
-              </div>
+
+          {/* Barra de relevância */}
+          <div className="arv-relevance-bar-wrap">
+            <div className="arv-relevance-track">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${relevance}%` }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className={`arv-relevance-fill ${hasDesfecho ? 'arv-rel-desfecho' : 'arv-rel-default'}`}
+              />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-[10px] text-stone-500 font-bold tracking-wide">Relevância Estatística</div>
-              <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${relevance}%` }}
-                  className={`h-full ${hasDesfecho ? 'bg-amber-400' : 'bg-primary'}`}
-                />
-              </div>
-            </div>
+            <span className="arv-relevance-label">{relevance}%</span>
           </div>
         </div>
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all
-          ${isOpen
-            ? hasDesfecho ? 'rotate-180 bg-amber-500/10 border-amber-500/20 text-amber-400' : 'rotate-180 bg-primary/10 border-primary/20 text-primary'
-            : 'bg-white/5 border-white/10 text-stone-600'
-          }`}
+
+        {/* Chevron */}
+        <div className={`arv-chevron ${isOpen ? (hasDesfecho ? 'arv-chevron--desfecho' : 'arv-chevron--active') : 'arv-chevron--idle'}`}
+          style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
         >
-          <span className="material-symbols-rounded">expand_more</span>
+          <span className="material-symbols-rounded" style={{ fontSize: 18 }}>expand_more</span>
         </div>
       </button>
 
@@ -163,24 +145,22 @@ const VariableDrawer = ({ groupName, items, onOptionChange, onToggleSelection, i
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-white/5"
+            transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+            className="arv-drawer-body"
           >
-            <div className="p-8 space-y-3">
-              {/* Selected analyses */}
+            <div className="arv-drawer-content">
               {selectedItems.map((item) => (
                 <AnalysisItem key={item.id} item={item} onOptionChange={onOptionChange} onToggleSelection={onToggleSelection} />
               ))}
 
-              {/* Divider: optional section */}
               {selectedItems.length > 0 && optionalItems.length > 0 && (
-                <div className="flex items-center gap-4 py-4">
-                  <div className="flex-1 h-px bg-white/5" />
-                  <span className="text-[9px] font-semibold tracking-wide text-stone-600">Opcionais</span>
-                  <div className="flex-1 h-px bg-white/5" />
+                <div className="arv-optional-divider">
+                  <div className="arv-divider-line" />
+                  <span className="arv-divider-label">Opcionais</span>
+                  <div className="arv-divider-line" />
                 </div>
               )}
 
-              {/* Optional analyses */}
               {optionalItems.map((item) => (
                 <AnalysisItem key={item.id} item={item} onOptionChange={onOptionChange} onToggleSelection={onToggleSelection} />
               ))}
@@ -194,7 +174,20 @@ const VariableDrawer = ({ groupName, items, onOptionChange, onToggleSelection, i
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome, onOutcomeChange, outcomeOptions, onToggleSelection, dataQuality, pendingFile, onDatasetCorrected }) => {
-  const [expandedGroup, setExpandedGroup] = useState(null)
+  // Abrir apenas o grupo com desfecho por padrão
+  const defaultOpen = useMemo(() => {
+    if (!protocol) return null
+    const groups = {}
+    protocol.forEach((item, idx) => {
+      const groupKey = item.variable_group || 'Outros'
+      if (!groups[groupKey]) groups[groupKey] = { hasDesfecho: false }
+      if (isDesfecho(item.rationale)) groups[groupKey].hasDesfecho = true
+    })
+    const desfechoGroup = Object.entries(groups).find(([_, g]) => g.hasDesfecho)
+    return desfechoGroup ? desfechoGroup[0] : null
+  }, [protocol])
+
+  const [expandedGroup, setExpandedGroup] = useState(defaultOpen)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorFocusCol, setEditorFocusCol] = useState(null)
 
@@ -203,7 +196,6 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
 
   const handleConfirmClick = () => {
     if (hasQualityIssues && pendingFile) {
-      // Open the editor instead of running analysis
       handleEditRequest(null)
       return
     }
@@ -235,7 +227,6 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
       groups[groupKey].maxRelevance = Math.max(groups[groupKey].maxRelevance, item.relevance || 0)
       if (item.is_selected) groups[groupKey].hasSelected = true
     })
-    // Groups with selected items first, then by relevance desc
     return Object.values(groups).sort((a, b) => {
       if (a.hasSelected !== b.hasSelected) return a.hasSelected ? -1 : 1
       return b.maxRelevance - a.maxRelevance
@@ -246,95 +237,95 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card rounded-xl p-12 max-w-6xl mx-auto border border-white/5 relative overflow-hidden"
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="arv-root"
     >
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -mr-64 -mt-64 pointer-events-none" />
+      {/* Glow decorativo */}
+      <div className="arv-glow" />
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-16 gap-10 relative z-10">
-        <div>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-1 rounded-full bg-primary/30" />
-            <span className="text-[10px] font-semibold tracking-wide text-primary">Intelligent Protocol</span>
-          </div>
-          <h2 className="text-5xl font-semibold text-white mb-6 leading-[1.1] tracking-tight">
-            Review do Plano <br /> de Análise
-          </h2>
+      {/* ── HEADER COMPACTO ─────────────────────────────────────────── */}
+      <div className="arv-header">
+        <div className="arv-header-left">
+          {/* Label */}
+          <span className="arv-header-label">
+            <span className="material-symbols-rounded" style={{ fontSize: 13 }}>checklist</span>
+            Revisão de Variáveis
+          </span>
 
-          {/* Stats row */}
-          <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold tracking-wide">
-            <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/5 text-stone-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span><strong className="text-white">{protocol.length}</strong> Variáveis</span>
+          {/* Chips de stat */}
+          <div className="arv-stat-chips">
+            <div className="arv-chip arv-chip--vars">
+              <span className="arv-chip-dot" />
+              <strong>{protocol.length}</strong> variáveis
             </div>
-
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary">
-              <span className="material-symbols-rounded text-sm">check_circle</span>
-              <span><strong>{selectedCount}</strong> Selecionadas</span>
+            <div className="arv-chip arv-chip--selected">
+              <span className="material-symbols-rounded" style={{ fontSize: 12 }}>check_circle</span>
+              <strong>{selectedCount}</strong> ativas
             </div>
-
             {optionalCount > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/5 text-stone-500">
-                <span className="material-symbols-rounded text-sm">radio_button_unchecked</span>
-                <span><strong className="text-stone-400">{optionalCount}</strong> Opcionais</span>
+              <div className="arv-chip arv-chip--optional">
+                <strong>{optionalCount}</strong> opcionais
               </div>
             )}
-
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/5 text-stone-400">
-              <span className="text-stone-500">Desfecho:</span>
+            {/* Seletor de desfecho inline */}
+            <div className="arv-chip arv-chip--outcome">
+              <span className="material-symbols-rounded" style={{ fontSize: 12 }}>target</span>
               {outcomeOptions && outcomeOptions.length > 1 ? (
                 <select
                   value={outcome}
                   onChange={(e) => onOutcomeChange(e.target.value)}
-                  className="appearance-none bg-transparent text-primary focus:outline-none cursor-pointer pr-4 font-semibold"
+                  className="arv-outcome-select"
                 >
                   {outcomeOptions.map(opt => (
-                    <option key={opt} value={opt} className="bg-stone-900 text-white">{opt}</option>
+                    <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               ) : (
-                <span className="text-primary">{outcome}</span>
+                <span className="arv-outcome-text">{outcome}</span>
               )}
             </div>
           </div>
         </div>
-
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleConfirmClick}
-          style={hasQualityIssues ? {
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            boxShadow: '0 0 28px rgba(245,158,11,0.35)',
-            color: '#000',
-          } : {}}
-          className="bg-primary text-background font-semibold text-xs tracking-wide px-14 py-7 rounded-xl transition-all flex items-center gap-5 group shrink-0"
-        >
-          {hasQualityIssues ? (
-            <>
-              <span className="material-symbols-rounded text-xl" style={{ animation: 'pulse 2s ease-in-out infinite' }}>edit_note</span>
-              Corrigir dados ({totalIssues} coluna{totalIssues !== 1 ? 's' : ''})
-            </>
-          ) : (
-            <>
-              Iniciar Análise Full
-              <span className="material-symbols-rounded text-xl group-hover:rotate-12 transition-transform">rocket_launch</span>
-            </>
-          )}
-        </motion.button>
       </div>
 
-      {/* Banner de qualidade de dados */}
+      {/* ── BANNER DE QUALIDADE ──────────────────────────────────────── */}
       {dataQuality && (
-        <div className="mb-10 relative z-10">
+        <div className="arv-quality-wrap">
           <DataQualityBanner
             dataQuality={dataQuality}
             onEditRequest={pendingFile ? handleEditRequest : undefined}
           />
         </div>
       )}
+
+      {/* ── CTA HERO ────────────────────────────────────────────────── */}
+      <motion.button
+        whileHover={{ scale: 1.015 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={handleConfirmClick}
+        className={`arv-cta ${hasQualityIssues ? 'arv-cta--warn' : 'arv-cta--default'}`}
+      >
+        <div className="arv-cta-inner">
+          <div className="arv-cta-left">
+            <span className={`material-symbols-rounded arv-cta-icon ${hasQualityIssues ? '' : 'arv-cta-icon-pulse'}`}>
+              {hasQualityIssues ? 'edit_note' : 'rocket_launch'}
+            </span>
+            <div>
+              <p className="arv-cta-title">
+                {hasQualityIssues ? `Corrigir dados (${totalIssues} coluna${totalIssues !== 1 ? 's' : ''})` : 'Iniciar Análise Completa'}
+              </p>
+              <p className="arv-cta-sub">
+                {hasQualityIssues
+                  ? 'Corrija as inconsistências antes de executar'
+                  : `${selectedCount} análises · Protocolo APA-7 gerado automaticamente`}
+              </p>
+            </div>
+          </div>
+          <span className="material-symbols-rounded arv-cta-arrow">arrow_forward</span>
+        </div>
+      </motion.button>
 
       {/* Editor modal */}
       <DatasetEditorModal
@@ -346,24 +337,8 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
         onClose={() => setEditorOpen(false)}
       />
 
-      {/* Amber guidance note when quality issues exist */}
-      {hasQualityIssues && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 relative z-10"
-        >
-          <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#f59e0b', flexShrink: 0 }}>info</span>
-            <p style={{ margin: 0, fontSize: 11, color: '#d97706', fontWeight: 500 }}>
-              Corrija as inconsistências no editor antes de executar a análise. Após salvar as correções, o botão voltará ao normal.
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Grouped protocol */}
-      <div className="space-y-4">
+      {/* ── GRUPOS COLAPSÁVEIS ───────────────────────────────────────── */}
+      <div className="arv-groups">
         {groupedProtocol.map((group) => (
           <VariableDrawer
             key={group.name}
@@ -378,23 +353,13 @@ const AnalysisReviewPlan = ({ protocol, meta, onOptionChange, onConfirm, outcome
         ))}
       </div>
 
-      {/* Scientific guideline footer */}
-      <div className="mt-20 p-10 rounded-xl bg-stone-950 border border-white/10 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-12 opacity-[0.03]">
-          <span className="material-symbols-rounded text-9xl">science</span>
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-8">
-          <div className="w-16 h-16 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
-            <span className="material-symbols-rounded text-2xl">tips_and_updates</span>
-          </div>
-          <div>
-            <h4 className="text-[11px] font-semibold tracking-wide text-white mb-3">Diretriz de Rigor Científico</h4>
-            <p className="text-stone-500 text-sm font-medium leading-relaxed max-w-4xl">
-              O Paper Metrics prioriza automaticamente análises ligadas ao <strong className="text-amber-400">⭐ Desfecho principal</strong> e variáveis com maior <strong className="text-stone-300">completitude de dados</strong>.
-              As análises recomendadas estão <strong className="text-primary">já selecionadas</strong> — as opcionais ficam disponíveis para inclusão manual conforme seu julgamento clínico.
-            </p>
-          </div>
-        </div>
+      {/* ── RODAPÉ CIENTÍFICO (compacto) ────────────────────────────── */}
+      <div className="arv-footer">
+        <span className="material-symbols-rounded" style={{ fontSize: 16, color: 'var(--color-primary)', flexShrink: 0 }}>tips_and_updates</span>
+        <p className="arv-footer-text">
+          O Paper Metrics prioriza análises do <strong style={{ color: '#f59e0b' }}>⭐ Desfecho principal</strong> e variáveis com maior completitude.
+          As análises recomendadas estão <strong style={{ color: 'var(--color-primary)' }}>pré-selecionadas</strong> — as opcionais ficam disponíveis para inclusão manual.
+        </p>
       </div>
     </motion.div>
   )
