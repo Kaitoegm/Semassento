@@ -738,3 +738,147 @@
 .sa-expand-body {
   padding: 12px 0;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ACCESSIBILITY: Focus & Keyboard
+   ═══════════════════════════════════════════════════════════ */
+
+.sa-run-btn:focus-visible,
+.sa-sample-btn:focus-visible,
+.sa-config-select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.sa-chart-svg g[role="button"]:focus-visible,
+.sa-forest-svg g[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.sa-legend-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sa-expand-header:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE: >= 768px
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .sa-root {
+    padding: 0 8px;
+  }
+
+  .sa-title {
+    font-size: 18px;
+  }
+
+  .sa-subtitle {
+    font-size: 12px;
+  }
+
+  .sa-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .sa-sidebar {
+    position: static;
+  }
+
+  .sa-config-card {
+    padding: 14px;
+  }
+
+  .sa-chart-card,
+  .sa-forest-card,
+  .sa-detail-section,
+  .sa-risk-table-card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .sa-chart-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .sa-chart-legend {
+    gap: 8px;
+  }
+
+  .sa-results-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .sa-result-card-value {
+    font-size: 22px;
+  }
+
+  .sa-prep-info {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .sa-prep-item {
+    padding: 10px;
+  }
+
+  .sa-prep-item-value {
+    font-size: 18px;
+  }
+
+  .sa-detail-table th,
+  .sa-detail-table td,
+  .sa-risk-table th,
+  .sa-risk-table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .sa-apa {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  .sa-sample-row {
+    flex-direction: column;
+  }
+
+  .sa-sample-btn {
+    flex: none;
+  }
+
+  .sa-empty {
+    min-height: 200px;
+    padding: 20px;
+  }
+
+  .sa-empty-icon {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sa-prep-info {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sa-chart-title {
+    font-size: 12px;
+  }
+
+  .sa-result-card {
+    padding: 12px;
+  }
+}

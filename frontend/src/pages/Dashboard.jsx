@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSciStat } from '../SciStatContext'
 import { useAuth } from '../AuthContext'
@@ -331,6 +331,7 @@ export default function Dashboard() {
   const { session, isAuthenticated } = useAuth()
   const { history, trials, projects, refresh, loading: dataLoading, addLocalNotification } = useSciStat()
   const { requestPermission, notifyDone } = useAnalysisNotifier()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   // loadingPhase: contextualiza o spinner para cada etapa do pipeline
   const [loadingPhase, setLoadingPhase] = useState('reading') // 'reading' | 'domains' | 'protocol' | 'running'
@@ -393,6 +394,48 @@ export default function Dashboard() {
     { label: 'Análise',  icon: 'analytics'      },
   ]
   const [currentStep, setCurrentStep] = useState(0)
+  const [selectedOutcome, setSelectedOutcome] = useState(null)
+  const [domainChoices, setDomainChoices] = useState({})
+
+  // Direção da animação (1 = avançar, -1 = voltar)
+  const [stepDirection, setStepDirection] = useState(1)
+  const prevStepRef = useRef(0)
+
+  useEffect(() => {
+    setStepDirection(currentStep > prevStepRef.current ? 1 : -1)
+    prevStepRef.current = currentStep
+  }, [currentStep])
+
+  const stepVariants = {
+    enter: (dir) => ({ x: dir > 0 ? 120 : -120, opacity: 0, scale: 0.96 }),
+    center: { x: 0, opacity: 1, scale: 1 },
+    exit: (dir) => ({ x: dir > 0 ? -120 : 120, opacity: 0, scale: 0.96 }),
+  }
+
+  // Navegação para trás no pipeline
+  const goToStep = useCallback((targetStep) => {
+    if (targetStep >= currentStep) return
+    if (targetStep < 3) {
+      setShowReview(false)
+      setAnalysisProtocol(null)
+    }
+    if (targetStep < 2) {
+      setShowOutcomeSelector(false)
+    }
+    if (targetStep < 1) {
+      setShowDomainReview(false)
+      setPendingFile(null)
+    }
+    // Reopen the correct step's UI
+    if (targetStep === 1) {
+      setShowDomainReview(true)
+      setShowOutcomeSelector(false)
+    }
+    if (targetStep === 2) {
+      setShowOutcomeSelector(true)
+    }
+    setCurrentStep(targetStep)
+  }, [currentStep])
 
   // Helper: avança o step e executa callback imediatamente (sem timeout)
   const fireStepTransition = useCallback((stepIndex, onDone) => {
@@ -530,6 +573,8 @@ export default function Dashboard() {
     setGroupedSummary(null)
     setAnalysisProtocol(null)
     setShowReview(false)
+    setShowOutcomeSelector(false)
+    setShowDomainReview(false)
     setValidationReport(null)
     setActiveReportTab('all')
     setPremiumAnalysis(null)
@@ -538,6 +583,8 @@ export default function Dashboard() {
     setShowTitleInput(false)
     setShowProjectPicker(false)
     setSavedToProject(null)
+    setSelectedOutcome(null)
+    setDomainChoices({})
     clearDraft()
     setCurrentStep(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -828,6 +875,7 @@ export default function Dashboard() {
   const handleDomainReviewConfirm = useCallback(async (choices, passedDerivedCandidates) => {
     console.log('[DEBUG] handleDomainReviewConfirm choices:', choices)
     console.log('[DEBUG] columnOptions antes:', columnOptions.map(c => c.name))
+    setDomainChoices(choices)
     setConfirmedTransformations(choices)
 
     // se o CDR passou candidatos derivados, sincronizar o state
@@ -878,6 +926,7 @@ export default function Dashboard() {
   // PASSO 0 -> ANÁLISE: chamado após o usuário confirmar o outcome
   // ============================================================
   const handleOutcomeConfirmed = async (outcomeCol) => {
+    setSelectedOutcome(outcomeCol)
     setShowOutcomeSelector(false)
     if (!pendingFile) return
 
@@ -1377,61 +1426,114 @@ export default function Dashboard() {
       reading: {
         icon: 'table_view',
         headline: 'Lendo seu arquivo...',
-        sub: 'Identificando colunas e tipos de dados',
+        phrases: [
+          'Identificando colunas e tipos de dados',
+          'Analisando a estrutura do dataset',
+          'Reconhecendo padroes nos dados',
+          'Preparando variaveis para analise',
+        ],
       },
       domains: {
         icon: 'biotech',
-        headline: 'Detectando domínios clínicos...',
-        sub: 'Verificando Snellen, PIO e variáveis bilaterais',
+        headline: 'Detectando dominios clinicos...',
+        phrases: [
+          'Verificando escalas de Snellen',
+          'Buscando padroes bilaterais (OD/OE)',
+          'Classificando tipos de variaveis',
+          'Identificando transformacoes necessarias',
+        ],
       },
       protocol: {
         icon: 'labs',
-        headline: 'Gerando protocolo estatístico...',
-        sub: 'Selecionando os testes mais adequados aos seus dados',
+        headline: 'Gerando protocolo estatistico...',
+        phrases: [
+          'Selecionando testes adequados',
+          'Verificando premissas estatisticas',
+          'Configurando comparacoes entre grupos',
+          'Montando pipeline de analise',
+          'Calibrando niveis de significancia',
+        ],
       },
       running: {
         icon: 'analytics',
-        headline: 'Executando os testes...',
-        sub: 'Shapiro-Wilk · t de Student · ANOVA · Qui-Quadrado',
+        headline: 'Executando analise...',
+        phrases: [
+          'Rodando teste de normalidade (Shapiro-Wilk)',
+          'Calculando estatisticas descritivas',
+          'Aplicando testes de hipotese',
+          'Gerando intervalos de confianca',
+          'Formatando resultados em APA-7',
+          'Quase pronto...',
+        ],
       },
     }
 
     const current = PHASES[phase] || PHASES.reading
+    const [phraseIdx, setPhraseIdx] = useState(0)
+
+    useEffect(() => {
+      setPhraseIdx(0)
+      const interval = setInterval(() => {
+        setPhraseIdx(prev => (prev + 1) % current.phrases.length)
+      }, 2800)
+      return () => clearInterval(interval)
+    }, [phase, current.phrases.length])
 
     return (
-      <div className="flex flex-col items-center justify-center py-14 select-none">
-        {/* Orb principal com anéis orbitais */}
-        <div className="relative w-24 h-24 mb-8">
+      <div className="flex flex-col items-center justify-center py-16 select-none">
+        {/* Orb principal com aneis orbitais */}
+        <div className="relative w-28 h-28 mb-10">
           {/* Anel externo pulsante */}
           <motion.div
             className="absolute inset-0 rounded-full"
-            style={{ border: '1px solid rgba(94,234,212,0.15)' }}
-            animate={{ scale: [1, 1.6, 1], opacity: [0.6, 0, 0.6] }}
-            transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+            style={{ border: '1.5px solid rgba(94,234,212,0.12)' }}
+            animate={{ scale: [1, 1.7, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
           />
-          {/* Anel médio rotacionando */}
+          {/* Segundo anel pulsante (defasado) */}
+          <motion.div
+            className="absolute inset-0 rounded-full"
+            style={{ border: '1px solid rgba(94,234,212,0.08)' }}
+            animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
+            transition={{ repeat: Infinity, duration: 3.2, ease: 'easeInOut', delay: 0.6 }}
+          />
+          {/* Anel medio rotacionando */}
           <motion.div
             className="absolute inset-2 rounded-full"
-            style={{ border: '1px dashed rgba(94,234,212,0.25)' }}
+            style={{ border: '1.5px dashed rgba(94,234,212,0.2)' }}
             animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
+            transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
           />
-          {/* Core */}
+          {/* Anel interno contra-rotacionando */}
           <motion.div
-            className="absolute inset-4 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(94,234,212,0.1)', border: '1px solid rgba(94,234,212,0.3)' }}
-            animate={{ scale: [1, 1.08, 1], boxShadow: ['0 0 20px rgba(94,234,212,0.1)', '0 0 40px rgba(94,234,212,0.25)', '0 0 20px rgba(94,234,212,0.1)'] }}
-            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+            className="absolute inset-5 rounded-full"
+            style={{ border: '1px dashed rgba(94,234,212,0.12)' }}
+            animate={{ rotate: -360 }}
+            transition={{ repeat: Infinity, duration: 14, ease: 'linear' }}
+          />
+          {/* Core com glow */}
+          <motion.div
+            className="absolute inset-6 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(94,234,212,0.1)', border: '1.5px solid rgba(94,234,212,0.3)' }}
+            animate={{
+              scale: [1, 1.06, 1],
+              boxShadow: [
+                '0 0 20px rgba(94,234,212,0.08), 0 0 60px rgba(94,234,212,0.04)',
+                '0 0 30px rgba(94,234,212,0.2), 0 0 80px rgba(94,234,212,0.08)',
+                '0 0 20px rgba(94,234,212,0.08), 0 0 60px rgba(94,234,212,0.04)',
+              ]
+            }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
           >
             <AnimatePresence mode="wait">
               <motion.span
                 key={phase}
                 className="material-symbols-rounded"
-                style={{ fontSize: '22px', color: 'var(--color-primary, #5eead4)' }}
-                initial={{ scale: 0.4, opacity: 0, rotate: -20 }}
+                style={{ fontSize: '26px', color: 'var(--color-primary, #5eead4)' }}
+                initial={{ scale: 0, opacity: 0, rotate: -30 }}
                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                exit={{ scale: 0.4, opacity: 0, rotate: 20 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                exit={{ scale: 0, opacity: 0, rotate: 30 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 22 }}
               >
                 {current.icon}
               </motion.span>
@@ -1439,35 +1541,46 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* Texto narrativo com transição suave */}
+        {/* Headline fixa */}
         <AnimatePresence mode="wait">
-          <motion.div
-            key={phase}
-            className="flex flex-col items-center gap-1.5"
-            initial={{ opacity: 0, y: 10 }}
+          <motion.p
+            key={phase + '-headline'}
+            className="text-base font-semibold text-text-main text-center mb-2"
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3 }}
           >
-            <p className="text-sm font-semibold text-text-main text-center">{current.headline}</p>
-            <p className="text-xs text-center max-w-[240px]" style={{ color: 'var(--text-muted, #a8a29e)' }}>
-              {current.sub}
-            </p>
-          </motion.div>
+            {current.headline}
+          </motion.p>
         </AnimatePresence>
 
-        {/* Dots com stagger estilo design-spells */}
-        <motion.div className="flex gap-1.5 mt-6">
-          {[0, 1, 2, 3].map(i => (
-            <motion.div
-              key={i}
-              className="rounded-full"
-              style={{ background: 'var(--color-primary, #5eead4)', width: i === 1 || i === 2 ? '8px' : '5px', height: i === 1 || i === 2 ? '8px' : '5px' }}
-              animate={{ y: [0, -10, 0], opacity: [0.2, 1, 0.2] }}
-              transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15, ease: 'easeInOut' }}
-            />
-          ))}
-        </motion.div>
+        {/* Frase rotativa */}
+        <div className="h-5 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={`${phase}-${phraseIdx}`}
+              className="text-xs text-center max-w-[300px]"
+              style={{ color: 'var(--text-muted, #a8a29e)' }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+              {current.phrases[phraseIdx]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+
+        {/* Barra de progresso animada */}
+        <div className="mt-8 w-48 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(94,234,212,0.08)' }}>
+          <motion.div
+            className="h-full rounded-full"
+            style={{ background: 'var(--color-primary, #5eead4)' }}
+            animate={{ x: ['-100%', '100%'] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: [0.45, 0, 0.55, 1] }}
+          />
+        </div>
       </div>
     )
   }
@@ -1475,75 +1588,150 @@ export default function Dashboard() {
   return (
     <div className="space-y-12 pb-20">
 
-      {/* Passo 0.5 — Revisão de Domínios Especializados */}
-      <ColumnDomainReview
-        isOpen={showDomainReview}
-        resolutions={domainResolutions}
-        bilateralWarnings={bilateralWarnings}
-        derivedCandidates={derivedCandidates}
-        onConfirm={handleDomainReviewConfirm}
-        onSkip={handleDomainReviewSkip}
-        onTeachDomain={handleTeachDomain}
-      />
-
-      {/* Passo 0 — Seleção de Desfecho */}
-      {showOutcomeSelector && (
-        <OutcomeSelector
-          columns={columnOptions}
-          onConfirm={handleOutcomeConfirmed}
-          onCancel={() => { setShowOutcomeSelector(false); setPendingFile(null) }}
-        />
-      )}
-
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl sm:text-3xl font-semibold text-text-main">Painel de Análise</h1>
         <p className="text-sm text-text-muted font-medium">Envie seus dados e receba análises estatísticas completas com interpretação automática.</p>
       </header>
 
-      {/* PipelineStepper + Review — substitui o conteúdo de upload quando ativo */}
-      <AnimatePresence mode="wait">
-        {showReview ? (
-          <motion.div
-            key="review"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          >
+      {/* Pipeline ativo — wizard full-width */}
+      {(pendingFile || showReview || showOutcomeSelector || showDomainReview || loading) && results.length === 0 && (
+        <motion.div
+          key="pipeline-active"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="wizard-container"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 20,
+            boxShadow: '0 16px 64px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06)',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Stepper — sempre visivel dentro do wizard */}
+          <div style={{
+            borderBottom: '0.5px solid var(--border-subtle)',
+            background: 'color-mix(in srgb, var(--color-primary) 4%, var(--surface))',
+          }}>
             <PipelineStepper
               currentStep={currentStep}
               steps={PIPELINE_STEPS}
-              sticky
+              sticky={currentStep >= 3}
+              onStepClick={goToStep}
             />
-            <AnalysisReviewPlan
-              protocol={analysisProtocol?.items || []}
-              meta={analysisProtocol?.meta || null}
-              outcome={analysisProtocol?.outcome || 'Resultado'}
-              outcomeOptions={outcomeOptions}
-              onOptionChange={handleProtocolOptionChange}
-              onToggleSelection={toggleProtocolSelection}
-              onOutcomeChange={handleOutcomeChange}
-              onConfirm={runProtocol}
-              dataQuality={dataQuality}
-              pendingFile={pendingFile}
-              onDatasetCorrected={handleDatasetCorrected}
-            />
-          </motion.div>
-        ) : (pendingFile || showOutcomeSelector || showDomainReview || loading) && results.length === 0 ? (
-          <motion.div
-            key="stepper-only"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            <PipelineStepper
-              currentStep={currentStep}
-              steps={PIPELINE_STEPS}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          </div>
+
+          {/* Conteudo do step atual */}
+          <div style={{ minHeight: 380, position: 'relative' }}>
+            <AnimatePresence mode="wait" custom={stepDirection}>
+              {/* Loading entre steps */}
+              {loading && !showReview && !showDomainReview && !showOutcomeSelector && (
+                <motion.div
+                  key="step-loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <LoadingOrb phase={loadingPhase} />
+                </motion.div>
+              )}
+
+              {currentStep === 1 && showDomainReview && (
+                <motion.div
+                  key="step-1"
+                  variants={stepVariants}
+                  custom={stepDirection}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ padding: '24px 28px' }}
+                >
+                  <ColumnDomainReview
+                    isOpen={true}
+                    resolutions={domainResolutions}
+                    bilateralWarnings={bilateralWarnings}
+                    derivedCandidates={derivedCandidates}
+                    initialChoices={domainChoices}
+                    onConfirm={handleDomainReviewConfirm}
+                    onSkip={handleDomainReviewSkip}
+                    onBack={() => goToStep(0)}
+                    onTeachDomain={handleTeachDomain}
+                  />
+                </motion.div>
+              )}
+
+              {currentStep === 2 && showOutcomeSelector && (
+                <motion.div
+                  key="step-2"
+                  variants={stepVariants}
+                  custom={stepDirection}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ padding: '24px 28px' }}
+                >
+                  <OutcomeSelector
+                    columns={columnOptions}
+                    onConfirm={handleOutcomeConfirmed}
+                    onBack={() => domainResolutions.length > 0 ? goToStep(1) : goToStep(0)}
+                    defaultSelected={selectedOutcome}
+                    onSurvivalRedirect={() => {
+                      setShowOutcomeSelector(false)
+                      setPendingFile(null)
+                      navigate('/survival')
+                    }}
+                  />
+                </motion.div>
+              )}
+
+              {currentStep === 3 && showReview && (
+                <motion.div
+                  key="step-3"
+                  variants={stepVariants}
+                  custom={stepDirection}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ padding: '24px 28px' }}
+                >
+                  <AnalysisReviewPlan
+                    protocol={analysisProtocol?.items || []}
+                    meta={analysisProtocol?.meta || null}
+                    outcome={analysisProtocol?.outcome || 'Resultado'}
+                    outcomeOptions={outcomeOptions}
+                    onOptionChange={handleProtocolOptionChange}
+                    onToggleSelection={toggleProtocolSelection}
+                    onOutcomeChange={handleOutcomeChange}
+                    onConfirm={runProtocol}
+                    dataQuality={dataQuality}
+                    pendingFile={pendingFile}
+                    onDatasetCorrected={handleDatasetCorrected}
+                  />
+                </motion.div>
+              )}
+
+              {/* Loading no step 3 enquanto protocolo carrega */}
+              {currentStep === 3 && loading && !showReview && (
+                <motion.div
+                  key="step-3-loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <LoadingOrb phase={loadingPhase} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      )}
       
       {/* Draft Resume Banner */}
       {draftBanner && !fileData && !pendingFile && results.length === 0 && (
@@ -1584,7 +1772,7 @@ export default function Dashboard() {
       )}
 
       {/* Resumo de Ensaios Clínicos */}
-      {!showReview && results.length === 0 && trials.length > 0 && (
+      {!showReview && !showDomainReview && !showOutcomeSelector && !(pendingFile && loading) && results.length === 0 && trials.length > 0 && (
         <motion.section 
           initial={{ opacity: 0, y: 10 }} 
           animate={{ opacity: 1, y: 0 }}
@@ -1611,10 +1799,10 @@ export default function Dashboard() {
         </motion.section>
       )}
 
-      {!showReview && results.length === 0 && (
+      {!showReview && !showDomainReview && !showOutcomeSelector && !(pendingFile && loading) && results.length === 0 && (
         <section className="grid lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-12 flex flex-col gap-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0, scale: isDragging ? 1.02 : 1 }}
               onDragOver={handleDragOver}
@@ -2865,7 +3053,7 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {!showReview && results.length === 0 && !fileData && (
+      {!showReview && !showDomainReview && !showOutcomeSelector && !(pendingFile && loading) && results.length === 0 && !fileData && (
         <>
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -2933,8 +3121,7 @@ export default function Dashboard() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: ci * 0.07 }}
-                    layout
-                    className={`glass-card rounded-2xl border transition-all cursor-pointer ${
+                    className={`glass-card rounded-2xl border cursor-pointer transition-[border-color] duration-200 ${
                       isExpanded ? 'border-primary/30 col-span-1 md:col-span-2 lg:col-span-3' : 'border-border-subtle hover:border-primary/20'
                     }`}
                   >
@@ -2969,13 +3156,13 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    <AnimatePresence>
+                    <AnimatePresence initial={false}>
                       {isExpanded && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.25, ease: 'easeInOut' }}
+                          transition={{ height: { duration: 0.3, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 0.2 } }}
                           className="overflow-hidden"
                         >
                           <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">

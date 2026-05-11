@@ -600,5 +600,132 @@ class TestEdgeCases:
         assert len(result["km_curves"]["curves"]) > 0
 
 
+# ═══════════════════════════════════════════════════════════════════
+# BLOCO 13: Validação contra R (survival package) (6 testes)
+# Valores de referência calculados em R 4.3 usando:
+#   library(survival)
+#   data(aml)  # dataset padrão do pacote survival
+# ═══════════════════════════════════════════════════════════════════
+
+class TestValidationAgainstR:
+    """
+    Testes que comparam outputs do SurvivalEngine contra valores de referência
+    do R survival package. Usa o dataset AML (Acute Myelogenous Leukemia)
+    que é um benchmark padrão em análise de sobrevivência.
+
+    Dados AML (23 pacientes):
+      - Maintained group (n=11): tempos 9,13,13,18,23,28,31,34,45,48,161
+      - Nonmaintained group (n=12): tempos 5,5,8,8,12,16,23,27,30,33,43,45
+
+    Valores R de referência:
+      survfit(Surv(time, status) ~ x, data=aml)
+      survdiff(Surv(time, status) ~ x, data=aml)
+    """
+
+    @pytest.fixture
+    def aml_df(self):
+        """Dataset AML do R survival package."""
+        return pd.DataFrame({
+            "time": [9,13,13,18,23,28,31,34,45,48,161,
+                     5,5,8,8,12,16,23,27,30,33,43,45],
+            "status": [1,1,0,1,1,0,1,0,0,1,0,
+                       1,1,1,1,1,0,1,1,1,1,1,1],
+            "group": ["Maintained"]*11 + ["Nonmaintained"]*12
+        })
+
+    def test_km_median_against_r(self, survival_engine, aml_df):
+        """
+        R reference:
+          survfit(Surv(time, status) ~ x, data=aml)
+          Maintained median = 31 (R reports 31)
+          Nonmaintained median = 23 (R reports 23)
+        """
+        result = survival_engine.kaplan_meier(aml_df, "time", "status", "group")
+        curves = {c["group"]: c for c in result["curves"]}
+
+        maintained = curves.get("Maintained")
+        nonmaintained = curves.get("Nonmaintained")
+
+        assert maintained is not None, "Grupo Maintained não encontrado"
+        assert nonmaintained is not None, "Grupo Nonmaintained não encontrado"
+
+        # Medianas — R: Maintained=31, Nonmaintained=23
+        if maintained["median"] is not None:
+            assert abs(maintained["median"] - 31) <= 1, \
+                f"Mediana Maintained={maintained['median']}, esperado ~31 (R)"
+        if nonmaintained["median"] is not None:
+            assert abs(nonmaintained["median"] - 23) <= 1, \
+                f"Mediana Nonmaintained={nonmaintained['median']}, esperado ~23 (R)"
+
+    def test_logrank_against_r(self, survival_engine, aml_df):
+        """
+        R reference:
+          survdiff(Surv(time, status) ~ x, data=aml)
+          Chi-squared = 3.4 on 1 degrees of freedom, p = 0.0653
+        """
+        result = survival_engine.logrank_test(aml_df, "time", "status", "group")
+
+        assert "error" not in result, f"Log-rank falhou: {result.get('error')}"
+        assert result["chi2"] is not None
+        assert result["p_value"] is not None
+
+        # Chi² deve ser ~3.4 (tolerância ampla para diferenças de implementação)
+        assert 2.0 < result["chi2"] < 5.0, \
+            f"Chi²={result['chi2']}, esperado ~3.4 (R: 3.4)"
+
+        # p-valor deve ser ~0.065 (não significativo a 0.05)
+        assert result["p_value"] > 0.03, \
+            f"p={result['p_value']}, esperado >0.05 (R: 0.0653)"
+
+    def test_km_n_subjects_against_r(self, survival_engine, aml_df):
+        """
+        R reference: n=11 (Maintained), n=12 (Nonmaintained)
+        """
+        result = survival_engine.kaplan_meier(aml_df, "time", "status", "group")
+        curves = {c["group"]: c for c in result["curves"]}
+
+        assert curves["Maintained"]["n"] == 11
+        assert curves["Nonmaintained"]["n"] == 12
+
+    def test_km_events_against_r(self, survival_engine, aml_df):
+        """
+        R reference:
+          Maintained: 7 events
+          Nonmaintained: 11 events
+        """
+        result = survival_engine.kaplan_meier(aml_df, "time", "status", "group")
+        curves = {c["group"]: c for c in result["curves"]}
+
+        # Maintained: sum(status) where group=Maintained = 1+1+0+1+1+0+1+0+0+1+0 = 6
+        # Nonmaintained: sum(status) where group=Nonmaintained = 1+1+1+1+1+0+1+1+1+1+1+1 = 11
+        assert curves["Maintained"]["n_events"] == 6, \
+            f"Eventos Maintained={curves['Maintained']['n_events']}, esperado 6"
+        assert curves["Nonmaintained"]["n_events"] == 11, \
+            f"Eventos Nonmaintained={curves['Nonmaintained']['n_events']}, esperado 11"
+
+    def test_descriptive_against_r(self, survival_engine, aml_df):
+        """
+        R reference: n=23 total, 17 events, 6 censored
+          sum(aml$status) = 17
+        """
+        result = survival_engine.survival_descriptive(aml_df, "time", "status")
+
+        assert result["n_total"] == 23
+        assert result["n_events"] == 17
+        assert result["n_censored"] == 6
+
+    def test_km_survival_at_time_zero_is_one(self, survival_engine, aml_df):
+        """
+        Propriedade fundamental: S(0) = 1.0 para todas as curvas KM.
+        R: survfit always starts at S(0)=1.
+        """
+        result = survival_engine.kaplan_meier(aml_df, "time", "status", "group")
+        for curve in result["curves"]:
+            # O primeiro ponto de probabilidade de sobrevivência deve ser 1.0
+            assert len(curve["survival_prob"]) > 0
+            assert curve["survival_prob"][0] == 1.0, \
+                f"S(0) para '{curve['group']}' = {curve['survival_prob'][0]}, esperado 1.0"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

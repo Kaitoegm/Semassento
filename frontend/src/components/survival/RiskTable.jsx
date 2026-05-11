@@ -41,7 +41,7 @@ export default function RiskTable({ data, groups, groupColors, maxTime }) {
         <span className="sa-chart-title-icon">&#x1F4CA;</span>
         Number at Risk
       </div>
-      <table className="sa-risk-table">
+      <table className="sa-risk-table" aria-label="Tabela de número em risco por intervalo de tempo">
         <thead>
           <tr>
             <th>Time</th>

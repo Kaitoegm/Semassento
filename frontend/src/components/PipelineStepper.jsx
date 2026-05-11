@@ -5,15 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion'
  * PipelineStepper
  *
  * Barra de progresso horizontal persistente — aparece durante todo o fluxo
- * de análise (passos 0→4). Fica sticky no topo do conteúdo quando o
- * AnalysisReviewPlan está visível (step 3).
+ * de analise (passos 0-4). Fica sticky no topo do conteudo quando o
+ * AnalysisReviewPlan esta visivel (step 3).
  *
  * Props:
- *   currentStep  {number}  0–4 — step atual
+ *   currentStep  {number}  0-4 — step atual
  *   steps        {Array}   mesma lista PIPELINE_STEPS do Dashboard
  *   sticky       {boolean} se true, aplica position:sticky (usar no Passo 3)
+ *   onStepClick  {fn}      callback(stepIndex) — chamado ao clicar num step done
  */
-export default function PipelineStepper({ currentStep = 0, steps = [], sticky = false }) {
+export default function PipelineStepper({ currentStep = 0, steps = [], sticky = false, onStepClick }) {
   const prevStep = useRef(currentStep)
 
   useEffect(() => {
@@ -30,13 +31,25 @@ export default function PipelineStepper({ currentStep = 0, steps = [], sticky = 
           const isActive = i === currentStep
           const isIdle   = i > currentStep
 
-          // O conector fica ENTRE os nós — só existe do índice 0 ao N-2
+          // O conector fica ENTRE os nos — so existe do indice 0 ao N-2
           const showConnector = i < steps.length - 1
+
+          const isClickable = isDone && !!onStepClick
 
           return (
             <div key={step.label} className="pip-cell">
-              {/* Nó */}
-              <div className="pip-node-wrap">
+              {/* No */}
+              <div
+                className="pip-node-wrap"
+                onClick={isClickable ? () => onStepClick(i) : undefined}
+                onKeyDown={isClickable ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStepClick(i) }
+                } : undefined}
+                style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                aria-label={isClickable ? `Voltar para ${step.label}` : undefined}
+              >
                 <motion.div
                   className={`pip-node ${
                     isActive ? 'pip-node--active' :
@@ -78,7 +91,7 @@ export default function PipelineStepper({ currentStep = 0, steps = [], sticky = 
                   </AnimatePresence>
                 </motion.div>
 
-                {/* Label abaixo do nó */}
+                {/* Label abaixo do no */}
                 <span className={`pip-label ${
                   isActive ? 'pip-label--active' :
                   isDone   ? 'pip-label--done'   :

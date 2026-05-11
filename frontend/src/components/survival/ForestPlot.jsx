@@ -1,6 +1,5 @@
 import { useMemo, useRef } from 'react'
 import './survival.css'
-import './survival.css'
 
 /**
  * Forest plot for Cox regression hazard ratios.
@@ -135,7 +134,9 @@ export default function ForestPlot({ coxResult, endpointLabel = 'Event' }) {
         </button>
       </div>
 
-      <svg viewBox={`0 0 ${svgW} ${svgH}`} className="sa-forest-svg" role="img" aria-label="Forest plot of Cox regression hazard ratios">
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} className="sa-forest-svg" role="img" aria-label={`Forest plot com ${hazardRatios.length} hazard ratios do modelo de Cox`} focusable="false">
+        <title>Forest Plot — Hazard Ratios</title>
+        <desc>Diamantes representam hazard ratios pontuais, linhas horizontais os intervalos de confiança de 95%. Linha tracejada vertical em HR=1.00 indica ausência de efeito.</desc>
         <defs>
           <filter id="glow-forest" x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur stdDeviation="2" result="blur" />

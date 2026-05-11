@@ -485,11 +485,11 @@ SEMANA 1                            SEMANA 2
 - [x] ~~Integrar sistema de Drafts e Historico~~ (pendente — requer integracao com Dashboard)
 
 **Qualidade (8 itens):**
-- [ ] Integrar deteccao automatica no OutcomeSelector
+- [x] Integrar deteccao automatica no OutcomeSelector
 - [ ] Testes end-to-end
 - [ ] Documentacao para usuario
-- [ ] Acessibilidade WCAG AA
-- [ ] Responsividade >= 768px
-- [ ] Performance 10k+ linhas
-- [ ] Seguranca sanitizacao
-- [ ] Validar resultados contra R
+- [x] Acessibilidade WCAG AA
+- [x] Responsividade >= 768px
+- [x] Performance 10k+ linhas
+- [x] Seguranca sanitizacao
+- [x] Validar resultados contra R

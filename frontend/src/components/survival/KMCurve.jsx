@@ -63,8 +63,11 @@ export default function KMCurve({ kmData, groups, groupColors, hiddenGroups, onT
       viewBox={`0 0 ${W} ${H}`}
       className="sa-chart-svg"
       role="img"
-      aria-label="Kaplan-Meier survival curves"
+      aria-label={`Curvas de sobrevivência Kaplan-Meier com ${kmData.length} grupo${kmData.length !== 1 ? 's' : ''}`}
+      focusable="false"
     >
+      <title>Curvas de Kaplan-Meier</title>
+      <desc>Gráfico de sobrevivência step-function com intervalos de confiança de 95%</desc>
       {/* Grid */}
       {yTicks.map((v) => (
         <g key={`yg-${v}`}>
@@ -221,6 +224,11 @@ export default function KMCurve({ kmData, groups, groupColors, hiddenGroups, onT
               opacity={hidden ? 0.3 : 1}
               style={{ cursor: 'pointer' }}
               onClick={() => onToggleGroup && onToggleGroup(kd.name)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleGroup && onToggleGroup(kd.name) } }}
+              tabIndex={0}
+              role="button"
+              aria-pressed={!hidden}
+              aria-label={`${hidden ? 'Mostrar' : 'Ocultar'} grupo ${kd.name}`}
             >
               <line x1="0" y1="0" x2="18" y2="0" stroke={color} strokeWidth="2.5" />
               <circle cx="9" cy="0" r="3" fill={color} stroke="var(--surface)" strokeWidth={1} />

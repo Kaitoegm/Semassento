@@ -1383,23 +1383,23 @@ p {
    ═══════════════════════════════════════════════════════════ */
 
 .pip-root {
-  padding: 12px 0 4px;
+  padding: 28px 0 32px;
   width: 100%;
 }
 
 /* Versão sticky — usada quando AnalysisReviewPlan está visível */
 .pip-root--sticky {
   position: sticky;
-  top: 12px;
+  top: 0;
   z-index: 40;
   background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 0.5px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 10px 16px 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 20px 24px 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 /* Linha horizontal que contém nós + conectores */
@@ -1408,7 +1408,7 @@ p {
   align-items: flex-start;
   justify-content: center;
   width: 100%;
-  max-width: 560px;
+  max-width: 640px;
   margin: 0 auto;
 }
 
@@ -1428,15 +1428,15 @@ p {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 /* Círculo do nó */
 .pip-node {
   position: relative;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1457,6 +1457,18 @@ p {
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
   color: var(--color-primary);
   border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pip-node--done:hover {
+  transform: scale(1.12);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.pip-node-wrap:focus-visible .pip-node {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .pip-node--idle {
@@ -1467,15 +1479,15 @@ p {
 }
 
 .pip-node-icon {
-  font-size: 14px;
+  font-size: 18px;
   line-height: 1;
 }
 
 /* Label */
 .pip-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
   transition: color 0.35s ease;
@@ -1493,24 +1505,23 @@ p {
   color: color-mix(in srgb, var(--text-muted) 35%, transparent);
 }
 
-/* Conector horizontal */
+/* Conector horizontal — barras preenchidas */
 .pip-connector-track {
   flex: 1;
-  height: 1.5px;
-  background: var(--border-subtle);
+  height: 3px;
+  background: rgba(255,255,255,0.06);
   border-radius: 99px;
   overflow: hidden;
-  margin: 0 4px;
-  margin-bottom: 18px;
-  /* alinha visualmente com o centro dos nós */
+  margin: 0 8px;
+  margin-bottom: 24px;
 }
 
 .pip-connector-fill {
   height: 100%;
   width: 100%;
-  background: var(--color-primary);
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, #a78bfa));
   border-radius: 99px;
-  opacity: 0.7;
+  opacity: 1;
 }
 
 /* Mobile: labels menores */
@@ -1520,15 +1531,19 @@ p {
   }
 
   .pip-node {
-    width: 26px;
-    height: 26px;
+    width: 32px;
+    height: 32px;
   }
 
   .pip-node-icon {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .pip-connector-track {
     margin-bottom: 0;
+  }
+
+  .pip-root {
+    padding: 16px 0 20px;
   }
 }

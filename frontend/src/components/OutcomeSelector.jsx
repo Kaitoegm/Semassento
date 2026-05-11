@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ──────────────────────────────────────────────────────────
@@ -37,12 +36,13 @@ const sortColumns = (cols) => {
 // ──────────────────────────────────────────────────────────
 // Componente Principal
 // ──────────────────────────────────────────────────────────
-export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
+export default function OutcomeSelector({ columns, onConfirm, onBack, defaultSelected, onSurvivalRedirect }) {
   const suggested = columns.find(c => c.suggested)?.name
-  const [selected, setSelected] = useState(suggested || null)
+  const [selected, setSelected] = useState(defaultSelected || suggested || null)
   const [query, setQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Todos')
   const [successFlash, setSuccessFlash] = useState(false)
+  const [survivalBanner, setSurvivalBanner] = useState(false)
   const searchRef = useRef(null)
 
   useEffect(() => {
@@ -52,6 +52,16 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
 
   const hasDerived = useMemo(() => columns.some(c => c.isDerived), [columns])
   const derivedSuggested = useMemo(() => columns.find(c => c.isDerived && c.suggested), [columns])
+
+  // Detectar se existe padrão de dados de sobrevivência (desfecho binário + coluna de tempo)
+  const survivalDetected = useMemo(() => {
+    const timePatterns = ['tempo', 'time', 'duration', 'survival', 'sobrevida', 'follow', 'seguimento', 'meses', 'months', 'dias', 'days']
+    const hasTimeLike = columns.some(c =>
+      c.type === 'Numérico' && timePatterns.some(p => c.name.toLowerCase().includes(p))
+    )
+    const hasBinary = columns.some(c => c.type === 'Binário')
+    return hasTimeLike && hasBinary
+  }, [columns])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
@@ -81,32 +91,13 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
     setTimeout(() => onConfirm(selected), 650)
   }
 
-  return createPortal(
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
-        onClick={!successFlash ? onCancel : undefined}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 24, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.96 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-          onClick={e => e.stopPropagation()}
-          className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden relative"
-          style={{
-            background: 'var(--surface, #111110)',
-            border: '0.5px solid var(--border-subtle, #292524)',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
-          }}
+  return (
+        <div
+          className="w-full flex flex-col overflow-hidden relative"
         >
 
           {/* ── Header ── */}
-          <div className="p-5 pb-4" style={{ borderBottom: '0.5px solid var(--border-subtle, #292524)' }}>
+          <div className="pb-4" style={{ borderBottom: '0.5px solid var(--border-subtle, #292524)' }}>
             <div className="flex items-start gap-3 mb-4">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
@@ -122,9 +113,9 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
                   Selecione a variavel principal que sera o foco da analise estatistica
                 </p>
               </div>
-              {onCancel && (
+              {onBack && (
                 <button
-                  onClick={onCancel}
+                  onClick={onBack}
                   className="shrink-0 mt-0.5 transition-colors"
                   style={{ color: 'var(--text-muted, #a8a29e)' }}
                 >
@@ -196,6 +187,47 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
               </motion.div>
             )}
 
+            {/* Banner de detecção de sobrevivência */}
+            {survivalDetected && onSurvivalRedirect && !survivalBanner && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="flex items-start gap-3 px-3.5 py-3 rounded-xl mb-4"
+                style={{
+                  background: 'rgba(168, 85, 247, 0.06)',
+                  border: '1px solid rgba(168, 85, 247, 0.2)',
+                }}
+              >
+                <span className="material-symbols-rounded mt-0.5" style={{ fontSize: '18px', color: '#a855f7' }}>
+                  monitoring
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-semibold leading-tight" style={{ color: '#a855f7' }}>
+                    Dados de sobrevivencia detectados
+                  </div>
+                  <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--text-muted, #a8a29e)' }}>
+                    Seus dados parecem conter colunas de tempo e evento binario. Deseja realizar uma analise de sobrevivencia (Kaplan-Meier, Log-Rank, Cox)?
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => onSurvivalRedirect()}
+                      className="text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all"
+                      style={{ background: 'rgba(168, 85, 247, 0.12)', color: '#a855f7', borderColor: 'rgba(168, 85, 247, 0.3)' }}
+                    >
+                      Ir para Sobrevivencia
+                    </button>
+                    <button
+                      onClick={() => setSurvivalBanner(true)}
+                      className="text-[10px] font-medium px-3 py-1.5 rounded-lg transition-all"
+                      style={{ color: 'var(--text-muted, #a8a29e)' }}
+                    >
+                      Continuar aqui
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Barra de busca */}
             <div className="relative">
               <span
@@ -252,7 +284,7 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
           </div>
 
           {/* ── Grid de colunas ── */}
-          <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+          <div className="flex-1 overflow-y-auto py-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent', maxHeight: '50vh' }}>
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
                 <span className="material-symbols-rounded text-4xl" style={{ color: 'rgba(255,255,255,0.1)' }}>search_off</span>
@@ -325,8 +357,8 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
 
           {/* ── Footer ── */}
           <div
-            className="flex items-center justify-between gap-3 p-4"
-            style={{ borderTop: '0.5px solid var(--border-subtle, #292524)', background: 'rgba(0,0,0,0.15)' }}
+            className="flex items-center justify-between gap-3 pt-4"
+            style={{ borderTop: '0.5px solid var(--border-subtle, #292524)' }}
           >
             <div className="text-[11px] min-w-0" style={{ color: 'var(--text-muted, #a8a29e)' }}>
               {selected
@@ -336,13 +368,14 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {onCancel && (
+              {onBack && (
                 <button
-                  onClick={onCancel}
-                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                  onClick={onBack}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                   style={{ color: 'var(--text-muted, #a8a29e)', border: '0.5px solid var(--border-subtle, #292524)' }}
                 >
-                  Cancelar
+                  <span className="material-symbols-rounded text-base">arrow_back</span>
+                  Voltar
                 </button>
               )}
               <motion.button
@@ -369,68 +402,64 @@ export default function OutcomeSelector({ columns, onConfirm, onCancel }) {
             </div>
           </div>
 
-        </motion.div>
-
-        {/* ── Overlay de sucesso (design-spell) ── */}
-        <AnimatePresence>
-          {successFlash && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-4"
-              style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-            >
-              {/* Orb de sucesso com spring */}
+          {/* ── Overlay de sucesso (design-spell) ── */}
+          <AnimatePresence>
+            {successFlash && (
               <motion.div
-                className="w-20 h-20 rounded-full flex items-center justify-center relative"
-                style={{ background: 'rgba(94,234,212,0.12)', border: '1px solid rgba(94,234,212,0.35)' }}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 450, damping: 22, delay: 0.05 }}
-              >
-                {/* Glow pulsante */}
-                <motion.div
-                  className="absolute inset-0 rounded-full"
-                  style={{ background: 'rgba(94,234,212,0.08)' }}
-                  animate={{ scale: [1, 1.7], opacity: [0.8, 0] }}
-                  transition={{ repeat: 2, duration: 0.5 }}
-                />
-                <motion.span
-                  className="material-symbols-rounded"
-                  style={{ fontSize: '34px', color: 'var(--color-primary, #5eead4)' }}
-                  initial={{ scale: 0, rotate: -30 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 20, delay: 0.15 }}
-                >
-                  check_circle
-                </motion.span>
-              </motion.div>
-              <motion.p
-                className="text-sm font-semibold"
-                style={{ color: 'var(--color-primary, #5eead4)' }}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25, duration: 0.3 }}
-              >
-                {selected}
-              </motion.p>
-              <motion.p
-                className="text-xs"
-                style={{ color: 'var(--text-muted, #a8a29e)' }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.35, duration: 0.3 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-4"
+                style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
               >
-                Desfecho confirmado — gerando protocolo...
-              </motion.p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {/* Orb de sucesso com spring */}
+                <motion.div
+                  className="w-20 h-20 rounded-full flex items-center justify-center relative"
+                  style={{ background: 'rgba(94,234,212,0.12)', border: '1px solid rgba(94,234,212,0.35)' }}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 450, damping: 22, delay: 0.05 }}
+                >
+                  {/* Glow pulsante */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full"
+                    style={{ background: 'rgba(94,234,212,0.08)' }}
+                    animate={{ scale: [1, 1.7], opacity: [0.8, 0] }}
+                    transition={{ repeat: 2, duration: 0.5 }}
+                  />
+                  <motion.span
+                    className="material-symbols-rounded"
+                    style={{ fontSize: '34px', color: 'var(--color-primary, #5eead4)' }}
+                    initial={{ scale: 0, rotate: -30 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 20, delay: 0.15 }}
+                  >
+                    check_circle
+                  </motion.span>
+                </motion.div>
+                <motion.p
+                  className="text-sm font-semibold"
+                  style={{ color: 'var(--color-primary, #5eead4)' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25, duration: 0.3 }}
+                >
+                  {selected}
+                </motion.p>
+                <motion.p
+                  className="text-xs"
+                  style={{ color: 'var(--text-muted, #a8a29e)' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.35, duration: 0.3 }}
+                >
+                  Desfecho confirmado — gerando protocolo...
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      </motion.div>
-    </AnimatePresence>,
-    document.body
+        </div>
   )
 }
 

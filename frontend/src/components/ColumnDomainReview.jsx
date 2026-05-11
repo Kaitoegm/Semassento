@@ -11,7 +11,6 @@
  */
 
 import React, { useState, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   X, ChevronRight, CheckCircle2, AlertTriangle, Info,
@@ -607,8 +606,10 @@ export default function ColumnDomainReview({
   derivedCandidates = [],
   onConfirm,
   onSkip,
+  onBack,
+  initialChoices,
 }) {
-  const [choices, setChoices] = useState({});
+  const [choices, setChoices] = useState(initialChoices || {});
   const [confirming, setConfirming] = useState(false);
 
   const handleChange = useCallback((columnName, update) => {
@@ -644,44 +645,18 @@ export default function ColumnDomainReview({
     return ch?.domainOverride || (ch?.userChoice ?? r.suggested_transformation) !== "none";
   }).length;
 
-  return createPortal(
-    <AnimatePresence>
-      <motion.div
-        key="overlay"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        style={{
-          position: "fixed", inset: 0, zIndex: 800,
-          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
-          display: "flex", alignItems: "flex-start", justifyContent: "center",
-          padding: "0 16px",
-          overflowY: "auto",
-        }}
-      >
-        <motion.div
-          key="panel"
-          initial={{ scale: 0.96, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.96, opacity: 0, y: 20 }}
-          transition={{ type: "spring", stiffness: 320, damping: 28 }}
+  return (
+        <div
           style={{
-            background: T.bg,
-            borderRadius: 16,
-            boxShadow: `0 25px 60px rgba(0,0,0,0.5), 0 0 0 0.5px ${T.border}`,
             width: "100%",
-            maxWidth: 720,
-            maxHeight: "calc(100vh - 48px)",
-            margin: "24px 0",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            flexShrink: 0,
           }}
         >
           {/* Header */}
           <div style={{
-            padding: "22px 24px 16px",
+            padding: "4px 0 16px",
             borderBottom: `0.5px solid ${T.border}`,
             flexShrink: 0,
           }}>
@@ -718,13 +693,13 @@ export default function ColumnDomainReview({
                 </div>
               </div>
               <button
-                onClick={onSkip}
-                title="Pular revisão"
+                onClick={onBack || onSkip}
+                title="Voltar"
                 style={{
                   background: "none", border: "none", color: T.dim,
                   cursor: "pointer", padding: 4, borderRadius: 6,
                 }}
-                aria-label="Fechar revisão"
+                aria-label="Voltar ao passo anterior"
               >
                 <X size={20} />
               </button>
@@ -746,7 +721,7 @@ export default function ColumnDomainReview({
           </div>
 
           {/* Corpo com scroll */}
-          <div style={{ overflowY: "auto", flex: 1, padding: "18px 24px" }}>
+          <div style={{ overflowY: "auto", flex: 1, padding: "18px 0", maxHeight: "55vh" }}>
 
             {/* Pares bilaterais */}
             {bilateralWarnings.length > 0 && (
@@ -897,9 +872,8 @@ export default function ColumnDomainReview({
           {/* Footer */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "16px 24px",
+            padding: "16px 0",
             borderTop: `0.5px solid ${T.border}`,
-            background: T.bg,
             flexShrink: 0,
           }}>
             <button
@@ -940,9 +914,6 @@ export default function ColumnDomainReview({
               </motion.button>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>,
-    document.body
+        </div>
   );
 }

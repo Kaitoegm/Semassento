@@ -366,6 +366,19 @@ class SurvivalEngine:
                 se_val = float(getattr(kmf, se_attr).iloc[0, 0]) if len(getattr(kmf, se_attr)) > 0 else 0
             except Exception:
                 se_val = 0
+
+            # Downsample curve points for large datasets (keep max ~500 points for visualization)
+            MAX_CURVE_POINTS = 500
+            if len(timeline) > MAX_CURVE_POINTS:
+                step = len(timeline) / MAX_CURVE_POINTS
+                indices = sorted(set([0, len(timeline) - 1] +
+                                     [int(i * step) for i in range(MAX_CURVE_POINTS)]))
+                timeline = [timeline[i] for i in indices]
+                survival = [survival[i] for i in indices]
+                ci_lower = [ci_lower[i] for i in indices]
+                ci_upper = [ci_upper[i] for i in indices]
+                n_at_risk = [n_at_risk[i] for i in indices] if n_at_risk else []
+
             return {
                 "group": group_name,
                 "n": int(len(time)),

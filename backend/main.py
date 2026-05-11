@@ -4993,6 +4993,15 @@ class SurvivalConfigRequest(BaseModel):
     user_id: str = ""
 
 
+def _sanitize_col_name(name: str) -> str:
+    """Remove caracteres perigosos de nomes de coluna para prevenir injeção."""
+    if not name or not isinstance(name, str):
+        return ""
+    # Permitir apenas alfanuméricos, espaços, underscore, hífen, ponto, parênteses e acentos
+    import re as _re
+    cleaned = _re.sub(r'[^\w\s\-.()\u00C0-\u024F]', '', name.strip())
+    return cleaned[:200]  # Limitar tamanho
+
 class SurvivalAnalysisRequest(BaseModel):
     file: UploadFile = File(...)
     time_col: str
@@ -5005,7 +5014,12 @@ class SurvivalAnalysisRequest(BaseModel):
 
 
 class SampleSurvivalRequest(BaseModel):
-    dataset: str = "clinical_trial"  # clinical_trial, oncology, observational
+    dataset: str = "clinical_trial"  # clinical_trial | oncology | observational
+
+    @property
+    def safe_dataset(self):
+        allowed = {"clinical_trial", "oncology", "observational"}
+        return self.dataset if self.dataset in allowed else "clinical_trial"
 
 
 @app.post("/api/data/survival-config")
@@ -5016,11 +5030,21 @@ async def survival_config_endpoint(req: SurvivalConfigRequest, user_id: str = De
     """
     try:
         contents = await req.file.read()
-        if req.file.filename.endswith('.csv'):
+        if len(contents) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Arquivo excede o limite de 50MB.")
+
+        filename = (req.file.filename or "").lower()
+        if not any(filename.endswith(ext) for ext in ('.csv', '.xlsx', '.xls')):
+            raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
+
+        if filename.endswith('.csv'):
             df = robust_read_csv(contents)
         else:
             df = robust_read_excel(contents)
         df = sanitize_df(df)
+
+        if len(df) > 500_000:
+            raise HTTPException(status_code=400, detail="Dataset excede 500.000 linhas.")
 
         # Tentar detectar colunas automaticamente
         result = detect_survival_columns(df)
@@ -5072,13 +5096,46 @@ async def survival_analysis_endpoint(req: SurvivalAnalysisRequest, user_id: str 
     Executa análise completa de sobrevivência (Kaplan-Meier + Log-Rank + Cox + PH + NNT).
     """
     try:
+        # Sanitizar nomes de coluna do request
+        req.time_col = _sanitize_col_name(req.time_col)
+        req.event_col = _sanitize_col_name(req.event_col)
+        if req.group_col:
+            req.group_col = _sanitize_col_name(req.group_col)
+        if req.covariates:
+            req.covariates = [_sanitize_col_name(c) for c in req.covariates if _sanitize_col_name(c)]
+        if req.endpoint_type:
+            req.endpoint_type = req.endpoint_type[:20]
+        if req.endpoint_label:
+            req.endpoint_label = req.endpoint_label[:100]
+
+        # Validar tamanho do arquivo (max 50MB)
         contents = await req.file.read()
-        if req.file.filename.endswith('.csv'):
+        if len(contents) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Arquivo excede o limite de 50MB.")
+
+        # Validar extensão do arquivo
+        filename = (req.file.filename or "").lower()
+        if not any(filename.endswith(ext) for ext in ('.csv', '.xlsx', '.xls')):
+            raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
+
+        if filename.endswith('.csv'):
             df = robust_read_csv(contents)
         else:
             df = robust_read_excel(contents)
         df = sanitize_df(df)
+
+        # Limitar número de linhas para segurança
+        if len(df) > 500_000:
+            raise HTTPException(status_code=400, detail="Dataset excede 500.000 linhas. Reduza o tamanho.")
+
         df, warnings = clean_dataframe(df)
+
+        # Verificar se as colunas solicitadas existem no DataFrame
+        for col_name, col_label in [(req.time_col, "tempo"), (req.event_col, "evento")]:
+            if col_name not in df.columns:
+                raise HTTPException(status_code=400, detail=f"Coluna de {col_label} '{col_name}' não encontrada nos dados.")
+        if req.group_col and req.group_col not in df.columns:
+            raise HTTPException(status_code=400, detail=f"Coluna de grupo '{req.group_col}' não encontrada nos dados.")
 
         # Validar dados de sobrevivência
         validation = validate_survival_data(df, req.time_col, req.event_col)

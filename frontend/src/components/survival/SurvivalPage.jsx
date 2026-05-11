@@ -412,7 +412,7 @@ export default function SurvivalPage() {
           {!loading && survivalResult && (
             <>
               {/* Tabs */}
-              <div className="flex gap-1 bg-surface rounded-2xl p-1.5 mb-6 w-fit">
+              <div className="flex flex-wrap gap-1 bg-surface rounded-2xl p-1.5 mb-6 w-fit">
                 {[
                   { key: 'km', label: 'Curvas KM', icon: 'insights' },
                   { key: 'results', label: 'Resultados', icon: 'format_list_bulleted' },
@@ -608,7 +608,7 @@ export default function SurvivalPage() {
               </AnimatePresence>
 
               {/* Export Button */}
-              <div className="flex gap-3 mt-6 mb-4">
+              <div className="flex flex-wrap gap-3 mt-6 mb-4">
                 <button
                   onClick={handleExportTXT}
                   className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border-subtle rounded-xl text-[11px] font-semibold text-text-muted hover:text-text-main hover:border-primary/30 transition-all"
